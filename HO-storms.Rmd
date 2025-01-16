@@ -1,0 +1,67 @@
+---
+title: "Health Outcomes & Storms"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Task: Create a model that outlines areas of hurricane threats and impacts by date. Model output will be collated with health outcome data at the individual level within the areas for those dates
+
+Get and import the IBTraCS data. Geometry type LINESTRING
+
+https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/
+https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/doc/IBTrACS_v04_Technical_Details.pdf
+
+https://www.ncei.noaa.gov/sites/default/files/2021-07/IBTrACS_v04_column_documentation.pdf
+
+Wind speed is in units of knots (nautical mile per hour)
+```{r}
+L <- "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/IBTrACS.NA.list.v04r00.lines.zip"
+  
+if(!"IBTrACS.NA.list.v04r00.lines.zip" %in% list.files(here::here("data"))) {
+download.file(url = L,
+              destfile = here::here("data",
+                                    "IBTrACS.NA.list.v04r00.lines.zip"))
+unzip(here::here("data", "IBTrACS.NA.list.v04r00.lines.zip"),
+      exdir = here::here("data"))
+}
+
+Tracks.sf <- sf::st_read(dsn = here::here("data"), 
+                         layer = "IBTrACS.NA.list.v04r00.lines") |>
+  sf::st_transform(crs = 32616)
+```
+
+Keep only tropical cyclones having USA_WIND >= 64 occurring between 1981 and 2022
+```{r}
+Tracks2.sf <- Tracks.sf |>
+  dplyr::filter(year >= 1981 & year <= 2022) |>
+  dplyr::filter(USA_WIND >= 64) |> # change to 34 for tropical storms and hurricanes
+  dplyr::select(SID, SEASON, year, month, day, hour, min,
+                NAME, SUBBASIN, ISO_TIME,
+                USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
+```
+
+Average radius to maximum wind 1981-2022. Values of USA_RMW (radius to maximum winds) and USA_EYE (eye diameter) are in nautical miles. ROCI: Radius of outer closed isobar. To convert to kilometers multiply by 1.852
+```{r}
+Tracks2.sf |>
+  sf::st_drop_geometry() |>
+#  dplyr::group_by(USA_PRES) |>
+  dplyr::summarize(avgRMW = mean(USA_RMW, na.rm = TRUE) * 1.852,
+                   avgEYE = mean(USA_EYE, na.rm = TRUE) * 1.852,
+                   avgROCI = mean(USA_ROCI, na.rm = TRUE) * 1.852)
+```
+
+Fill in missing RMW values. Start with pedigree, then use minimum pressure, and finish again with pedigree
+```{r}
+Tracks2.sf <- Tracks2.sf |>
+  dplyr::group_by(SID) |>  # pedigree
+  dplyr::mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+Tracks2.sf <- Tracks2.sf |>
+  dplyr::group_by(USA_PRES) |> # minimum pressure
+  dplyr::mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+Tracks2.sf <- Tracks2.sf |>
+  dplyr::group_by(SID) |> # pedigree
+  dplyr::mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+```
