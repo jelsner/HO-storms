@@ -7,14 +7,12 @@ editor_options:
 
 Task: Create a model that outlines areas of hurricane threats and impacts by date. Model output will be collated with health outcome data at the individual level within the areas for those dates
 
-Get and import the IBTraCS data. Geometry type LINESTRING
+Get and import the IBTraCS storm data
 
 https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/
 https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/doc/IBTrACS_v04_Technical_Details.pdf
-
 https://www.ncei.noaa.gov/sites/default/files/2021-07/IBTrACS_v04_column_documentation.pdf
 
-Wind speed is in units of knots (nautical mile per hour)
 ```{r}
 L <- "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/IBTrACS.NA.list.v04r00.lines.zip"
   
@@ -31,7 +29,9 @@ Tracks.sf <- sf::st_read(dsn = here::here("data"),
   sf::st_transform(crs = 32616)
 ```
 
-Keep only tropical cyclones having USA_WIND >= 64 occurring between 1981 and 2022
+Geometry type LINESTRING. Wind speed is in units of knots (nautical mile per hour)
+
+Keep only storms having USA_WIND >= 64 occurring between 1981 and 2022
 ```{r}
 Tracks2.sf <- Tracks.sf |>
   dplyr::filter(year >= 1981 & year <= 2022) |>
