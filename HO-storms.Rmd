@@ -5,7 +5,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-Task: Create a model that outlines areas of hurricane threats and impacts by date. Model output will be collated with health outcome data at the individual level within the areas for those dates
+## Storm threat and impact model
 
 Get and import the IBTraCS storm data
 
@@ -64,4 +64,138 @@ Tracks2.sf <- Tracks2.sf |>
 Tracks2.sf <- Tracks2.sf |>
   dplyr::group_by(SID) |> # pedigree
   dplyr::mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+```
+
+Add a buffer to the tracks to make segmented wind swaths
+```{r}
+Swaths.sf <- Tracks2.sf |>
+  sf::st_buffer(dist = Tracks2.sf$USA_RMW * 1852) # 1852 converts to meters
+
+tmap::tmap_mode("view")
+tmap::tm_shape(Swaths.sf) +
+  tmap::tm_borders()
+```
+
+Wind swaths that cross Florida. `USAboundaries` package no longer maintained on CRAN
+```{r}
+devtools::install_github("ropensci/USAboundariesData")
+devtools::install_github("ropensci/USAboundaries")
+
+Boundaries.sf <- USAboundaries::us_states(resolution = "low", states = "FL") |> 
+  sf::st_transform(crs = 32616)
+
+X <- Swaths.sf |>
+  sf::st_intersects(Boundaries.sf, sparse = FALSE)
+Swaths.sf <- Swaths.sf[X, ]
+Swaths.sf <- Swaths.sf |>
+  dplyr::mutate(Date = lubridate::as_date(ISO_TIME)) # add a m-y-d column
+
+tmap::tm_shape(Swaths.sf) +
+  tmap::tm_borders()
+```
+
+Extract the boundaries of storm impacts by storm ID
+```{r}
+Swaths2.sf <- Swaths.sf |>
+  dplyr::group_by(SID) |>
+  dplyr::summarize(Date0 = dplyr::first(Date),
+                   NAME = dplyr::first(NAME),
+                   geometry = sf::st_union(geometry))
+
+tmap::tm_shape(Swaths2.sf) +
+  tmap::tm_borders()
+```
+
+Each storm has a unique polygon (or multipolygon) and an impact date
+
+## Merge with health outcome data (births)
+
+Email from Jihoon on December 11, 2024
+1. ID 2. DATE_OF_BIRTH 3. final_lat  4. final_lon 5. trimester1_s_date: The first Trimester start date
+6. trimester1_e_date : The first Trimester end date 7. trimester2_s_date : The second Trimester start date
+8. trimester2_e_date : The second Trimester end date 9. trimester3_s_date: The third Trimester start date
+The first Trimester: the weeks 1-13, The second Trimester: the weeks 14-28, The third Trimester: the weeks 29 ~
+```{r}
+Births.df <- read.csv(file = "data/all_births_hurricane.csv")
+```
+
+7.2 million births. Time period is 1981-1-1 until 2022-12-31. Only dates are given not times. Lat/lon ranges appear to include Texas through Florida 
+
+Make the data frame a simple feature data frame with POINT geometry
+```{r}
+Births.sf <- Births.df |>
+  dplyr::mutate(Date = lubridate::as_date(DATE_OF_BIRTH),
+                DateT1s = lubridate::as_date(trimester1_s_date),
+                DateT1e = lubridate::as_date(trimester1_e_date),
+                DateT2s = lubridate::as_date(trimester2_s_date),
+                DateT2e = lubridate::as_date(trimester2_e_date),
+                DateT3s = lubridate::as_date(trimester3_s_date)
+                ) |>
+  sf::st_as_sf(coords = c("final_lon", "final_lat"),
+               crs = 4326) |>
+  dplyr::select(Birth_ID = ID, Birth_Date = Date, DateT1s, DateT1e, DateT2s, DateT2e, DateT3s)
+```
+
+Keep only births occurring inside the TIC polygons
+```{r}
+Swaths2.sf <- Swaths2.sf |>
+    sf::st_transform(crs = 4326)
+union_Swaths.sfg <- Swaths2.sf |>
+  sf::st_union()
+withIn <- Births.sf |>
+  sf::st_within(union_Swaths.sfg, sparse = FALSE)
+BirthsWithin.sf <- Births.sf[withIn,]
+```
+
+```{r}
+tmap::tm_shape(Swaths2.sf$geometry) +
+  tmap::tm_borders() +
+tmap::tm_shape(BirthsWithin.sf$geometry[1:10000]) +
+  tmap::tm_dots()
+```
+
+Expand `Swaths2.sf`  by adding features based on the increment value of the attribute `Date0`
+```{r}
+deltaT <- 1   # One day increment
+n_new <- 1    # Number of new rows to create for each feature (row) times 2
+
+TIC.sf <- Swaths2.sf |>
+    dplyr::rowwise() |>
+    dplyr::mutate(new_features = list(tibble(
+                  Date = Date0 + (-n_new:n_new) * deltaT))) |>
+    tidyr::unnest(new_features) |>
+    dplyr::ungroup() |>
+    dplyr::select(Date, NAME)
+
+TIC <- rep(rep(c("Threat", "Impact", "Cleanup"), times = c(1, 1, 1)), 
+           times = nrow(Swaths2.sf))
+TIC.sf$TIC <- TIC
+```
+
+Filter births to include only those occurring in years with storms
+```{r}
+years_hur <- unique(lubridate::year(TIC.sf$Date))
+X <- lubridate::year(BirthsWithin.sf$Birth_Date) %in% years_hur
+BirthsWithin.sf <- BirthsWithin.sf[X, ]
+```
+
+Filter storms by third trimester date range
+```{r}
+storms_filtered <- Test.sf |>
+  dplyr::rowwise() |>
+  dplyr::mutate(
+    matches = list(
+      TIC.sf |>
+        dplyr::filter(Date >= DateT3s & Date <= Birth_Date)))
+```
+
+Spatial join: Check if birth point is within the TIC polygon
+```{r}
+births_with_impacts <- storms_filtered |>
+  sf::st_join(TIC.sf, join = st_within) |>
+  dplyr::filter(!is.na(NAME)) |>
+  dplyr::select(Birth_ID, Birth_Date, DateT3s, NAME, TIC, geometry)
+
+# Final result: Births impacted by storms during the third trimester
+print(births_with_impacts)
 ```
