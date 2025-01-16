@@ -136,21 +136,26 @@ Births.sf <- Births.df |>
   dplyr::select(Birth_ID = ID, Birth_Date = Date, DateT1s, DateT1e, DateT2s, DateT2e, DateT3s)
 ```
 
-Keep only births occurring inside the TIC polygons
+Keep only births occurring inside the union of all threat/impact/cleanup polygons
 ```{r}
 Swaths2.sf <- Swaths2.sf |>
     sf::st_transform(crs = 4326)
-union_Swaths.sfg <- Swaths2.sf |>
+union_Swaths2.sfg <- Swaths2.sf |>
   sf::st_union()
+
 withIn <- Births.sf |>
-  sf::st_within(union_Swaths.sfg, sparse = FALSE)
-BirthsWithin.sf <- Births.sf[withIn,]
+  sf::st_within(union_Swaths2.sfg, sparse = FALSE)
+BirthsWithin.sf <- Births.sf[withIn, ]
 ```
 
+Check with a map. Sample 10,000 birth records
 ```{r}
-tmap::tm_shape(Swaths2.sf$geometry) +
+x <- nrow(BirthsWithin.sf)
+keep_rows <- sample.int(x, size = 10000)
+
+tmap::tm_shape(Swaths2.sf) +
   tmap::tm_borders() +
-tmap::tm_shape(BirthsWithin.sf$geometry[1:10000]) +
+tmap::tm_shape(BirthsWithin.sf$geometry[rows]) +
   tmap::tm_dots()
 ```
 
@@ -161,7 +166,7 @@ n_new <- 1    # Number of new rows to create for each feature (row) times 2
 
 TIC.sf <- Swaths2.sf |>
     dplyr::rowwise() |>
-    dplyr::mutate(new_features = list(tibble(
+    dplyr::mutate(new_features = list(tidyr::tibble(
                   Date = Date0 + (-n_new:n_new) * deltaT))) |>
     tidyr::unnest(new_features) |>
     dplyr::ungroup() |>
@@ -172,30 +177,92 @@ TIC <- rep(rep(c("Threat", "Impact", "Cleanup"), times = c(1, 1, 1)),
 TIC.sf$TIC <- TIC
 ```
 
-Filter births to include only those occurring in years with storms
+Example
 ```{r}
-years_hur <- unique(lubridate::year(TIC.sf$Date))
-X <- lubridate::year(BirthsWithin.sf$Birth_Date) %in% years_hur
-BirthsWithin.sf <- BirthsWithin.sf[X, ]
-```
+library(sf)
+library(dplyr)
 
-Filter storms by third trimester date range
-```{r}
-storms_filtered <- Test.sf |>
-  dplyr::rowwise() |>
+# Example: Storm data (impact polygons and attributes)
+storms <- st_sf(
+  storm_name = c("Storm A", "Storm B", "Storm C"),
+  impact_level = c(1, 2, 3),
+  storm_date = as.Date(c("2023-01-15", "2023-02-20", "2023-03-10")),
+  geometry = st_sfc(
+    st_polygon(list(rbind(c(0, 0), c(0, 5), c(5, 5), c(5, 0), c(0, 0)))),
+    st_polygon(list(rbind(c(3, 3), c(3, 8), c(8, 8), c(8, 3), c(3, 3)))),
+    st_polygon(list(rbind(c(6, 6), c(6, 9), c(9, 9), c(9, 6), c(6, 6))))
+  ),
+  crs = 4326
+)
+
+# Example: Birth records (point locations and third trimester dates)
+births <- st_sf(
+  birth_date = as.Date(c("2023-05-01", "2023-03-01", "2023-01-20", "2023-09-01")),
+  trimester_start = as.Date(c("2023-02-01", "2022-12-01", "2022-10-01", "2022-12-01")),
+  trimester_end = as.Date(c("2023-04-30", "2023-02-28", "2023-01-19", "2023-08-30")),
+  geometry = st_sfc(
+    st_point(c(2, 2)),
+    st_point(c(4, 4)),
+    st_point(c(7, 7)),
+    st_point(c(1, 7))
+  ),
+  crs = 4326
+)
+
+st_geometry(storms) <- "geom"
+
+# 1. Filter storms by third trimester date range
+births_storms_filtered <- births %>%
+  dplyr::rowwise() %>%
   dplyr::mutate(
-    matches = list(
-      TIC.sf |>
-        dplyr::filter(Date >= DateT3s & Date <= Birth_Date)))
-```
+    matched_storms = list(
+      storms %>%
+        dplyr::filter(storm_date >= trimester_start & storm_date <= trimester_end)
+    )
+  ) %>%
+  tidyr::unnest(matched_storms, keep_empty = TRUE)
 
-Spatial join: Check if birth point is within the TIC polygon
-```{r}
-births_with_impacts <- storms_filtered |>
-  sf::st_join(TIC.sf, join = st_within) |>
-  dplyr::filter(!is.na(NAME)) |>
-  dplyr::select(Birth_ID, Birth_Date, DateT3s, NAME, TIC, geometry)
+# 2. Perform spatial join to check if birth locations fall within the storm polygons
+births_with_impacts <- sf::st_join(births_storms_filtered, storms, join = st_within)
 
-# Final result: Births impacted by storms during the third trimester
+# 3. Keep only records where a birth was inside a storm impact area
+births_with_impacts <- births_with_impacts %>%
+  dplyr::filter(!is.na(storm_name.y)) %>%
+  dplyr::select(birth_date, trimester_start, trimester_end, 
+                storm_name = storm_name.y, impact_level = impact_level.y, geometry) |>
+  dplyr::distinct()
+
+# Display the final dataset
 print(births_with_impacts)
 ```
+
+Filter storms by third trimester date range. Test on a sample of 500 births
+```{r}
+keep_rows <- sample.int(nrow(BirthsWithin.sf), size = 500)
+merge_Test.sf <- BirthsWithin.sf[keep_rows, ]
+
+sf::st_geometry(TIC.sf) <- "geom" # can't have matching column names
+
+# 1. Filter storms by trimester date range
+births_storm_filtered <- merge_Test.sf |>
+  dplyr::rowwise() |>
+  dplyr::mutate(
+    matched_storms = list(
+      TIC.sf |>
+        dplyr::filter(Date >= DateT3s & Date <= Birth_Date))) |>
+  tidyr::unnest(matched_storms, keep_empty = TRUE)
+
+# 2. Perform spatial join to check if birth locations fall within the storm polygons
+births_with_impacts <- sf::st_join(births_storm_filtered, TIC.sf, join = st_within)
+
+# 3. Keep only records where a birth was inside a storm impact area
+X <- births_with_impacts |>
+  dplyr::filter(!is.na(NAME.x)) |>
+  dplyr::select(Birth_ID, Birth_Date, DateT3s,
+                NAME = NAME.x, TIC = TIC.x, geometry) |>
+  dplyr::distinct()
+
+
+```
+
+
