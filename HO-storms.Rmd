@@ -29,7 +29,7 @@ Tracks.sf <- sf::st_read(dsn = here::here("data"),
   sf::st_transform(crs = 32616)
 ```
 
-Geometry type LINESTRING. Wind speed is in units of knots (nautical mile per hour)
+Geometry type is LINESTRING. Wind speed is in units of knots (nautical mile per hour)
 
 Keep only storms having USA_WIND >= 64 occurring between 1981 and 2022
 ```{r}
@@ -94,7 +94,7 @@ tmap::tm_shape(Swaths.sf) +
   tmap::tm_borders()
 ```
 
-Extract the boundaries of storm impacts by storm ID
+Extract the boundaries of storm impacts by storm ID. Unionize the individual swaths for each storm to create a single storm swath
 ```{r}
 Swaths2.sf <- Swaths.sf |>
   dplyr::group_by(SID) |>
@@ -106,9 +106,9 @@ tmap::tm_shape(Swaths2.sf) +
   tmap::tm_borders()
 ```
 
-Each storm has a unique polygon (or multipolygon) and an impact date
+Each storm is represented by a unique polygon (or multipolygon) with an impact date
 
-Make the geometry have a geographic CRS 4326 and unionize the swaths
+Transform the geometry to a geographic CRS (4326) and unionize the swaths
 ```{r}
 Swaths2.sf <- Swaths2.sf |>
     sf::st_transform(crs = 4326)
@@ -116,7 +116,7 @@ union_Swaths2.sfg <- Swaths2.sf |>
   sf::st_union()
 ```
 
-Expand `Swaths2.sf` by adding rows based on the increment value of the attribute `Date0`
+Expand `Swaths2.sf` by adding rows based on the increment value of the attribute `Date0`. Dates prior to the impact date are threat dates and those after the impact date are cleanup dates. Here we used one day prior and one day after impact
 ```{r}
 deltaT <- 1   # One day increment
 n_new <- 1    # Number of new rows to create for each feature (row) times 2
