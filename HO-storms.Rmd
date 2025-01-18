@@ -94,7 +94,7 @@ tmap::tm_shape(Swaths.sf) +
   tmap::tm_borders()
 ```
 
-Extract the boundaries of storm impacts by storm ID. Unionize the individual swaths for each storm to create a single storm swath
+Extract the boundaries of storm impacts by storm ID. Dissolve the overlap borders of the individual swaths for each storm to create a single storm swath
 ```{r}
 Swaths2.sf <- Swaths.sf |>
   dplyr::group_by(SID) |>
@@ -227,6 +227,8 @@ Deaths.df <- read.csv(file = "data/all_deaths_hurricane.csv")
 ```
 
 6.2 million deaths. Time period is 1981-1-1 until 2022-12-31. Only dates are given not times. Note: Watch/warning data are only available starting in 2008. lat/lon ranges appear to include Texas through Florida
+
+Create a simple feature data frame with point geometry from the original data frame
 ```{r}
 Deaths.sf <- Deaths.df |>
   dplyr::mutate(Date = lubridate::as_date(DATE_OF_DEATH)) |>
@@ -242,7 +244,7 @@ withIn <- Deaths.sf |>
 DeathsWithin.sf <- Deaths.sf[withIn, ]
 ```
 
-Check with a map. Sample 10,000 death records
+Check with a map by plotting locations from a sample of 10,000 death records
 ```{r}
 nrows <- nrow(DeathsWithin.sf)
 keep_rows <- sample.int(nrows, size = 10000)
@@ -253,14 +255,15 @@ tmap::tm_shape(DeathsWithin.sf$geometry[keep_rows]) +
   tmap::tm_dots()
 ```
 
-Filter storms by death date. Test on a sample of 10000 deaths
+Filter storms by death date. Test on a sample of death records
 ```{r}
-keep_rows <- sample.int(nrow(DeathsWithin.sf), size = 10000)
+keep_rows <- sample.int(nrow(DeathsWithin.sf), size = 100000)
 merge_Test.sf <- DeathsWithin.sf[keep_rows, ]
 
-sf::st_geometry(TIC.sf) <- "geom" # can't have matching column names
+sf::st_geometry(TIC.sf) <- "geom" # rename geometry column. Column names from the two sf data frames must differ
 
 # 1. Filter storms by death date
+start_time <- Sys.time()
 deaths_storm_filtered <- merge_Test.sf |>
   dplyr::rowwise() |>
   dplyr::mutate(
@@ -268,16 +271,23 @@ deaths_storm_filtered <- merge_Test.sf |>
       TIC.sf |>
         dplyr::filter(Date == Death_Date))) |>
   tidyr::unnest(matched_storms, keep_empty = TRUE)
+Sys.time() - start_time
+# ~ 2.07 minutes for processing 100,000 death records on M1 Pro 32 GB laptop
 
-# 2. Perform spatial join to check if birth locations fall within the storm polygons
-deaths_with_impacts <- sf::st_join(deaths_storm_filtered, TIC.sf, join = st_within)
+# 2. Perform spatial join to check if birth locations fall inside the storm polygons
+deaths_with_impacts <- sf::st_join(deaths_storm_filtered, TIC.sf, join = sf::st_within)
 
-# 3. Keep only records where a death was inside a storm impact area
+# 3. Keep only records where a death was inside the correct storm impact area
 deaths_with_impacts <- deaths_with_impacts |>
   dplyr::filter(!is.na(NAME.x)) |>
   dplyr::select(Death_ID, Death_Date,
                 NAME = NAME.x, TIC = TIC.x, geometry) |>
   dplyr::distinct()
+
+# 4. Deaths outside correct impact zones but within the union of all impact zones
+
+X <- !merge_Test.sf$Death_ID %in% deaths_with_impacts$Death_ID
+deaths_without_impacts <- merge_Test.sf[X, ]
 ```
 
 Check on a map
@@ -286,6 +296,12 @@ tmap::tm_shape(Swaths2.sf) +
   tmap::tm_borders() +
 tmap::tm_shape(deaths_with_impacts$geometry) +
   tmap::tm_dots()
+```
+
+Death rate per day with and without impacts
+```{r}
+length(unique(deaths_with_impacts$Death_ID)) / length(unique(deaths_with_impacts$Death_Date))
+length(unique(deaths_without_impacts$Death_ID)) / length(unique(deaths_without_impacts$Death_Date))
 ```
 
 Convert to regular data frame with X (Longitude) and Y (Latitude)
