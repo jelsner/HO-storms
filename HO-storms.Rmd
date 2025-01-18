@@ -302,6 +302,10 @@ Death rate per day with and without impacts
 ```{r}
 length(unique(deaths_with_impacts$Death_ID)) / length(unique(deaths_with_impacts$Death_Date))
 length(unique(deaths_without_impacts$Death_ID)) / length(unique(deaths_without_impacts$Death_Date))
+
+deaths_with_impacts |>
+  dplyr::group_by(TIC) |>
+  dplyr::summarise(length(unique(Death_ID)) / length(unique(Death_Date)))
 ```
 
 Convert to regular data frame with X (Longitude) and Y (Latitude)
