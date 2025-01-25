@@ -35,7 +35,7 @@ Keep only storms having USA_WIND >= 64 occurring between 1981 and 2022
 ```{r}
 Tracks2.sf <- Tracks.sf |>
   dplyr::filter(year >= 1981 & year <= 2022) |>
-  dplyr::filter(USA_WIND >= 64) |> # change to 34 for tropical storms and hurricanes
+  dplyr::filter(USA_WIND >= 34) |> # change to 34 for tropical storms and hurricanes
   dplyr::select(SID, SEASON, year, month, day, hour, min,
                 NAME, SUBBASIN, ISO_TIME,
                 USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
@@ -94,7 +94,7 @@ tmap::tm_shape(Swaths.sf) +
   tmap::tm_borders()
 ```
 
-Extract the boundaries of storm impacts by storm ID. Dissolve the overlap borders of the individual swaths for each storm to create a single storm swath
+Extract the boundaries of storm impacts by storm ID. Dissolve the overlap borders of the individual swaths by storm to create a single storm swath
 ```{r}
 Swaths2.sf <- Swaths.sf |>
   dplyr::group_by(SID) |>
@@ -106,7 +106,20 @@ tmap::tm_shape(Swaths2.sf) +
   tmap::tm_borders()
 ```
 
-Each storm is represented by a unique polygon (or multipolygon) with an impact date
+Each storm in `Swaths2.sf` is represented by a unique polygon (or multipolygon) with an impact date
+
+What to do with storms having multiple landfalls (e.g., Peninsula then Panhandle like Hurricane Erin in 1995)? In those cases the geometry will be MULTIPOLYGON.
+
+Check to see which storms these are
+```{r}
+x <- sf::st_geometry_type(Swaths2.sf$geometry) == "MULTIPOLYGON"
+Swaths2.sf$NAME[x]
+```
+
+The situations are different for Erin, Irma, and Ian so it is not clear what to do. The first way is simple to remove these storms from further consideration
+```{r}
+Swaths2.sf <- Swaths2.sf[!x,]
+```
 
 Transform the geometry to a geographic CRS (4326) and unionize the swaths
 ```{r}
@@ -119,7 +132,7 @@ union_Swaths2.sfg <- Swaths2.sf |>
 Expand `Swaths2.sf` by adding rows based on the increment value of the attribute `Date0`. Dates prior to the impact date are threat dates and those after the impact date are cleanup dates. Here we used one day prior and one day after impact
 ```{r}
 deltaT <- 1   # One day increment
-n_new <- 1    # Number of new rows to create for each feature (row) times 2
+n_new <- 3    # Number of new rows to create for each feature (row) times 2
 
 TIC.sf <- Swaths2.sf |>
     dplyr::rowwise() |>
@@ -129,7 +142,7 @@ TIC.sf <- Swaths2.sf |>
     dplyr::ungroup() |>
     dplyr::select(Date, NAME)
 
-TIC <- rep(rep(c("Threat", "Impact", "Cleanup"), times = c(1, 1, 1)), 
+TIC <- rep(rep(c("Threat", "Impact", "Cleanup"), times = c(n_new, 1, n_new)), 
            times = nrow(Swaths2.sf))
 TIC.sf$TIC <- TIC
 ```
@@ -237,14 +250,14 @@ Deaths.sf <- Deaths.df |>
   dplyr::select(Death_ID = ID, Death_Date = Date)
 ```
 
-Keep only deaths occurring inside the union of all threat/impact/cleanup polygons
+Keep only deaths occurring inside the union of all threat/impact/cleanup polygons. Note: when using tropical cyclones and Florida this will be almost all deaths
 ```{r}
 withIn <- Deaths.sf |>
   sf::st_within(union_Swaths2.sfg, sparse = FALSE)
 DeathsWithin.sf <- Deaths.sf[withIn, ]
 ```
 
-Check with a map by plotting locations from a sample of 10,000 death records
+Check with a map by plotting locations from a sample of 10,000 death records. Note: this is only useful for hurricanes
 ```{r}
 nrows <- nrow(DeathsWithin.sf)
 keep_rows <- sample.int(nrows, size = 10000)
@@ -257,8 +270,9 @@ tmap::tm_shape(DeathsWithin.sf$geometry[keep_rows]) +
 
 Filter storms by death date. Test on a sample of death records
 ```{r}
-keep_rows <- sample.int(nrow(DeathsWithin.sf), size = 100000)
-merge_Test.sf <- DeathsWithin.sf[keep_rows, ]
+#keep_rows <- sample.int(nrow(DeathsWithin.sf), size = 100000)
+#merge_Test.sf <- DeathsWithin.sf[keep_rows, ]
+merge_Test.sf <- DeathsWithin.sf
 
 sf::st_geometry(TIC.sf) <- "geom" # rename geometry column. Column names from the two sf data frames must differ
 
@@ -272,10 +286,12 @@ deaths_storm_filtered <- merge_Test.sf |>
         dplyr::filter(Date == Death_Date))) |>
   tidyr::unnest(matched_storms, keep_empty = TRUE)
 Sys.time() - start_time
-# ~ 2.07 minutes for processing 100,000 death records on M1 Pro 32 GB laptop
+# ~ 2.07 minutes for processing 100,000 death records under HURRICANE swaths using a M1 Pro 32 GB laptop
+# ~ 5.25 hours for processing all death records under TC swaths
 
 # 2. Perform spatial join to check if birth locations fall inside the storm polygons
 deaths_with_impacts <- sf::st_join(deaths_storm_filtered, TIC.sf, join = sf::st_within)
+# Error: vector memory limit of 32.0 Gb reached, see mem.maxVSize()
 
 # 3. Keep only records where a death was inside the correct storm impact area
 deaths_with_impacts <- deaths_with_impacts |>
@@ -309,13 +325,14 @@ deaths_with_impacts |>
 ```
 
 Convert to regular data frame with X (Longitude) and Y (Latitude)
-df <- sf_data %>%
-  mutate(
-    X = st_coordinates(.)[,1],  # Extract longitude
-    Y = st_coordinates(.)[,2]   # Extract latitude
-  ) %>%
-  st_drop_geometry() 
-
+```{r}
+deaths_with_impacts.df <- deaths_with_impacts |>
+  dplyr::mutate(
+    final_lat = sf::st_coordinates(deaths_with_impacts)[,2],  # Extract latitude
+    final_lon = sf::st_coordinates(deaths_with_impacts)[,1]  # Extract longitude
+  ) |>
+  sf::st_drop_geometry() 
+```
 
 ## Toy example of a space-time merge using simple feature data frames
 
