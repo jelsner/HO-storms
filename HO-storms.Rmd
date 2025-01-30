@@ -116,7 +116,7 @@ x <- sf::st_geometry_type(Swaths2.sf$geometry) == "MULTIPOLYGON"
 Swaths2.sf$NAME[x]
 ```
 
-The situations are different for Erin, Irma, and Ian so it is not clear what to do. The first way is simple to remove these storms from further consideration
+The situations are different for Erin, Irma, and Ian so it is not clear what to do. One way is simple to remove these storms from further consideration
 ```{r}
 Swaths2.sf <- Swaths2.sf[!x,]
 ```
