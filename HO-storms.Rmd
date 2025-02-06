@@ -394,4 +394,75 @@ births_with_impacts <- births_with_impacts %>%
 print(births_with_impacts)
 ```
 
+# Watch-warning data from IA State
+
+Initial code from David Hsu
+
+Here we read in the csv file containing hurricane watch and advisories for Florida from Iowa state University database
+```{r}
+warning_advisories <- readr::read_csv(here::here("data", "wwa_198601010000_202501010000.csv"))
+```
+
+How many unique names in the column labeled "phenomena"
+```{r}
+unique(warning_advisories$phenomena)
+```
+
+Filter the data to only include hurricanes
+```{r}
+hurricanes <- warning_advisories |>
+  dplyr::filter(phenomena == "HU") 
+```
+
+Florida countiues and zone shapefiles
+from: https://www.weather.gov/gis/Counties
+from: https://www.weather.gov/gis/publiczones
+```{r}
+counties.sf <- sf::st_read(dsn = here::here("data", "c_18mr25"), 
+                           layer = "c_18mr25") |>
+  dplyr::filter(STATE == "FL")
+
+zones.sf <- sf::st_read(dsn = here::here("data", "z_18mr25"),
+                        layer = "z_18mr25") |>
+  dplyr::filter(STATE == "FL")  
+```
+
+Note that the `hurricanes` dataset and the `zones.sf` dataset have different nomenclature for the zone names, where the `hurricanes` dataset uses the "ugc" column and the `zones.sf` dataset uses the "STATE_ZONE" column. Also, the zone names in the `hurricane` dataset includes the letter "z" in the designation so we need to create a new column in the hurricanes dataset that removes the "z" from the ugc column.
+```{r}
+hurricanes <- hurricanes |>
+  dplyr::mutate(ugc = stringr::str_replace(ugc, "FLZ", "FL"))
+```
+
+Make sure the datasets match
+```{r}
+unique(hurricanes$ugc)
+
+unique(zones.sf$STATE_ZONE)
+```
+
+Join `hurricanes` data with `zones.sf` shapefile
+```{r}
+hurricanes_zones <- zones.sf |>
+  dplyr::left_join(hurricanes, by = c("STATE_ZONE" = "ugc"))
+
+head(hurricanes_zones)
+```
+
+Create dates from character strings
+```{r}
+hurricanes_zones$utc_issue <- as.Date(hurricanes_zones$utc_issue)  
+hurricanes_zones$utc_expire <- as.Date(hurricanes_zones$utc_expire)  
+hurricanes_zones <- hurricanes_zones |>
+  dplyr::arrange(desc(utc_issue))
+```
+
+```{r}
+hurricanes_zones2 <- hurricanes_zones[, !(names(hurricanes_zones) %in% c("utc_polygon_begin", "utc_polygon_end", "utc_prodissue", "utc_init_expire", "utc_updated"))]
+```
+
+
+
+
+
+
 
