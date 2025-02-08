@@ -396,7 +396,61 @@ print(births_with_impacts)
 
 # Watch-warning data from IA State
 
-Initial code from David Hsu
+Data source: https://mesonet.agron.iastate.edu/request/gis/watchwarn.phtml
+
+```{r}
+storms.sf <- sf::st_read(dsn = here::here("data", "wwa_198601010000_202502080000"), 
+                         layer = "wwa_198601010000_202502080000")
+
+phenom <- c("HU", "HI", "SS", "TI", "TR")
+storms.sf <- storms.sf |>
+  dplyr::filter(PHENOM %in% phenom) 
+```
+
+SIGNIFICANCE = 
+    "W": "Warning",
+    "A": "Watch",
+    "S": "Statement"
+    
+PHENOMENA = 
+    "HI": "Inland Hurricane",
+    "HU": "Hurricane",
+    "SS": "Storm Surge",
+    "TI": "Inland Tropical Storm",
+    "TR": "Tropical Storm"
+
+Parse the character strings to date/time objects
+```{r}
+storms2.sf <- storms.sf |>
+  dplyr::mutate(ISSUED = lubridate::ymd_hm(ISSUED),
+                EXPIRED = lubridate::ymd_hm(EXPIRED),
+                INIT_ISS = lubridate::ymd_hm(INIT_ISS),
+                INIT_EXP = lubridate::ymd_hm(INIT_EXP),
+                Duration = EXPIRED - INIT_ISS, 
+                Year = lubridate::year(ISSUED),
+                DateStart = as.Date(INIT_ISS),
+                DateEnd = as.Date(EXPIRED)
+                ) |>
+  dplyr::select(Year, DateStart, DateEnd, Duration, WFO, PHENOM, SIG, STATUS, NWS_UGC, AREA_KM2, geometry)
+units(storms2.sf$Duration) <- "hours"
+
+X.sf <- storms2.sf |>
+  dplyr::filter(PHENOM == "HU" & SIG == "W")
+```
+
+Statistics
+```{r}
+storms2.sf |>
+  sf::st_drop_geometry() |>
+  dplyr::filter(PHENOM == "HU" & SIG == "A") |>
+  dplyr::group_by(Year) |>
+  dplyr::summarise(Number = dplyr::n(),
+                   AvgDuration = mean(Duration),
+                   AvgArea = mean(AREA_KM2))
+```
+
+
+Code below is adapted from David Hsu
 
 Here we read in the csv file containing hurricane watch and advisories for Florida from Iowa State University database
 ```{r}
@@ -470,26 +524,6 @@ storm_zones |>
 ```
 
 
-```{r}
-storms.sf <- sf::st_read(dsn = here::here("data", "wwa_200801010000_202212060000"), 
-                         layer = "wwa_200801010000_202212060000")
-
-phenom <- c("HU", "HI", "SS", "TI", "TR")
-storms.sf <- storms.sf |>
-  dplyr::filter(PHENOM %in% phenom) 
-```
-
-SIGNIFICANCE = 
-    "W": "Warning",
-    "A": "Watch",
-    "S": "Statement"
-    
-PHENOMENA = 
-    "HI": "Inland Hurricane",
-    "HU": "Hurricane",
-    "SS": "Storm Surge",
-    "TI": "Inland Tropical Storm",
-    "TR": "Tropical Storm"
 
 
 
