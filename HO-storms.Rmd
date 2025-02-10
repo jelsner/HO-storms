@@ -35,7 +35,7 @@ Keep only storms having USA_WIND >= 64 occurring between 1981 and 2022
 ```{r}
 Tracks2.sf <- Tracks.sf |>
   dplyr::filter(year >= 1981 & year <= 2022) |>
-  dplyr::filter(USA_WIND >= 34) |> # change to 34 for tropical storms and hurricanes
+  dplyr::filter(USA_WIND >= 55) |> # change to 34 for tropical storms and hurricanes
   dplyr::select(SID, SEASON, year, month, day, hour, min,
                 NAME, SUBBASIN, ISO_TIME,
                 USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
@@ -132,7 +132,7 @@ union_Swaths2.sfg <- Swaths2.sf |>
 Expand `Swaths2.sf` by adding rows based on the increment value of the attribute `Date0`. Dates prior to the impact date are threat dates and those after the impact date are cleanup dates. Here we used one day prior and one day after impact
 ```{r}
 deltaT <- 1   # One day increment
-n_new <- 3    # Number of new rows to create for each feature (row) times 2
+n_new <- 1    # Number of new rows to create for each feature (row) times 2
 
 TIC.sf <- Swaths2.sf |>
     dplyr::rowwise() |>
@@ -193,9 +193,9 @@ tmap::tm_shape(BirthsWithin.sf$geometry[keep_rows]) +
   tmap::tm_dots()
 ```
 
-Filter storms by third trimester date range. Test on a sample of 500 births
+Filter storms by third trimester date range. Test on a sample of 5000 births
 ```{r}
-keep_rows <- sample.int(nrow(BirthsWithin.sf), size = 500)
+keep_rows <- sample.int(nrow(BirthsWithin.sf), size = 5000)
 merge_Test.sf <- BirthsWithin.sf[keep_rows, ]
 
 sf::st_geometry(TIC.sf) <- "geom" # can't have matching column names
@@ -210,15 +210,28 @@ births_storm_filtered <- merge_Test.sf |>
   tidyr::unnest(matched_storms, keep_empty = TRUE)
 
 # 2. Perform spatial join to check if birth locations fall within the storm polygons
-births_with_impacts <- sf::st_join(births_storm_filtered, TIC.sf, join = st_within)
+births_with_impacts <- sf::st_join(births_storm_filtered, TIC.sf, join = sf::st_within)
 
 # 3. Keep only records where a birth was inside a storm impact area
-X <- births_with_impacts |>
+births_with_impacts <- births_with_impacts |>
   dplyr::filter(!is.na(NAME.x)) |>
   dplyr::select(Birth_ID, Birth_Date, DateT3s,
                 NAME = NAME.x, TIC = TIC.x, geometry) |>
   dplyr::distinct()
 ```
+
+Pivot to wider format
+```{r}
+X <- births_with_impacts |> 
+  dplyr::summarise(n = dplyr::n(),
+                   .by = c(Birth_ID, Birth_Date, DateT3s, geometry, NAME)) |>
+  dplyr::filter(n >= 1)
+
+X <- births_with_impacts |>
+  tidyr::pivot_wider(names_from = NAME, values_from = TIC)
+                     
+```
+
 
 Check on a map
 ```{r}
@@ -270,9 +283,9 @@ tmap::tm_shape(DeathsWithin.sf$geometry[keep_rows]) +
 
 Filter storms by death date. Test on a sample of death records
 ```{r}
-#keep_rows <- sample.int(nrow(DeathsWithin.sf), size = 100000)
-#merge_Test.sf <- DeathsWithin.sf[keep_rows, ]
-merge_Test.sf <- DeathsWithin.sf
+keep_rows <- sample.int(nrow(DeathsWithin.sf), size = 5000)
+merge_Test.sf <- DeathsWithin.sf[keep_rows, ]
+#merge_Test.sf <- DeathsWithin.sf
 
 sf::st_geometry(TIC.sf) <- "geom" # rename geometry column. Column names from the two sf data frames must differ
 
