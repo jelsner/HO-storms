@@ -71,9 +71,9 @@ Add a buffer to the tracks to make segmented wind swaths
 Swaths.sf <- Tracks2.sf |>
   sf::st_buffer(dist = Tracks2.sf$USA_RMW * 1852) # 1852 converts to meters
 
-tmap::tmap_mode("view")
-tmap::tm_shape(Swaths.sf) +
-  tmap::tm_borders()
+#tmap::tmap_mode("view")
+#tmap::tm_shape(Swaths.sf) +
+#  tmap::tm_borders()
 ```
 
 Wind swaths that cross Florida. `USAboundaries` package no longer maintained on CRAN
@@ -100,6 +100,7 @@ Swaths2.sf <- Swaths.sf |>
   dplyr::group_by(SID) |>
   dplyr::summarize(Date0 = dplyr::first(Date),
                    NAME = dplyr::first(NAME),
+                   Max_Intensity_mps = round(max(USA_WIND) * .5144, digits = 0),
                    geometry = sf::st_union(geometry))
 
 tmap::tm_shape(Swaths2.sf) +
@@ -116,7 +117,7 @@ x <- sf::st_geometry_type(Swaths2.sf$geometry) == "MULTIPOLYGON"
 Swaths2.sf$NAME[x]
 ```
 
-The situations are different for Erin, Irma, and Ian so it is not clear what to do. One way is simple to remove these storms from further consideration
+The situations are different for Erin, Fay, and Irma so it is not clear what to do. One way is simple to remove these storms from further consideration
 ```{r}
 Swaths2.sf <- Swaths2.sf[!x,]
 ```
@@ -140,11 +141,24 @@ TIC.sf <- Swaths2.sf |>
                   Date = Date0 + (-n_new:n_new) * deltaT))) |>
     tidyr::unnest(new_features) |>
     dplyr::ungroup() |>
-    dplyr::select(Date, NAME)
+    dplyr::select(Date, NAME, Max_Intensity_mps)
 
 TIC <- rep(rep(c("Threat", "Impact", "Cleanup"), times = c(n_new, 1, n_new)), 
            times = nrow(Swaths2.sf))
 TIC.sf$TIC <- TIC
+```
+
+Add birth month and year indicators
+```{r}
+TIC.sf <- TIC.sf |>
+  dplyr::mutate(Month = lubridate::month(Date),
+                Year = lubridate::year(Date))
+storm_months <- unique(TIC.sf$Month)
+storm_year_range <- range(TIC.sf$Year)
+```
+
+```{r}
+sf::st_geometry(TIC.sf) <- "geom" # can't have matching column names
 ```
 
 ## Merge with birth records
@@ -160,6 +174,11 @@ Births.df <- read.csv(file = "data/all_births_hurricane.csv")
 
 7.2 million births. Time period is 1981-1-1 until 2022-12-31. Only dates are given not times. Lat/lon ranges appear to include Texas through Florida 
 
+Remove rows with missing values
+```{r}
+Births.df <- na.omit(Births.df)
+```
+
 Make the data frame a simple feature data frame with POINT geometry
 ```{r}
 Births.sf <- Births.df |>
@@ -168,40 +187,79 @@ Births.sf <- Births.df |>
                 DateT1e = lubridate::as_date(trimester1_e_date),
                 DateT2s = lubridate::as_date(trimester2_s_date),
                 DateT2e = lubridate::as_date(trimester2_e_date),
-                DateT3s = lubridate::as_date(trimester3_s_date)
+                DateT3s = lubridate::as_date(trimester3_s_date),
+                Year_of_Birth = lubridate::year(Date),
+                Month_of_Birth = lubridate::month(Date),
+                Month_of_T1s = lubridate::month(DateT1s),
+                Month_of_T1e = lubridate::month(DateT1e),
+                Month_of_T2s = lubridate::month(DateT2s),
+                Month_of_T2e = lubridate::month(DateT2e),
+                Month_of_T3s = lubridate::month(DateT3s)
                 ) |>
   sf::st_as_sf(coords = c("final_lon", "final_lat"),
                crs = 4326) |>
-  dplyr::select(Birth_ID = ID, Birth_Date = Date, DateT1s, DateT1e, DateT2s, DateT2e, DateT3s)
+  dplyr::select(Birth_ID = ID, Birth_Date = Date, DateT1s, DateT1e,
+                DateT2s, DateT2e, DateT3s,
+                Month_of_Birth, Year_of_Birth, 
+                Month_of_T1s, Month_of_T1e, 
+                Month_of_T2s, Month_of_T2e, Month_of_T3s)
 ```
 
-Keep only births occurring inside the union of all threat/impact/cleanup polygons
+# Start of code that parses by trimester
+
+Keep only births in which the birth year falls within the range of storm years 
+```{r}
+withIn <- Births.sf$Year_of_Birth >= storm_year_range[1] & Births.sf$Year_of_Birth <= storm_year_range[2]
+Births.sf <- Births.sf[withIn, ]
+```
+
+Keep only births in which the trimester start or end months are within the storm season. Here we start with the third trimester
+```{r}
+withIn <- Births.sf$Month_of_Birth %in% storm_months | Births.sf$Month_of_T3s %in% storm_months
+Births.sf <- Births.sf[withIn, ]
+```
+
+Keep only births occurring inside the union of all threat/impact/cleanup polygons. We assume the trimester dates have the same spatial location (the mother did not relocate during pregnancy)
 ```{r}
 withIn <- Births.sf |>
   sf::st_within(union_Swaths2.sfg, sparse = FALSE)
-BirthsWithin.sf <- Births.sf[withIn, ]
+Births.sf <- Births.sf[withIn, ]
 ```
 
-Check with a map. Sample 10,000 birth records
+Check with a map. Sample 1,000 birth records
 ```{r}
-nrows <- nrow(BirthsWithin.sf)
-keep_rows <- sample.int(nrows, size = 10000)
+nrows <- nrow(Births.sf)
+keep_rows <- sample.int(nrows, size = 1000)
 
 tmap::tm_shape(Swaths2.sf) +
   tmap::tm_borders() +
-tmap::tm_shape(BirthsWithin.sf$geometry[keep_rows]) +
+tmap::tm_shape(Births.sf$geometry[keep_rows]) +
   tmap::tm_dots()
 ```
 
-Filter storms by third trimester date range. Test on a sample of 5000 births
+Filter storms by third trimester date range. Test on a sample of births
 ```{r}
-keep_rows <- sample.int(nrow(BirthsWithin.sf), size = 5000)
-merge_Test.sf <- BirthsWithin.sf[keep_rows, ]
+start_time <- Sys.time()
+#keep_rows <- sample.int(nrow(Births.sf), size = 5000)
 
-sf::st_geometry(TIC.sf) <- "geom" # can't have matching column names
+num_obs <- nrow(Births.sf)
+chunk_size <- 50000
+num_chunks <- ceiling(num_obs / chunk_size)
+print(paste("Number of chunks to process", num_chunks))
+
+# Pre-allocate an empty list to store chunks
+results_list <- vector("list", num_chunks)
+
+for (i in seq(1, num_obs, by = chunk_size)) {
+  chunk_index <- (i - 1) / chunk_size + 1
+  chunk_indices <- i:min(i + chunk_size - 1, num_obs)
+  
+  print(paste("Processing chunk", chunk_index))
+
+  chunk.sf <- Births.sf[chunk_indices, ]
 
 # 1. Filter storms by trimester date range
-births_storm_filtered <- merge_Test.sf |>
+births_storm_filtered <- chunk.sf |>
   dplyr::rowwise() |>
   dplyr::mutate(
     matched_storms = list(
@@ -212,12 +270,22 @@ births_storm_filtered <- merge_Test.sf |>
 # 2. Perform spatial join to check if birth locations fall within the storm polygons
 births_with_impacts <- sf::st_join(births_storm_filtered, TIC.sf, join = sf::st_within)
 
-# 3. Keep only records where a birth was inside a storm impact area
+# 3. Keep only records where a birth was inside a storm impact area during the specified trimester
 births_with_impacts <- births_with_impacts |>
   dplyr::filter(!is.na(NAME.x)) |>
   dplyr::select(Birth_ID, Birth_Date, DateT3s,
-                NAME = NAME.x, TIC = TIC.x, geometry) |>
+                NAME = NAME.x, Max_Intensity_mps = Max_Intensity_mps.x,
+                TIC = TIC.x, geometry) |>
   dplyr::distinct()
+
+results_list[[chunk_index]] <- births_with_impacts
+
+gc() #ensures memory from previous iterations is released
+
+}
+
+final_data <- do.call(rbind, results_list)
+Sys.time() - start_time
 ```
 
 Pivot to wider format
@@ -455,12 +523,14 @@ Statistics
 ```{r}
 storms2.sf |>
   sf::st_drop_geometry() |>
-  dplyr::filter(PHENOM == "HU" & SIG == "A") |>
+  dplyr::filter(PHENOM == "HU" & SIG == "W") |>
   dplyr::group_by(Year) |>
   dplyr::summarise(Number = dplyr::n(),
                    AvgDuration = mean(Duration),
                    AvgArea = mean(AREA_KM2))
 ```
+
+No change in the average duration of the warning or the average area warned over the years
 
 
 Code below is adapted from David Hsu
@@ -535,8 +605,4 @@ storm_zones |>
   dplyr::summarise(Number = dplyr::n()) |>
   print(n = 100)
 ```
-
-
-
-
 
