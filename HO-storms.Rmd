@@ -290,12 +290,16 @@ Sys.time() - start_time
 
 Pivot to wider format
 ```{r}
-X <- births_with_impacts |> 
+Y <- final_data |>
+  sf::st_drop_geometry()
+Y <- Y[1:100000, ]
+
+X <- Y |> 
   dplyr::summarise(n = dplyr::n(),
-                   .by = c(Birth_ID, Birth_Date, DateT3s, geometry, NAME)) |>
+                   .by = c(Birth_ID, Birth_Date, DateT3s, NAME, Max_Intensity_mps)) |>
   dplyr::filter(n >= 1)
 
-X <- births_with_impacts |>
+XX <- Y |>
   tidyr::pivot_wider(names_from = NAME, values_from = TIC)
                      
 ```
