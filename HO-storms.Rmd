@@ -94,14 +94,22 @@ tmap::tm_shape(Swaths.sf) +
   tmap::tm_borders()
 ```
 
-Extract the boundaries of storm impacts by storm ID. Dissolve the overlap borders of the individual swaths by storm to create a single storm swath
+Extract the boundaries of storm impacts by storm ID. Dissolve the overlap borders of the individual swaths by storm to create a single storm swath. Add the storm category based on wind speed
 ```{r}
 Swaths2.sf <- Swaths.sf |>
   dplyr::group_by(SID) |>
   dplyr::summarize(Date0 = dplyr::first(Date),
                    NAME = dplyr::first(NAME),
-                   Max_Intensity_mps = round(max(USA_WIND) * .5144, digits = 0),
-                   geometry = sf::st_union(geometry))
+                   Wind = max(USA_WIND),
+                   geometry = sf::st_union(geometry)) |>
+  dplyr::mutate(Storm_Category = dplyr::case_when(
+    Wind >= 55 & Wind <= 63 ~ 0,
+    Wind >= 64 & Wind <= 82 ~ 1,
+    Wind >= 83 & Wind <= 95 ~ 2,
+    Wind >= 96 & Wind <= 112 ~ 3,
+    Wind >= 113 & Wind <= 136 ~ 4,
+    Wind >= 137 ~ 5
+  ))
 
 tmap::tm_shape(Swaths2.sf) +
   tmap::tm_borders()
@@ -109,7 +117,7 @@ tmap::tm_shape(Swaths2.sf) +
 
 Each storm in `Swaths2.sf` is represented by a unique polygon (or multipolygon) with an impact date
 
-What to do with storms having multiple landfalls (e.g., Peninsula then Panhandle like Hurricane Erin in 1995)? In those cases the geometry will be MULTIPOLYGON.
+What to do with storms having multiple landfalls (e.g., Peninsula then Panhandle like Hurricane Erin in 1995)? In those cases the geometry will be MULTIPOLYGON. The problem is that the date of second landfall maybe different from the first (e.g., a day or two later)
 
 Check to see which storms these are
 ```{r}
@@ -121,6 +129,8 @@ The situations are different for Erin, Fay, and Irma so it is not clear what to 
 ```{r}
 Swaths2.sf <- Swaths2.sf[!x,]
 ```
+
+Here we keep them
 
 Transform the geometry to a geographic CRS (4326) and unionize the swaths
 ```{r}
@@ -141,11 +151,11 @@ TIC.sf <- Swaths2.sf |>
                   Date = Date0 + (-n_new:n_new) * deltaT))) |>
     tidyr::unnest(new_features) |>
     dplyr::ungroup() |>
-    dplyr::select(Date, NAME, Max_Intensity_mps)
+    dplyr::select(Date, Storm_Name = NAME, Storm_Category)
 
 TIC <- rep(rep(c("Threat", "Impact", "Cleanup"), times = c(n_new, 1, n_new)), 
            times = nrow(Swaths2.sf))
-TIC.sf$TIC <- TIC
+TIC.sf$Storm_Effect <- TIC
 ```
 
 Add birth month and year indicators
@@ -205,28 +215,28 @@ Births.sf <- Births.df |>
                 Month_of_T2s, Month_of_T2e, Month_of_T3s)
 ```
 
-# Start of code that parses by trimester
-
 Keep only births in which the birth year falls within the range of storm years 
 ```{r}
 withIn <- Births.sf$Year_of_Birth >= storm_year_range[1] & Births.sf$Year_of_Birth <= storm_year_range[2]
 Births.sf <- Births.sf[withIn, ]
 ```
 
-Keep only births in which the trimester start or end months are within the storm season. Here we start with the third trimester
+# Start of code that parses by trimester
+
+Keep only births in which either the trimester start or end months are within the storm season. Here we start with the third trimester
 ```{r}
 withIn <- Births.sf$Month_of_Birth %in% storm_months | Births.sf$Month_of_T3s %in% storm_months
 Births.sf <- Births.sf[withIn, ]
 ```
 
-Keep only births occurring inside the union of all threat/impact/cleanup polygons. We assume the trimester dates have the same spatial location (the mother did not relocate during pregnancy)
+Keep only births occurring inside the union of all threat/impact/cleanup (TIC) polygons. We assume the trimester dates have the same spatial location (the mother did not relocate during pregnancy). This is not very helpful for Florida using all storms
 ```{r}
 withIn <- Births.sf |>
   sf::st_within(union_Swaths2.sfg, sparse = FALSE)
 Births.sf <- Births.sf[withIn, ]
 ```
 
-Check with a map. Sample 1,000 birth records
+Check using a map. Sample 1,000 birth records
 ```{r}
 nrows <- nrow(Births.sf)
 keep_rows <- sample.int(nrows, size = 1000)
@@ -237,12 +247,13 @@ tmap::tm_shape(Births.sf$geometry[keep_rows]) +
   tmap::tm_dots()
 ```
 
-Filter storms by third trimester date range. Test on a sample of births
+Filter births temporally by trimester start and end dates and spatially by storm TIC zones
 ```{r}
 start_time <- Sys.time()
 #keep_rows <- sample.int(nrow(Births.sf), size = 5000)
 
 num_obs <- nrow(Births.sf)
+#num_obs <- 500000  #for checking to see if things are working
 chunk_size <- 50000
 num_chunks <- ceiling(num_obs / chunk_size)
 print(paste("Number of chunks to process", num_chunks))
@@ -258,7 +269,7 @@ for (i in seq(1, num_obs, by = chunk_size)) {
 
   chunk.sf <- Births.sf[chunk_indices, ]
 
-# 1. Filter storms by trimester date range
+# 1. Filter births by trimester date range
 births_storm_filtered <- chunk.sf |>
   dplyr::rowwise() |>
   dplyr::mutate(
@@ -267,51 +278,66 @@ births_storm_filtered <- chunk.sf |>
         dplyr::filter(Date >= DateT3s & Date <= Birth_Date))) |>
   tidyr::unnest(matched_storms, keep_empty = TRUE)
 
-# 2. Perform spatial join to check if birth locations fall within the storm polygons
+# 2. Perform spatial join to check if birth locations fall within the storm TIC zones
 births_with_impacts <- sf::st_join(births_storm_filtered, TIC.sf, join = sf::st_within)
 
-# 3. Keep only records where a birth was inside a storm impact area during the specified trimester
+# 3. Keep only records where a birth was inside a storm TIC zone during the specified trimester
 births_with_impacts <- births_with_impacts |>
-  dplyr::filter(!is.na(NAME.x)) |>
+  dplyr::filter(!is.na(Storm_Name.x)) |>
   dplyr::select(Birth_ID, Birth_Date, DateT3s,
-                NAME = NAME.x, Max_Intensity_mps = Max_Intensity_mps.x,
-                TIC = TIC.x, geometry) |>
+                Storm_Name = Storm_Name.x, 
+                Storm_Category = Storm_Category.x,
+                Storm_Effect = Storm_Effect.x, geometry) |>
   dplyr::distinct()
 
 results_list[[chunk_index]] <- births_with_impacts
 
 gc() #ensures memory from previous iterations is released
-
 }
 
-final_data <- do.call(rbind, results_list)
+births_with_impacts <- do.call(rbind, results_list) # row bind the chunks
 Sys.time() - start_time
 ```
 
-Pivot to wider format
+Merge with all births and remove the geometry
 ```{r}
-Y <- final_data |>
-  sf::st_drop_geometry()
-Y <- Y[1:100000, ]
+# which birth IDs are unique
+unique_Birth_IDs <- unique(births_with_impacts$Birth_ID)
 
-X <- Y |> 
-  dplyr::summarise(n = dplyr::n(),
-                   .by = c(Birth_ID, Birth_Date, DateT3s, NAME, Max_Intensity_mps)) |>
-  dplyr::filter(n >= 1)
+# is the birth ID not in the births_with_impacts data
+X <- !Births.sf$Birth_ID %in% unique_Birth_IDs
+births_without_impacts <- Births.sf[X,]
 
-XX <- Y |>
-  tidyr::pivot_wider(names_from = NAME, values_from = TIC)
-                     
+# drop geometry and add dummy columns
+births_without_impacts <- births_without_impacts |>
+  sf::st_drop_geometry() |>
+  dplyr::mutate(Storm_Name = NA, Storm_Category = NA, Storm_Effect = "None") |>
+  dplyr::select(Birth_ID, Birth_Date, DateT3s, Storm_Name, Storm_Category, Storm_Effect)
+
+# merge and arrange by increasing birth dates
+merged_data <- births_with_impacts |>
+  sf::st_drop_geometry() |>
+  rbind(births_without_impacts) |>
+  dplyr::arrange(Birth_Date)
 ```
 
-
-Check on a map
+Cast to a wider format
 ```{r}
-tmap::tm_shape(Swaths2.sf) +
-  tmap::tm_borders() +
-tmap::tm_shape(births_with_impacts$geometry) +
-  tmap::tm_dots()
+library(data.table)
+
+merged_data.dt <- merged_data |>
+  as.data.table()
+
+# Create unique index per birth
+merged_data.dt[, row_id := sequence(.N), by = Birth_ID]
+
+merged_data_wide.dt <- dcast(
+  merged_data.dt, 
+  Birth_ID + Birth_Date + DateT3s ~ row_id, 
+  value.var = c("Storm_Name", "Storm_Category", "Storm_Effect")
+)
 ```
+
 
 ## Merge with death records
 
