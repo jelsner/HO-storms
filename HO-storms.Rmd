@@ -5,7 +5,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-## Storm threat and impact model
+## Storm effects model
 
 Get and import the IBTraCS storm data
 
@@ -85,10 +85,10 @@ Boundaries.sf <- USAboundaries::us_states(resolution = "low", states = "FL") |>
   sf::st_transform(crs = 32616)
 
 X <- Swaths.sf |>
-  sf::st_intersects(Boundaries.sf, sparse = FALSE)
+  sf::st_intersects(Boundaries.sf, sparse = FALSE) #Does the swath intersect the state border?
 Swaths.sf <- Swaths.sf[X, ]
 Swaths.sf <- Swaths.sf |>
-  dplyr::mutate(Date = lubridate::as_date(ISO_TIME)) # add a m-y-d column
+  dplyr::mutate(Date = lubridate::as_date(ISO_TIME)) #Add a date column
 
 tmap::tm_shape(Swaths.sf) +
   tmap::tm_borders()
@@ -125,12 +125,10 @@ x <- sf::st_geometry_type(Swaths2.sf$geometry) == "MULTIPOLYGON"
 Swaths2.sf$NAME[x]
 ```
 
-The situations are different for Erin, Fay, and Irma so it is not clear what to do. One way is simple to remove these storms from further consideration
+The situations are different for Erin, Fay, and Irma so it is not clear what to do. One way is simple to remove these storms from further consideration. Here we keep them
 ```{r}
-Swaths2.sf <- Swaths2.sf[!x,]
+#Swaths2.sf <- Swaths2.sf[!x,]
 ```
-
-Here we keep them
 
 Transform the geometry to a geographic CRS (4326) and unionize the swaths
 ```{r}
@@ -168,7 +166,7 @@ storm_year_range <- range(TIC.sf$Year)
 ```
 
 ```{r}
-sf::st_geometry(TIC.sf) <- "geom" # can't have matching column names
+sf::st_geometry(TIC.sf) <- "geom" #Can't have matching column names when merging with birth/death records
 ```
 
 ## Merge with birth records
@@ -182,7 +180,7 @@ The first Trimester: the weeks 1-13, The second Trimester: the weeks 14-28, The 
 Births.df <- read.csv(file = "data/all_births_hurricane.csv")
 ```
 
-7.2 million births. Time period is 1981-1-1 until 2022-12-31. Only dates are given not times. Lat/lon ranges appear to include Texas through Florida 
+7.2 million births. Time period is 1981-1-1 until 2022-12-31. Only dates are given not times
 
 Remove rows with missing values
 ```{r}
@@ -215,11 +213,13 @@ Births.sf <- Births.df |>
                 Month_of_T2s, Month_of_T2e, Month_of_T3s)
 ```
 
-Keep only births in which the birth year falls within the range of storm years 
+Keep only births falling within the range of storm years
 ```{r}
 withIn <- Births.sf$Year_of_Birth >= storm_year_range[1] & Births.sf$Year_of_Birth <= storm_year_range[2]
 Births.sf <- Births.sf[withIn, ]
 ```
+
+Down to 6.8 million births
 
 # Start of code that parses by trimester
 
@@ -229,7 +229,9 @@ withIn <- Births.sf$Month_of_Birth %in% storm_months | Births.sf$Month_of_T3s %i
 Births.sf <- Births.sf[withIn, ]
 ```
 
-Keep only births occurring inside the union of all threat/impact/cleanup (TIC) polygons. We assume the trimester dates have the same spatial location (the mother did not relocate during pregnancy). This is not very helpful for Florida using all storms
+Down to 5.4 million births
+
+Keep only births occurring inside the union of all effect (threat/impact/cleanup) polygons. We assume the trimester dates have the same spatial location (the mother did not relocate during pregnancy). This is not very helpful in reducing the number of births in the record using all storms since storms over these years cover almost the entire state of Florida
 ```{r}
 withIn <- Births.sf |>
   sf::st_within(union_Swaths2.sfg, sparse = FALSE)
@@ -247,13 +249,13 @@ tmap::tm_shape(Births.sf$geometry[keep_rows]) +
   tmap::tm_dots()
 ```
 
-Filter births temporally by trimester start and end dates and spatially by storm effect zones
+Filter births temporally by trimester start and end dates and spatially by storm effect zones. This takes about 6.5 hours on my Apple M1 Pro with 32G memory
 ```{r}
 start_time <- Sys.time()
 #keep_rows <- sample.int(nrow(Births.sf), size = 5000)
 
 num_obs <- nrow(Births.sf)
-#num_obs <- 500000  #for checking to see if things are working
+#num_obs <- 500000  #check to see if things are working using a smaller subset of the data
 chunk_size <- 50000
 num_chunks <- ceiling(num_obs / chunk_size)
 print(paste("Number of chunks to process", num_chunks))
@@ -269,7 +271,7 @@ for (i in seq(1, num_obs, by = chunk_size)) {
 
   chunk.sf <- Births.sf[chunk_indices, ]
 
-# 1. Filter births by trimester date range
+# 1 Filter births by trimester date range
 births_storm_filtered <- chunk.sf |>
   dplyr::rowwise() |>
   dplyr::mutate(
@@ -278,10 +280,10 @@ births_storm_filtered <- chunk.sf |>
         dplyr::filter(Date >= DateT3s & Date <= Birth_Date))) |>
   tidyr::unnest(matched_storms, keep_empty = TRUE)
 
-# 2. Perform spatial join to check if birth locations fall within the storm effect zones
+# 2 Perform spatial join to check if birth locations fall within the storm effect zones
 births_with_impacts <- sf::st_join(births_storm_filtered, TIC.sf, join = sf::st_within)
 
-# 3. Keep only records where a birth was inside a storm effect zone during the specified trimester
+# 3 Keep only records where a birth was inside a storm effect zone during the specified trimester
 births_with_impacts <- births_with_impacts |>
   dplyr::filter(!is.na(Storm_Name.x)) |>
   dplyr::select(Birth_ID, Birth_Date, DateT3s,
@@ -295,11 +297,11 @@ results_list[[chunk_index]] <- births_with_impacts
 gc() #ensures memory from previous iterations is released
 }
 
-births_with_impacts <- do.call(rbind, results_list) # row bind the chunks
+births_with_impacts <- do.call(rbind, results_list) #row bind the chunks
 Sys.time() - start_time
 ```
 
-Merge with all births and remove the geometry
+Merge with all births and remove the geometry column
 ```{r}
 # which birth IDs are unique
 unique_Birth_IDs <- unique(births_with_impacts$Birth_ID)
@@ -308,7 +310,7 @@ unique_Birth_IDs <- unique(births_with_impacts$Birth_ID)
 X <- !Births.sf$Birth_ID %in% unique_Birth_IDs
 births_without_impacts <- Births.sf[X,]
 
-# drop geometry and add dummy columns
+# drop geometry and add dummy columns to the births_without_impacts
 births_without_impacts <- births_without_impacts |>
   sf::st_drop_geometry() |>
   dplyr::mutate(Storm_Name = NA, Storm_Category = NA, Storm_Effect = "None") |>
@@ -325,19 +327,37 @@ Cast to a wider format
 ```{r}
 library(data.table)
 
+# make the data frame a data table
 merged_data.dt <- merged_data |>
   as.data.table()
 
-# Create unique index per birth
+# Create unique index per birth in the data table
 merged_data.dt[, row_id := sequence(.N), by = Birth_ID]
 
+# fast long to wide for data tables
 merged_data_wide.dt <- dcast(
-  merged_data.dt, 
-  Birth_ID + Birth_Date + DateT3s ~ row_id, 
+  data = merged_data.dt, 
+  formula = Birth_ID + Birth_Date + DateT3s ~ row_id, 
   value.var = c("Storm_Name", "Storm_Category", "Storm_Effect")
 )
 ```
 
+Order births according to the original birth data ID
+```{r}
+#reorder based on Births.sf$Birth_ID
+Births_with_storm_info_3rd_trimester <- merged_data_wide.dt[order(match(merged_data_wide.dt$Birth_ID, Births.sf$Birth_ID))]
+
+#reorder based on Births.df$Birth_ID
+names(merged_data_wide.dt)[1] <- "ID"
+Births_with_storm_info_3rd_trimester2 <- merge(Births.df, merged_data_wide.dt, by = "ID", all.x = TRUE)  # Ensures all IDs are kept
+setorder(Births_with_storm_info_3rd_trimester2, ID)
+```
+
+Read out the data table
+```{r}
+fwrite(Births_with_storm_info_3rd_trimester, 
+       file = "data/outputs/Births_with_storm_info_3rd_trimester.csv")
+```
 
 ## Merge with death records
 
