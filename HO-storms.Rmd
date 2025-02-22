@@ -177,7 +177,7 @@ Email from Jihoon on December 11, 2024
 8. trimester2_e_date : The second Trimester end date 9. trimester3_s_date: The third Trimester start date
 The first Trimester: the weeks 1-13, The second Trimester: the weeks 14-28, The third Trimester: the weeks 29 ~
 ```{r}
-Births.df <- read.csv(file = "data/all_births_hurricane.csv")
+Births.df <- data.table::fread(file = "data/all_births_hurricane.csv")
 ```
 
 7.2 million births. Time period is 1981-1-1 until 2022-12-31. Only dates are given not times
@@ -353,10 +353,13 @@ Births_with_storm_info_3rd_trimester2 <- merge(Births.df, merged_data_wide.dt, b
 setorder(Births_with_storm_info_3rd_trimester2, ID)
 ```
 
-Read out the data table
+Write out the data table to a csv file
 ```{r}
-fwrite(Births_with_storm_info_3rd_trimester, 
-       file = "data/outputs/Births_with_storm_info_3rd_trimester.csv")
+data.table::fwrite(Births_with_storm_info_3rd_trimester, 
+                   file = "data/outputs/Births_with_storm_info_3rd_trimester.csv")
+
+# read it back
+#Births_with_storm_info_3rd_trimester <- data.table::fread(file = "data/outputs/Births_with_storm_info_3rd_trimester.csv")
 ```
 
 ## Merge with death records
