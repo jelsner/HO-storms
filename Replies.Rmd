@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Replies to Email Query"
 output:
   pdf_document: default
   html_document: default
@@ -8,23 +8,21 @@ editor_options:
   markdown:
     wrap: 72
 ---
-```{r}
-tinytex::reinstall_tinytex(repository = "illinois")
-```
 
+Answers (with help from ChatGPT)
 
-1\. Yes, Equation (3) in the paper defines a model where the left-hand
+1\. Yes, Equation (3) defines a model where the left-hand
 side is expressed as cloglog($\pi$), which is the complementary log-log
-transformation of $\pi$. This transformation is used because th
+transformation of $\pi$. This transformation is used because the
 probability $\pi$ is modeled as a function of covariates.
 
 If you are obtaining values of $r$ similar to those in Figure 3 by
-considering the left-hand side of Eq (3) as $\pi$ rather than
+considering the left-hand side of Equation (3) as $\pi$ rather than
 cloglog($\pi$), it suggests a possible misinterpretation. The correct
 interpretation should involve taking the inverse of the complementary
 log-log function to retrieve $\pi$ from the regression output. This
 means: $$
-\pi = 1 − \exp(-\exp(\alpha_0 + \alpha_1 SOI + \alpha_2 NAO)) 
+\pi = 1 - e^{-e^{(\alpha_0 + \alpha_1 SOI + \alpha_2 NAO)}} 
 $$
 
 You should apply the inverse cloglog transformation to correctly
@@ -74,7 +72,7 @@ is: $$
 P(H=0|r,p) = P(N=0) = e^{-r}
 $$
 
-Which matches your intuition! The expression involving $k-i$ and $i$
+Which matches your intuition. The expression involving $k-i$ and $i$
 does not apply in this case because there are no terms to sum with
 $N=0$. The binomial part of the model (which governs cluster sizes) only
 comes into play when at least one cluster is present.
@@ -84,11 +82,11 @@ P(H=0|r, p) = e^{-r}
 $$
 
 The undefined expression issue does not arise because the summation
-formula is only used for $k \gt 0$ while for $k=0$ we directly use the
+formula is only used for $k > 0$ while for $k=0$ we directly use the
 Poisson probability of zero clusters.
 
 4\. Here is the approach for generating estimated annual hurricane
-counts for $X$ years using the cluster model.
+counts for $X$ years using our cluster model.
 
 Step 1: Since the number of clusters per year, $N$ follows a Poisson
 distribution with rate $r$ $N \sim$ Poisson($r$). For each year,
