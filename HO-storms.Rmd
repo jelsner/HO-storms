@@ -94,7 +94,7 @@ tmap::tm_shape(Swaths.sf) +
   tmap::tm_borders()
 ```
 
-Extract the boundaries of storm impacts by storm ID. Dissolve the overlap borders of the individual swaths by storm to create a single storm swath. Add the storm category based on wind speed
+Extract the boundaries of storm impacts by storm ID. Dissolve the overlap borders of the individual swaths by storm to create a single storm swath. Add the storm category (Saffir-Simpson) based on wind speed
 ```{r}
 Swaths2.sf <- Swaths.sf |>
   dplyr::group_by(SID) |>
