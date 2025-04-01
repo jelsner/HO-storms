@@ -187,6 +187,12 @@ Remove rows with missing values
 Births.df <- na.omit(Births.df)
 ```
 
+Checks on file for match with Tulane folks
+```{r}
+X <- Births.df |>
+  dplyr::filter(DATE_OF_BIRTH >= as.Date("2000-01-01") & DATE_OF_BIRTH <= as.Date("2000-12-31"))
+```
+
 Make the data frame a simple feature data frame with POINT geometry
 ```{r}
 Births.sf <- Births.df |>
@@ -225,7 +231,7 @@ Down to 6.8 million births
 
 Keep only births in which either the trimester start or end months are within the storm season. Here we start with the third trimester
 ```{r}
-withIn <- Births.sf$Month_of_Birth %in% storm_months | Births.sf$Month_of_T3s %in% storm_months
+withIn <- Births.sf$Month_of_T1e %in% storm_months | Births.sf$Month_of_T1s %in% storm_months
 Births.sf <- Births.sf[withIn, ]
 ```
 
@@ -249,7 +255,7 @@ tmap::tm_shape(Births.sf$geometry[keep_rows]) +
   tmap::tm_dots()
 ```
 
-Filter births temporally by trimester start and end dates and spatially by storm effect zones. This takes about 6.5 hours on my Apple M1 Pro with 32G memory
+Filter births temporally by trimester start and end dates and spatially by storm effect zones. This takes about 6.5 hours (3rd trimester) on my Apple M1 Pro with 32G memory. It took 4.3 hours on my Apple M4 (1st trimester)
 ```{r}
 start_time <- Sys.time()
 #keep_rows <- sample.int(nrow(Births.sf), size = 5000)
@@ -277,7 +283,7 @@ births_storm_filtered <- chunk.sf |>
   dplyr::mutate(
     matched_storms = list(
       TIC.sf |>
-        dplyr::filter(Date >= DateT3s & Date <= Birth_Date))) |>
+        dplyr::filter(Date >= DateT1s & Date <= DateT1e))) |>
   tidyr::unnest(matched_storms, keep_empty = TRUE)
 
 # 2 Perform spatial join to check if birth locations fall within the storm effect zones
@@ -345,12 +351,12 @@ merged_data_wide.dt <- dcast(
 Order births according to the original birth data ID
 ```{r}
 #reorder based on Births.sf$Birth_ID
-Births_with_storm_info_3rd_trimester <- merged_data_wide.dt[order(match(merged_data_wide.dt$Birth_ID, Births.sf$Birth_ID))]
+Births_with_storm_info_1st_trimester <- merged_data_wide.dt[order(match(merged_data_wide.dt$Birth_ID, Births.sf$Birth_ID))]
 
 #reorder based on Births.df$Birth_ID
 names(merged_data_wide.dt)[1] <- "ID"
-Births_with_storm_info_3rd_trimester2 <- merge(Births.df, merged_data_wide.dt, by = "ID", all.x = TRUE)  # Ensures all IDs are kept
-setorder(Births_with_storm_info_3rd_trimester2, ID)
+Births_with_storm_info_1st_trimester2 <- merge(Births.df, merged_data_wide.dt, by = "ID", all.x = TRUE)  # Ensures all IDs are kept
+setorder(Births_with_storm_info_1st_trimester2, ID)
 ```
 
 Write out the data table to a csv file
