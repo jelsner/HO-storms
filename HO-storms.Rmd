@@ -182,6 +182,16 @@ Births.df <- data.table::fread(file = "data/all_births_hurricane.csv")
 
 7.2 million births. Time period is 1981-1-1 until 2022-12-31. Only dates are given not times
 
+Alternative birth data set from Jihoon posted on Teams March 31, 2025 in General > Data > Florida > 1_FL > Jihoon > 0_birth_Emily > 20_definition_final > birth_final_all_final_xxxx.Rdata where xxxx is year
+
+Load in the `.Rdata` files
+```{r}
+load("data/20_definition_final/birth_all_final_1981.Rdata")
+load("data/20_definition_final/birth_all_final_1982.Rdata")
+
+load("data/21_definition_final_re/combine_data_all1981.Rdata")
+```
+
 Remove rows with missing values
 ```{r}
 Births.df <- na.omit(Births.df)
@@ -359,13 +369,56 @@ Births_with_storm_info_1st_trimester2 <- merge(Births.df, merged_data_wide.dt, b
 setorder(Births_with_storm_info_1st_trimester2, ID)
 ```
 
+Concatenate the .Rdata files in the folder `21_definition_final_re`, change the column labeled `ID` to `Birth_ID` then join the Births_with_storm_info_3rd_trimester by `Birth_ID`
+```{r}
+files <- list.files(path = "data/21_definition_final_re", pattern = "\\.Rdata$", full.names = TRUE)
+
+#concatenated_df <- do.call(rbind, lapply(files, function(file) {
+#  df <- get(load(file))  # Load the data frame from .Rdata
+#  return(df)             # Ensure it's returned for binding
+#}))  # error: vector memory limit of 32 Gb
+
+#concatenated_dt <- rbindlist(lapply(files, function(file) {
+#  df <- get(load(file))
+#  as.data.table(df)
+#}), use.names = TRUE, fill = TRUE) # error: vector memory limit of 32 Gb
+
+batch_size <- 3  # Process 3 files at a time
+combined_df <- NULL
+
+for (i in seq(1, length(files), by = batch_size)) {
+  batch_files <- files[i:min(i + batch_size - 1, length(files))]
+
+  batch_df <- do.call(rbind, lapply(batch_files, function(file) {
+    df <- get(load(file))
+    return(df)
+  }))
+
+  # Save intermediate results to disk to free memory
+  save(batch_df, file = paste0("batch_", i, ".Rdata"))
+  
+  # Remove batch from memory to free space
+  rm(batch_df)
+  gc()  # Garbage collection
+}
+
+# Later, combine saved batch files
+batch_files <- list.files(pattern = "batch_.*\\.Rdata$")
+final_df <- do.call(rbind, lapply(batch_files, function(file) {
+  get(load(file))
+}))
+
+load("data/21_definition_final_re/combine_data_all2022.Rdata")
+#save(final_df, file = "final_combined.RData")
+```
+
 Write out the data table to a csv file
 ```{r}
 data.table::fwrite(Births_with_storm_info_3rd_trimester, 
                    file = "data/outputs/Births_with_storm_info_3rd_trimester.csv")
 
 # read it back
-#Births_with_storm_info_3rd_trimester <- data.table::fread(file = "data/outputs/Births_with_storm_info_3rd_trimester.csv")
+Births_with_storm_info_3rd_trimester <- data.table::fread(file = "data/outputs/output.csv")
 ```
 
 ## Merge with death records
