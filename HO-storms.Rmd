@@ -177,35 +177,26 @@ Email from Jihoon on December 11, 2024
 8. trimester2_e_date : The second Trimester end date 9. trimester3_s_date: The third Trimester start date
 The first Trimester: the weeks 1-13, The second Trimester: the weeks 14-28, The third Trimester: the weeks 29 ~
 ```{r}
-Births.df <- data.table::fread(file = "data/all_births_hurricane.csv")
+library(data.table)
+Trimesters.df <- data.table::fread(file = "data/all_births_hurricane.csv")
 ```
 
-7.2 million births. Time period is 1981-1-1 until 2022-12-31. Only dates are given not times
-
-Alternative birth data set from Jihoon posted on Teams March 31, 2025 in General > Data > Florida > 1_FL > Jihoon > 0_birth_Emily > 20_definition_final > birth_final_all_final_xxxx.Rdata where xxxx is year
-
-Load in the `.Rdata` files
+Get corresponding birth and heat data by concatenating the `.Rdata` files in the folder `21_definition_final_re`
 ```{r}
-load("data/20_definition_final/birth_all_final_1981.Rdata")
-load("data/20_definition_final/birth_all_final_1982.Rdata")
+start_time <- Sys.time()
+files <- list.files(path = "data/21_definition_final_re", 
+                    pattern = "\\.Rdata$", full.names = TRUE)
 
-load("data/21_definition_final_re/combine_data_all1981.Rdata")
-```
-
-Remove rows with missing values
-```{r}
-Births.df <- na.omit(Births.df)
-```
-
-Checks on file for match with Tulane folks
-```{r}
-X <- Births.df |>
-  dplyr::filter(DATE_OF_BIRTH >= as.Date("2000-01-01") & DATE_OF_BIRTH <= as.Date("2000-12-31"))
+All.dt <- rbindlist(lapply(files, function(file) {
+  df <- get(load(file))
+  as.data.table(df)
+}), use.names = TRUE, fill = TRUE)
+Sys.time() - start_time
 ```
 
 Make the data frame a simple feature data frame with POINT geometry
 ```{r}
-Births.sf <- Births.df |>
+Trimesters.sf <- Trimesters.df |>
   dplyr::mutate(Date = lubridate::as_date(DATE_OF_BIRTH),
                 DateT1s = lubridate::as_date(trimester1_s_date),
                 DateT1e = lubridate::as_date(trimester1_e_date),
@@ -222,56 +213,21 @@ Births.sf <- Births.df |>
                 ) |>
   sf::st_as_sf(coords = c("final_lon", "final_lat"),
                crs = 4326) |>
-  dplyr::select(Birth_ID = ID, Birth_Date = Date, DateT1s, DateT1e,
+  dplyr::select(ID = ID, Birth_Date = Date, DateT1s, DateT1e,
                 DateT2s, DateT2e, DateT3s,
                 Month_of_Birth, Year_of_Birth, 
                 Month_of_T1s, Month_of_T1e, 
                 Month_of_T2s, Month_of_T2e, Month_of_T3s)
 ```
 
-Keep only births falling within the range of storm years
-```{r}
-withIn <- Births.sf$Year_of_Birth >= storm_year_range[1] & Births.sf$Year_of_Birth <= storm_year_range[2]
-Births.sf <- Births.sf[withIn, ]
-```
-
-Down to 6.8 million births
-
 # Start of code that parses by trimester
 
-Keep only births in which either the trimester start or end months are within the storm season. Here we start with the third trimester
-```{r}
-withIn <- Births.sf$Month_of_T1e %in% storm_months | Births.sf$Month_of_T1s %in% storm_months
-Births.sf <- Births.sf[withIn, ]
-```
-
-Down to 5.4 million births
-
-Keep only births occurring inside the union of all effect (threat/impact/cleanup) polygons. We assume the trimester dates have the same spatial location (the mother did not relocate during pregnancy). This is not very helpful in reducing the number of births in the record using all storms since storms over these years cover almost the entire state of Florida
-```{r}
-withIn <- Births.sf |>
-  sf::st_within(union_Swaths2.sfg, sparse = FALSE)
-Births.sf <- Births.sf[withIn, ]
-```
-
-Check using a map. Sample 1,000 birth records
-```{r}
-nrows <- nrow(Births.sf)
-keep_rows <- sample.int(nrows, size = 1000)
-
-tmap::tm_shape(Swaths2.sf) +
-  tmap::tm_borders() +
-tmap::tm_shape(Births.sf$geometry[keep_rows]) +
-  tmap::tm_dots()
-```
-
-Filter births temporally by trimester start and end dates and spatially by storm effect zones. This takes about 6.5 hours (3rd trimester) on my Apple M1 Pro with 32G memory. It took 4.3 hours on my Apple M4 (1st trimester)
+Filter births temporally by trimester start and end dates and spatially by storm effect zones. It took 5.2 hours on my Apple M4 (1st trimester)
 ```{r}
 start_time <- Sys.time()
-#keep_rows <- sample.int(nrow(Births.sf), size = 5000)
+#keep_rows <- sample.int(nrow(Trimesters.sf), size = 5000)
 
-num_obs <- nrow(Births.sf)
-#num_obs <- 500000  #check to see if things are working using a smaller subset of the data
+num_obs <- nrow(Trimesters.sf)
 chunk_size <- 50000
 num_chunks <- ceiling(num_obs / chunk_size)
 print(paste("Number of chunks to process", num_chunks))
@@ -285,9 +241,9 @@ for (i in seq(1, num_obs, by = chunk_size)) {
   
   print(paste("Processing chunk", chunk_index))
 
-  chunk.sf <- Births.sf[chunk_indices, ]
+  chunk.sf <- Trimesters.sf[chunk_indices, ]
 
-# 1 Filter births by trimester date range
+# 1 Filter births by trimester date range, change DateTXs & DateTXe for different trimesters
 births_storm_filtered <- chunk.sf |>
   dplyr::rowwise() |>
   dplyr::mutate(
@@ -302,7 +258,7 @@ births_with_impacts <- sf::st_join(births_storm_filtered, TIC.sf, join = sf::st_
 # 3 Keep only records where a birth was inside a storm effect zone during the specified trimester
 births_with_impacts <- births_with_impacts |>
   dplyr::filter(!is.na(Storm_Name.x)) |>
-  dplyr::select(Birth_ID, Birth_Date, DateT3s,
+  dplyr::select(ID, Birth_Date, DateT1s, DateT1e,
                 Storm_Name = Storm_Name.x, 
                 Storm_Category = Storm_Category.x,
                 Storm_Effect = Storm_Effect.x, geometry) |>
@@ -320,105 +276,55 @@ Sys.time() - start_time
 Merge with all births and remove the geometry column
 ```{r}
 # which birth IDs are unique
-unique_Birth_IDs <- unique(births_with_impacts$Birth_ID)
+unique_Birth_IDs <- unique(births_with_impacts$ID)
 
 # is the birth ID not in the births_with_impacts data
-X <- !Births.sf$Birth_ID %in% unique_Birth_IDs
-births_without_impacts <- Births.sf[X,]
+X <- !Trimesters.sf$ID %in% unique_Birth_IDs
+births_without_impacts <- Trimesters.sf[X, ]
 
 # drop geometry and add dummy columns to the births_without_impacts
 births_without_impacts <- births_without_impacts |>
   sf::st_drop_geometry() |>
   dplyr::mutate(Storm_Name = NA, Storm_Category = NA, Storm_Effect = "None") |>
-  dplyr::select(Birth_ID, Birth_Date, DateT3s, Storm_Name, Storm_Category, Storm_Effect)
+  dplyr::select(ID, Birth_Date, DateT1s, DateT1e, Storm_Name, Storm_Category, Storm_Effect)
 
-# merge and arrange by increasing birth dates
+# merge
 merged_data <- births_with_impacts |>
   sf::st_drop_geometry() |>
-  rbind(births_without_impacts) |>
-  dplyr::arrange(Birth_Date)
+  rbind(births_without_impacts)
 ```
 
 Cast to a wider format
 ```{r}
-library(data.table)
-
 # make the data frame a data table
 merged_data.dt <- merged_data |>
   as.data.table()
 
 # Create unique index per birth in the data table
-merged_data.dt[, row_id := sequence(.N), by = Birth_ID]
+merged_data.dt[, row_id := sequence(.N), by = ID]
 
 # fast long to wide for data tables
 merged_data_wide.dt <- dcast(
   data = merged_data.dt, 
-  formula = Birth_ID + Birth_Date + DateT3s ~ row_id, 
+  formula = ID + Birth_Date + DateT1s + DateT1e ~ row_id, 
   value.var = c("Storm_Name", "Storm_Category", "Storm_Effect")
 )
 ```
 
-Order births according to the original birth data ID
+Order births according to the ID in `All.dt` then column bind to `All.dt`
 ```{r}
-#reorder based on Births.sf$Birth_ID
-Births_with_storm_info_1st_trimester <- merged_data_wide.dt[order(match(merged_data_wide.dt$Birth_ID, Births.sf$Birth_ID))]
+merged_data_wide_ordered.dt <- merged_data_wide.dt[order(match(merged_data_wide.dt$ID, All.dt$ID))]
 
-#reorder based on Births.df$Birth_ID
-names(merged_data_wide.dt)[1] <- "ID"
-Births_with_storm_info_1st_trimester2 <- merge(Births.df, merged_data_wide.dt, by = "ID", all.x = TRUE)  # Ensures all IDs are kept
-setorder(Births_with_storm_info_1st_trimester2, ID)
-```
-
-Concatenate the .Rdata files in the folder `21_definition_final_re`, change the column labeled `ID` to `Birth_ID` then join the Births_with_storm_info_3rd_trimester by `Birth_ID`
-```{r}
-files <- list.files(path = "data/21_definition_final_re", pattern = "\\.Rdata$", full.names = TRUE)
-
-#concatenated_df <- do.call(rbind, lapply(files, function(file) {
-#  df <- get(load(file))  # Load the data frame from .Rdata
-#  return(df)             # Ensure it's returned for binding
-#}))  # error: vector memory limit of 32 Gb
-
-#concatenated_dt <- rbindlist(lapply(files, function(file) {
-#  df <- get(load(file))
-#  as.data.table(df)
-#}), use.names = TRUE, fill = TRUE) # error: vector memory limit of 32 Gb
-
-batch_size <- 3  # Process 3 files at a time
-combined_df <- NULL
-
-for (i in seq(1, length(files), by = batch_size)) {
-  batch_files <- files[i:min(i + batch_size - 1, length(files))]
-
-  batch_df <- do.call(rbind, lapply(batch_files, function(file) {
-    df <- get(load(file))
-    return(df)
-  }))
-
-  # Save intermediate results to disk to free memory
-  save(batch_df, file = paste0("batch_", i, ".Rdata"))
-  
-  # Remove batch from memory to free space
-  rm(batch_df)
-  gc()  # Garbage collection
-}
-
-# Later, combine saved batch files
-batch_files <- list.files(pattern = "batch_.*\\.Rdata$")
-final_df <- do.call(rbind, lapply(batch_files, function(file) {
-  get(load(file))
-}))
-
-load("data/21_definition_final_re/combine_data_all2022.Rdata")
-#save(final_df, file = "final_combined.RData")
+All_1st_Trimester_Storm_Effects.dt <- cbind(All.dt, merged_data_wide_ordered.dt)
 ```
 
 Write out the data table to a csv file
 ```{r}
-data.table::fwrite(Births_with_storm_info_3rd_trimester, 
-                   file = "data/outputs/Births_with_storm_info_3rd_trimester.csv")
+data.table::fwrite(All_1st_Trimester_Storm_Effects.dt, 
+                   file = "data/outputs/All_1st_Trimester_Storm_Effects.csv")
 
 # read it back
-Births_with_storm_info_3rd_trimester <- data.table::fread(file = "data/outputs/output.csv")
+All_1st_Trimester_Storm_Effects.dt <- data.table::fread(file = "data/outputs/output.csv")
 ```
 
 ## Merge with death records
