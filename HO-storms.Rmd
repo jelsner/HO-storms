@@ -313,10 +313,18 @@ combined_data_wide.dt <- dcast(
 
 Order births according to the ID in `All.dt` then column bind to `All.dt`
 ```{r}
+common_cols <- intersect(names(combined_data_wide.dt), names(All.dt))
+
 start_time <- Sys.time()
-combined_data_wide_ordered.dt <- combined_data_wide.dt[order(match(combined_data_wide.dt$ID, All.dt$ID))]
+
+if(length(common_cols) > 0){
+  setnames(combined_data_wide.dt, old = common_cols, new = paste0(common_cols, "_new"))
+}
+
+combined_data_wide_ordered.dt <- combined_data_wide.dt[order(match(combined_data_wide.dt$ID_new, All.dt$ID))]
 
 All_1st_Trimester_Storm_Effects.dt <- cbind(All.dt, combined_data_wide_ordered.dt)
+
 Sys.time() - start_time
 ```
 
@@ -327,6 +335,15 @@ data.table::fwrite(All_1st_Trimester_Storm_Effects.dt,
 
 # read it back
 All_1st_Trimester_Storm_Effects.dt <- data.table::fread(file = "data/outputs/All_1st_Trimester_Storm_Effects.csv")
+```
+
+Filter for births during 1986
+```{r}
+All_1st_Trimester_Storm_Effects.dt$Birth_Year <- lubridate::year(All_1st_Trimester_Storm_Effects.dt$DATE_OF_BIRTH)
+
+All_1st_Tri_SE_1986.dt <- All_1st_Trimester_Storm_Effects.dt[All_1st_Trimester_Storm_Effects.dt$Birth_Year == 1986, ]
+data.table::fwrite(All_1st_Tri_SE_1986.dt, 
+                   file = "data/outputs/All_1st_Tri_SE_1986.csv")
 ```
 
 ## Merge with death records
