@@ -334,7 +334,9 @@ data.table::fwrite(All_1st_Trimester_Storm_Effects.dt,
                    file = "data/outputs/All_1st_Trimester_Storm_Effects.csv")
 
 # read it back
+start_time <- Sys.time()
 All_1st_Trimester_Storm_Effects.dt <- data.table::fread(file = "data/outputs/All_1st_Trimester_Storm_Effects.csv")
+Sys.time() - start_time
 ```
 
 Filter for births during 1986
