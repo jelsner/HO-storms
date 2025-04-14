@@ -194,6 +194,27 @@ All.dt <- rbindlist(lapply(files, function(file) {
 Sys.time() - start_time
 ```
 
+Select only the columns in the following list sent by Jessica Broach via email on April 14, 2025
+```{r}
+col_list <- c("ID", "final_lat", "final_lon", "ALCOHOL_DRINKS", "ALCOHOL_USE", "BIRTH_WEIGHT_GRAMS", 
+"CalculatedGestationalAge", "DATE_OF_BIRTH", "GESTATION_WEEKS", "FATHER_AGE", "FATHER_EDCODE",
+"Father_CalculatedHisp", "Father_CalculatedRace", "MENSES_DATE", "MOTHER_AGE", "Mother_CalculatedHisp",
+"Mother_CalculatedRace", "MOTHER_EDCODE", "MOTHER_MARRIED", "MOTHER_RES_COUNTY", "MOTHER_WIC_YESNO", "MR_DIAB_GEST", "MR_HYPERT_ECLAMPSIA", "MR_HYPERT_PREG", "MR_PREV_PRETERM", "PLURALITY_CODE", 
+"PrePregnancy_BMI", "PRINCIPAL_SOURCE_PAY", "PRINCIPAL_SRCPAY_CODE", "SEX", "m28_temperature",
+"lat_pm25", "lon_pm25", "date_pm25", "loc_data_pm25", "m28_pm25", "m21_pm25", "m14_pm25", "m7_pm25",
+"dday_pm25", "p7_pm25", "p14_pm25", "p21_pm25", "p28_pm25", "m20_pm25", "m19_pm25", "m18_pm25",
+"m17_pm25", "m16_pm25", "m15_pm25", "m14_pm25.1", "m13_pm25", "m12_pm25", "m11_pm25", "m10_pm25",
+"m9_pm25", "m8_pm25", "m7_pm25.1", "m6_pm25", "m5_pm25", "m4_pm25", "m3_pm25", "m2_pm25", "m1_pm25",
+"m0_pm25", "year_pm25r", "d_1_13_wk_90_1", "d_14_28_wk_90_1", "d_from29_wk_90_1", "d_1_13_wk_95_1",
+"d_14_28_wk_95_1", "d_from29_wk_95_1", "d_1_13_wk_98_1", "d_14_28_wk_98_1", "d_from29_wk_98_1",
+"d_1_13_wk_90_2", "d_14_28_wk_90_2", "d_from29_wk_90_2", "d_1_13_wk_95_2", "d_14_28_wk_95_2",
+"d_from29_wk_95_2", "d_1_13_wk_98_2", "d_14_28_wk_98_2", "d_from29_wk_98_2", "d_1_13_wk_90_3",
+"d_14_28_wk_90_3", "d_from29_wk_90_3", "d_1_13_wk_95_3", "d_14_28_wk_95_3", "d_from29_wk_95_3",
+"d_1_13_wk_98_3", "d_14_28_wk_98_3", "d_from29_wk_98_3", "trimester1_length", "trimester2_length",
+"trimester3_length")
+```
+
+
 Make the data frame a simple feature data frame with POINT geometry
 ```{r}
 Trimesters.sf <- Trimesters.df |>
