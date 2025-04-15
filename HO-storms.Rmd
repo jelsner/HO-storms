@@ -212,10 +212,12 @@ col_list <- c("ID", "final_lat", "final_lon", "ALCOHOL_DRINKS", "ALCOHOL_USE", "
 "d_14_28_wk_90_3", "d_from29_wk_90_3", "d_1_13_wk_95_3", "d_14_28_wk_95_3", "d_from29_wk_95_3",
 "d_1_13_wk_98_3", "d_14_28_wk_98_3", "d_from29_wk_98_3", "trimester1_length", "trimester2_length",
 "trimester3_length")
+
+All.dt <- All.dt |>
+  dplyr::select(dplyr::all_of(col_list))
 ```
 
-
-Make the data frame a simple feature data frame with POINT geometry
+Make the `Trimester.df` data frame a simple feature data frame with POINT geometry
 ```{r}
 Trimesters.sf <- Trimesters.df |>
   dplyr::mutate(Date = lubridate::as_date(DATE_OF_BIRTH),
@@ -332,7 +334,7 @@ combined_data_wide.dt <- dcast(
 )
 ```
 
-Order births according to the ID in `All.dt` then column bind to `All.dt`
+Combine with all data. Start by ordering births according to the ID in `All.dt` then column bind to `All.dt`
 ```{r}
 common_cols <- intersect(names(combined_data_wide.dt), names(All.dt))
 
