@@ -31,7 +31,7 @@ Tracks.sf <- sf::st_read(dsn = here::here("data"),
 
 Geometry type is LINESTRING. Wind speed is in units of knots (nautical mile per hour)
 
-Keep only storms having USA_WIND >= 64 occurring between 1981 and 2022
+Keep only storms having USA_WIND >= 55 occurring between 1981 and 2022
 ```{r}
 Tracks2.sf <- Tracks.sf |>
   dplyr::filter(year >= 1981 & year <= 2022) |>
@@ -125,7 +125,7 @@ Check to see which storms these are
 #Swaths2.sf$NAME[x]
 ```
 
-The situations are different for Erin, Fay, and Irma so it is not clear what to do. One way is simple to remove these storms from further consideration. Here we keep them
+The situations are different for Erin, Fay, and Irma so it is not clear what to do. One approach is to simply remove these storms from further consideration. Here we keep them essentially ignoring the second landfall
 ```{r}
 #Swaths2.sf <- Swaths2.sf[!x,]
 ```
