@@ -79,7 +79,7 @@ Swaths.sf <- Tracks2.sf |>
 Wind swaths that cross Florida. `USAboundaries` package no longer maintained on CRAN
 ```{r}
 #devtools::install_github("ropensci/USAboundariesData")
-#devtools::install_github("ropensci/USAboundaries")
+devtools::install_github("ropensci/USAboundaries")
 
 Boundaries.sf <- USAboundaries::us_states(resolution = "low", states = "FL") |> 
   sf::st_transform(crs = 32616)
@@ -181,7 +181,13 @@ library(data.table)
 Trimesters.df <- data.table::fread(file = "data/all_births_hurricane.csv")
 ```
 
-Get corresponding birth and heat data by concatenating the `.Rdata` files in the folder `21_definition_final_re`
+Add a "IDate" column that is 3 months prior to the pregnancy
+```{r}
+library(lubridate)
+Trimesters.df[, three_mo_before_preg := as.IDate(as.Date(trimester1_s_date) %m-% months(3))]
+```
+
+Get corresponding birth and heat data by concatenating the `.Rdata` files in the folder `21_definition_final_re`. This takes 7.14 minutes
 ```{r}
 start_time <- Sys.time()
 files <- list.files(path = "data/21_definition_final_re", 
@@ -272,7 +278,7 @@ births_storm_filtered <- chunk.sf |>
   dplyr::mutate(
     matched_storms = list(
       TIC.sf |>
-        dplyr::filter(Date >= DateT1s & Date <= DateT1e))) |>
+        dplyr::filter(Date >= DateT2s & Date <= DateT2e))) |>
   tidyr::unnest(matched_storms, keep_empty = TRUE)
 
 # 2 Perform spatial join to check if birth locations fall within the storm effect zones
@@ -281,7 +287,7 @@ births_with_impacts <- sf::st_join(births_storm_filtered, TIC.sf, join = sf::st_
 # 3 Keep only records where a birth was inside a storm effect zone during the specified trimester
 births_with_impacts <- births_with_impacts |>
   dplyr::filter(!is.na(Storm_Name.x)) |>
-  dplyr::select(ID, Birth_Date, DateT1s, DateT1e,
+  dplyr::select(ID, Birth_Date, DateT2s, DateT2e,  # change DateTXs, DateTXe
                 Storm_Name = Storm_Name.x, 
                 Storm_Category = Storm_Category.x,
                 Storm_Effect = Storm_Effect.x, geometry) |>
@@ -298,6 +304,7 @@ Sys.time() - start_time
 
 Combine with all births and remove the geometry column
 ```{r}
+start_time <- Sys.time()
 # which birth IDs are unique
 unique_Birth_IDs <- unique(births_with_impacts$ID)
 
@@ -309,16 +316,18 @@ births_without_impacts <- Trimesters.sf[X, ]
 births_without_impacts <- births_without_impacts |>
   sf::st_drop_geometry() |>
   dplyr::mutate(Storm_Name = NA, Storm_Category = NA, Storm_Effect = "None") |>
-  dplyr::select(ID, Birth_Date, DateT1s, DateT1e, Storm_Name, Storm_Category, Storm_Effect)
+  dplyr::select(ID, Birth_Date, DateT2s, DateT2e, Storm_Name, Storm_Category, Storm_Effect) # change DateTXs & DateTXs
 
 # combine
 combined_data <- births_with_impacts |>
   sf::st_drop_geometry() |>
   rbind(births_without_impacts)
+Sys.time() - start_time
 ```
 
 Cast to a wider format
 ```{r}
+start_time <- Sys.time()
 # make the data frame a data table
 combined_data.dt <- combined_data |>
   as.data.table()
@@ -329,9 +338,10 @@ combined_data.dt[, row_id := sequence(.N), by = ID]
 # fast long to wide for data tables
 combined_data_wide.dt <- dcast(
   data = combined_data.dt, 
-  formula = ID + Birth_Date + DateT1s + DateT1e ~ row_id, 
-  value.var = c("Storm_Name", "Storm_Category", "Storm_Effect")
+  formula = ID + Birth_Date + DateT2s + DateT2e ~ row_id, 
+  value.var = c("Storm_Name", "Storm_Category", "Storm_Effect") #change DateTXs and DateTXe
 )
+Sys.time() - start_time
 ```
 
 Combine with all data. Start by ordering births according to the ID in `All.dt` then column bind to `All.dt`
@@ -346,29 +356,29 @@ if(length(common_cols) > 0){
 
 combined_data_wide_ordered.dt <- combined_data_wide.dt[order(match(combined_data_wide.dt$ID_new, All.dt$ID))]
 
-All_1st_Trimester_Storm_Effects.dt <- cbind(All.dt, combined_data_wide_ordered.dt)
+All_2nd_Trimester_Storm_Effects.dt <- cbind(All.dt, combined_data_wide_ordered.dt)
 
 Sys.time() - start_time
 ```
 
 Write out the data table to a csv file
 ```{r}
-data.table::fwrite(All_1st_Trimester_Storm_Effects.dt, 
-                   file = "data/outputs/All_1st_Trimester_Storm_Effects.csv")
+data.table::fwrite(All_2nd_Trimester_Storm_Effects.dt, 
+                   file = "data/outputs/All_2nd_Trimester_Storm_Effects.csv")
 
 # read it back
-start_time <- Sys.time()
-All_1st_Trimester_Storm_Effects.dt <- data.table::fread(file = "data/outputs/All_1st_Trimester_Storm_Effects.csv")
-Sys.time() - start_time
+#start_time <- Sys.time()
+#All_2nd_Trimester_Storm_Effects.dt <- data.table::fread(file = "data/outputs/All_2nd_Trimester_Storm_Effects.csv")
+#Sys.time() - start_time
 ```
 
-Filter for births during 1986
+Filter for births during 1986. NOT RUN
 ```{r}
-All_1st_Trimester_Storm_Effects.dt$Birth_Year <- lubridate::year(All_1st_Trimester_Storm_Effects.dt$DATE_OF_BIRTH)
+#All_1st_Trimester_Storm_Effects.dt$Birth_Year <- lubridate::year(All_1st_Trimester_Storm_Effects.dt$DATE_OF_BIRTH)
 
-All_1st_Tri_SE_1986.dt <- All_1st_Trimester_Storm_Effects.dt[All_1st_Trimester_Storm_Effects.dt$Birth_Year == 1986, ]
-data.table::fwrite(All_1st_Tri_SE_1986.dt, 
-                   file = "data/outputs/All_1st_Tri_SE_1986.csv")
+#All_1st_Tri_SE_1986.dt <- All_1st_Trimester_Storm_Effects.dt[All_1st_Trimester_Storm_Effects.dt$Birth_Year == 1986, ]
+#data.table::fwrite(All_1st_Tri_SE_1986.dt, 
+#                   file = "data/outputs/All_1st_Tri_SE_1986.csv")
 ```
 
 ## Merge with death records
