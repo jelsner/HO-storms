@@ -5,15 +5,15 @@ editor_options:
   chunk_output_type: console
 ---
 
-## Summary of the procedures used in Tc modeling and merging of birth records (initially written by chatGPT using the code below then edited)
+## Summary of the procedures used in TC modeling and merging of birth records (initially written by ChatGPT using the code below then edited)
 
 We built a comprehensive spatial-temporal model to assess the effects of tropical cyclones (TCs) on birth outcomes, focusing on whether pregnancies in Florida were exposed to hurricanes during critical trimesters and preconception. Here's a summary of our key components and logic:
 
 **Storm Data Preparation**
 
-We download and import North Atlantic tropical cyclone track data from the NOAA IBTrACS dataset. The data includes storm path geometries and attributes like wind speed and pressure. The tracks are filtered to include only significant storms (e.g., hurricanes with wind speeds ≥55 knots) that occurred between 1981 and 2022. Missing values for the radius to maximum winds (RMW) are imputed in stages based on pedigree (storm ID) and minimum central pressure.
+We download and import North Atlantic tropical cyclone track data from the NOAA IBTrACS dataset. The data includes storm track geometries and attributes like wind speed and pressure. The tracks are filtered to include only significant storms (e.g., tropical cyclones with wind speeds ≥55 knots) that occurred between 1981 and 2022. Missing values for the radius to maximum winds (RMW) are imputed in stages based on pedigree (storm ID) and minimum central pressure.
 
-Each storm's track is buffered using the RMW to create polygonal wind swaths. These swaths are then spatially intersected with the state of Florida to identify storms affecting the region. Overlapping swaths from the same storm are dissolved to form one geometry per storm, and each is assigned a Saffir-Simpson category based on peak wind speed. Swath geometries are transformed into a geographic coordinate system for compatibility with later spatial operations.
+Each storm's track is buffered using the RMW to create polygonal wind swaths. These swaths are then spatially intersected with a boundary defining the state of Florida to identify storms affecting the region. Overlapping swaths from the same storm are dissolved to form one geometry per storm, and each is assigned a Saffir-Simpson category based on peak wind speed. Swath geometries are transformed into a geographic coordinate system for compatibility with later spatial operations.
 
 **Temporal Expansion and Classification**
 
@@ -25,7 +25,7 @@ Next we load individual-level birth data containing information on the birth dat
 
 **Exposure Assessment**
 
-The code then iterates through chunks of the birth dataset to assess exposure during the first trimester (1–13 weeks). For each chunk, the code filters storms temporally to those falling within the individual's first trimester. It then uses a spatial join to determine whether the birth location falls within the storm's effect zone on those dates. Only those records with confirmed overlap are kept. This procedure is memory-intensive and optimized through chunking and garbage collection.
+The code then iterates through chunks of the birth dataset to assess exposure during a given trimester (e.g., first trimester weeks 1-13). For each chunk, the code filters storms temporally to those falling within the individual's first trimester. It then uses a spatial join to determine whether the birth location falls within the storm's effect zone on those dates. Only those records with confirmed overlap are kept. This procedure is memory-intensive and optimized through chunking and garbage collection.
 
 Finally, births exposed to storms are recombined and linked with the larger birth dataset for downstream statistical analysis or modeling of birth outcomes.
 
