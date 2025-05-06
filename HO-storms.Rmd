@@ -251,24 +251,32 @@ Make the `Trimester.df` data frame a simple feature data frame with POINT geomet
 ```{r}
 Trimesters.sf <- Trimesters.df |>
   dplyr::mutate(Date = lubridate::as_date(DATE_OF_BIRTH),
+                DateT0s = three_mo_before_preg,
+                DateT0e = lubridate::as_date(trimester1_s_date),
                 DateT1s = lubridate::as_date(trimester1_s_date),
                 DateT1e = lubridate::as_date(trimester1_e_date),
                 DateT2s = lubridate::as_date(trimester2_s_date),
                 DateT2e = lubridate::as_date(trimester2_e_date),
                 DateT3s = lubridate::as_date(trimester3_s_date),
+                DateT3e = Date,
                 Year_of_Birth = lubridate::year(Date),
                 Month_of_Birth = lubridate::month(Date),
+                Month_of_T0s = lubridate::month(DateT1s),
+                Month_of_T0e = lubridate::month(DateT1e),
                 Month_of_T1s = lubridate::month(DateT1s),
                 Month_of_T1e = lubridate::month(DateT1e),
                 Month_of_T2s = lubridate::month(DateT2s),
                 Month_of_T2e = lubridate::month(DateT2e),
-                Month_of_T3s = lubridate::month(DateT3s)
+                Month_of_T3s = lubridate::month(DateT3s),
+                Month_of_T3e = lubridate::month(DateT3e)
                 ) |>
   sf::st_as_sf(coords = c("final_lon", "final_lat"),
                crs = 4326) |>
-  dplyr::select(ID = ID, Birth_Date = Date, DateT1s, DateT1e,
-                DateT2s, DateT2e, DateT3s,
+  dplyr::select(ID = ID, Birth_Date = Date, 
+                DateT0s, DateT0e, DateT1s, DateT1e,
+                DateT2s, DateT2e, DateT3s, DateT3e,
                 Month_of_Birth, Year_of_Birth, 
+                Month_of_T0s, Month_of_T0e,
                 Month_of_T1s, Month_of_T1e, 
                 Month_of_T2s, Month_of_T2e, Month_of_T3s)
 ```
@@ -302,7 +310,7 @@ births_storm_filtered <- chunk.sf |>
   dplyr::mutate(
     matched_storms = list(
       TIC.sf |>
-        dplyr::filter(Date >= DateT2s & Date <= DateT2e))) |>
+        dplyr::filter(Date >= DateT3s & Date <= DateT3e))) |>
   tidyr::unnest(matched_storms, keep_empty = TRUE)
 
 # 2 Perform spatial join to check if birth locations fall within the storm effect zones
@@ -311,7 +319,7 @@ births_with_impacts <- sf::st_join(births_storm_filtered, TIC.sf, join = sf::st_
 # 3 Keep only records where a birth was inside a storm effect zone during the specified trimester
 births_with_impacts <- births_with_impacts |>
   dplyr::filter(!is.na(Storm_Name.x)) |>
-  dplyr::select(ID, Birth_Date, DateT2s, DateT2e,  # change DateTXs, DateTXe
+  dplyr::select(ID, Birth_Date, DateT3s, DateT3e,  # change DateTXs, DateTXe
                 Storm_Name = Storm_Name.x, 
                 Storm_Category = Storm_Category.x,
                 Storm_Effect = Storm_Effect.x, geometry) |>
@@ -326,7 +334,7 @@ births_with_impacts <- do.call(rbind, results_list) #row bind the chunks
 Sys.time() - start_time
 ```
 
-Combine with all births and remove the geometry column
+Combine with all births and remove the geometry column. 15 sec
 ```{r}
 start_time <- Sys.time()
 # which birth IDs are unique
@@ -340,7 +348,7 @@ births_without_impacts <- Trimesters.sf[X, ]
 births_without_impacts <- births_without_impacts |>
   sf::st_drop_geometry() |>
   dplyr::mutate(Storm_Name = NA, Storm_Category = NA, Storm_Effect = "None") |>
-  dplyr::select(ID, Birth_Date, DateT2s, DateT2e, Storm_Name, Storm_Category, Storm_Effect) # change DateTXs & DateTXs
+  dplyr::select(ID, Birth_Date, DateT3s, DateT3e, Storm_Name, Storm_Category, Storm_Effect) # change DateTXs & DateTXs
 
 # combine
 combined_data <- births_with_impacts |>
@@ -349,7 +357,7 @@ combined_data <- births_with_impacts |>
 Sys.time() - start_time
 ```
 
-Cast to a wider format
+Cast to a wider format. 24 sec
 ```{r}
 start_time <- Sys.time()
 # make the data frame a data table
@@ -362,13 +370,13 @@ combined_data.dt[, row_id := sequence(.N), by = ID]
 # fast long to wide for data tables
 combined_data_wide.dt <- dcast(
   data = combined_data.dt, 
-  formula = ID + Birth_Date + DateT2s + DateT2e ~ row_id, 
+  formula = ID + Birth_Date + DateT3s + DateT3e ~ row_id, 
   value.var = c("Storm_Name", "Storm_Category", "Storm_Effect") #change DateTXs and DateTXe
 )
 Sys.time() - start_time
 ```
 
-Combine with all data. Start by ordering births according to the ID in `All.dt` then column bind to `All.dt`
+Combine with all data. Start by ordering births according to the ID in `All.dt` then column bind to `All.dt`. 9 sec
 ```{r}
 common_cols <- intersect(names(combined_data_wide.dt), names(All.dt))
 
@@ -380,15 +388,15 @@ if(length(common_cols) > 0){
 
 combined_data_wide_ordered.dt <- combined_data_wide.dt[order(match(combined_data_wide.dt$ID_new, All.dt$ID))]
 
-All_2nd_Trimester_Storm_Effects.dt <- cbind(All.dt, combined_data_wide_ordered.dt)
+All_3rd_Trimester_Storm_Effects.dt <- cbind(All.dt, combined_data_wide_ordered.dt)
 
 Sys.time() - start_time
 ```
 
-Write out the data table to a csv file
+Write out the data table to a csv file. 23 sec
 ```{r}
 data.table::fwrite(All_2nd_Trimester_Storm_Effects.dt, 
-                   file = "data/outputs/All_2nd_Trimester_Storm_Effects.csv")
+                   file = "data/outputs/All_3rd_Trimester_Storm_Effects.csv")
 
 # read it back
 #start_time <- Sys.time()
