@@ -310,7 +310,7 @@ births_storm_filtered <- chunk.sf |>
   dplyr::mutate(
     matched_storms = list(
       TIC.sf |>
-        dplyr::filter(Date >= DateT3s & Date <= DateT3e))) |>
+        dplyr::filter(Date >= DateT0s & Date <= DateT0e))) |>
   tidyr::unnest(matched_storms, keep_empty = TRUE)
 
 # 2 Perform spatial join to check if birth locations fall within the storm effect zones
@@ -319,7 +319,7 @@ births_with_impacts <- sf::st_join(births_storm_filtered, TIC.sf, join = sf::st_
 # 3 Keep only records where a birth was inside a storm effect zone during the specified trimester
 births_with_impacts <- births_with_impacts |>
   dplyr::filter(!is.na(Storm_Name.x)) |>
-  dplyr::select(ID, Birth_Date, DateT3s, DateT3e,  # change DateTXs, DateTXe
+  dplyr::select(ID, Birth_Date, DateT0s, DateT0e,  # change DateTXs, DateTXe
                 Storm_Name = Storm_Name.x, 
                 Storm_Category = Storm_Category.x,
                 Storm_Effect = Storm_Effect.x, geometry) |>
@@ -348,7 +348,7 @@ births_without_impacts <- Trimesters.sf[X, ]
 births_without_impacts <- births_without_impacts |>
   sf::st_drop_geometry() |>
   dplyr::mutate(Storm_Name = NA, Storm_Category = NA, Storm_Effect = "None") |>
-  dplyr::select(ID, Birth_Date, DateT3s, DateT3e, Storm_Name, Storm_Category, Storm_Effect) # change DateTXs & DateTXs
+  dplyr::select(ID, Birth_Date, DateT0s, DateT0e, Storm_Name, Storm_Category, Storm_Effect) # change DateTXs & DateTXs
 
 # combine
 combined_data <- births_with_impacts |>
@@ -370,7 +370,7 @@ combined_data.dt[, row_id := sequence(.N), by = ID]
 # fast long to wide for data tables
 combined_data_wide.dt <- dcast(
   data = combined_data.dt, 
-  formula = ID + Birth_Date + DateT3s + DateT3e ~ row_id, 
+  formula = ID + Birth_Date + DateT0s + DateT0e ~ row_id, 
   value.var = c("Storm_Name", "Storm_Category", "Storm_Effect") #change DateTXs and DateTXe
 )
 Sys.time() - start_time
@@ -388,15 +388,15 @@ if(length(common_cols) > 0){
 
 combined_data_wide_ordered.dt <- combined_data_wide.dt[order(match(combined_data_wide.dt$ID_new, All.dt$ID))]
 
-All_3rd_Trimester_Storm_Effects.dt <- cbind(All.dt, combined_data_wide_ordered.dt)
+All_Pre_Conception_Storm_Effects.dt <- cbind(All.dt, combined_data_wide_ordered.dt)
 
 Sys.time() - start_time
 ```
 
 Write out the data table to a csv file. 23 sec
 ```{r}
-data.table::fwrite(All_2nd_Trimester_Storm_Effects.dt, 
-                   file = "data/outputs/All_3rd_Trimester_Storm_Effects.csv")
+data.table::fwrite(All_Pre_Conception_Storm_Effects.dt, 
+                   file = "data/outputs/All_Pre_Conception_Storm_Effects.csv")
 
 # read it back
 #start_time <- Sys.time()
