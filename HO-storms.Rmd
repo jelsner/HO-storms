@@ -5,7 +5,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-## Summary of the procedures used in TC modeling and merging of birth records (initially written by ChatGPT using the code below then edited)
+## Summary of the procedures used in TC modeling and merging of birth records (initially written by ChatGPT using my code below then edited by me)
 
 We built a comprehensive spatial-temporal model to assess the effects of tropical cyclones (TCs) on birth outcomes, focusing on whether pregnancies in Florida were exposed to hurricanes during critical trimesters and preconception. Here's a summary of our key components and logic:
 
@@ -103,7 +103,9 @@ Swaths.sf <- Tracks2.sf |>
 Wind swaths that cross Florida. `USAboundaries` package no longer maintained on CRAN
 ```{r}
 #devtools::install_github("ropensci/USAboundariesData")
-devtools::install_github("ropensci/USAboundaries")
+devtools::install_github("ropensci/USAboundaries", force = TRUE)
+install.packages("USAboundariesData", repos = "https://ropensci.r-universe.dev", type = "source")
+
 
 Boundaries.sf <- USAboundaries::us_states(resolution = "low", states = "FL") |> 
   sf::st_transform(crs = 32616)
@@ -136,6 +138,8 @@ Swaths2.sf <- Swaths.sf |>
   ))
 
 tmap::tm_shape(Swaths2.sf) +
+  tm_borders("Storm_Category") +
+  tm_shape(Boundaries.sf) +
   tmap::tm_borders()
 ```
 
