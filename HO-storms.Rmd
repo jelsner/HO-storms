@@ -59,7 +59,7 @@ Keep only storms having USA_WIND >= 55 occurring between 1981 and 2022
 ```{r}
 Tracks2.sf <- Tracks.sf |>
   dplyr::filter(year >= 1981 & year <= 2022) |>
-  dplyr::filter(USA_WIND >= 55) |> # change to 34 for tropical storms and hurricanes
+  dplyr::filter(USA_WIND >= 64) |> # change to 34 for tropical storms and hurricanes
   dplyr::select(SID, SEASON, year, month, day, hour, min,
                 NAME, SUBBASIN, ISO_TIME,
                 USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
@@ -135,8 +135,8 @@ Swaths2.sf <- Swaths.sf |>
     Wind >= 137 ~ 5
   ))
 
-#tmap::tm_shape(Swaths2.sf) +
-#  tmap::tm_borders()
+tmap::tm_shape(Swaths2.sf) +
+  tmap::tm_borders()
 ```
 
 Each storm in `Swaths2.sf` is represented by a unique polygon (or multipolygon) with an impact date
@@ -399,9 +399,9 @@ data.table::fwrite(All_Pre_Conception_Storm_Effects.dt,
                    file = "data/outputs/All_Pre_Conception_Storm_Effects.csv")
 
 # read it back
-#start_time <- Sys.time()
-#All_2nd_Trimester_Storm_Effects.dt <- data.table::fread(file = "data/outputs/All_2nd_Trimester_Storm_Effects.csv")
-#Sys.time() - start_time
+start_time <- Sys.time()
+All_2nd_Trimester_Storm_Effects.dt <- data.table::fread(file = "data/outputs/All_2nd_Trimester_Storm_Effects.csv")
+Sys.time() - start_time
 ```
 
 Filter for births during 1986. NOT RUN
