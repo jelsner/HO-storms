@@ -503,12 +503,34 @@ combined_data <- deaths_with_impacts |>
   rbind(deaths_without_impacts)
 ```
 
-Make it a data table and order deaths according to the original ID in `Deaths.df`
+Make it a data table and order deaths according to the original ID in `Deaths.df` and add back the geometry column
 ```{r}
 combined_data.dt <- combined_data |>
   data.table::as.data.table()
 
 combined_data_ordered.dt <- combined_data.dt[order(match(combined_data.dt$Death_ID, Deaths.df$ID))]
+combined_data_ordered.df <- as.data.frame(combined_data_ordered.dt)
+
+geom_column <- sf::st_geometry(Deaths.sf)
+All_Deaths_Storm_Effects.sf <- sf::st_sf(combined_data_ordered.df, geometry = geom_column)
+```
+
+Write out the data table to a csv file
+```{r}
+data.table::fwrite(combined_data, 
+                   file = "data/outputs/All_Deaths_Storm_Effects.csv")
+
+# read it back
+Deaths.df <- data.table::fread(file = "data/outputs/All_Deaths_Storm_Effects.csv")
+```
+
+Write out the simple feature data frame
+```{r}
+sf::st_write(All_Deaths_Storm_Effects.sf, "data/outputs/Deaths/All_Deaths_Storm_Effects.shp")
+files_to_zip <- list.files(path = "data/outputs/Deaths",
+                           pattern = "^All_Deaths_Storm_Effects\\.(shp|shx|dbf|prj)$",
+                           full.names = TRUE)
+zip(zipfile = "All_Deaths_Storm_Effects.zip", files = files_to_zip)
 ```
 
 Death rate per day with and without impacts
