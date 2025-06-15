@@ -1,0 +1,106 @@
+---
+title: "All-Cause Mortality & Storms"
+output: html_document
+editor_options:
+  chunk_output_type: console
+---
+
+## Analytics of deaths and storms. Start with non-spatial analytics
+
+Read the data table to a csv file
+```{r}
+Deaths.dt <- data.table::fread(here::here("data", "outputs", "All_Deaths_Storm_Effects.csv"))
+Deaths.df <- Deaths.dt |>
+  as.data.frame()
+```
+
+```{r}
+library(dplyr)
+
+total_deaths <- nrow(Deaths.df)
+exposed_total <- Deaths.dt[Storm_Effect %in% c("Cleanup", "Impact", "Threat"), .N]
+
+# Calculate death counts and rates for specified storm effects
+death_rates <- Deaths.df |>
+  filter(Storm_Effect %in% c("Cleanup", "Impact", "Threat")) |>
+  group_by(Storm_Effect) |>
+  summarise(Deaths = n(), .groups = "drop") |>
+  mutate(Death_Rate = Deaths / exposed_total)
+
+# View result
+print(death_rates)
+```
+
+This tells you, for example, that .304% of all deaths occurred under an Impact storm condition.
+
+## Death rates per day
+
+Step 1: Get number of deaths per day by Storm_Effect
+```{r}
+# Group deaths by date and storm effect
+daily_deaths <- Deaths.df |>
+  group_by(Death_Date, Storm_Effect) |>
+  summarise(deaths = n(), .groups = "drop")
+```
+
+Step 2: Get number of days for each storm effect
+This step assumes Storm_Effect applies to the whole day — i.e., each Death_Date has a unique Storm_Effect
+```{r}
+num_days <- daily_deaths |>
+  distinct(Death_Date, Storm_Effect) |>
+  count(Storm_Effect, name = "num_days")
+```
+
+Step 3: Total deaths per storm effect
+```{r}
+total_deaths <- daily_deaths |>
+  group_by(Storm_Effect) |>
+  summarise(total_deaths = sum(deaths), .groups = "drop")
+```
+
+Step 4: Calculate daily death rate
+```{r}
+death_rates <- left_join(total_deaths, num_days, by = "Storm_Effect") |>
+  mutate(daily_death_rate = total_deaths / num_days)
+
+print(death_rates)
+```
+
+Test it statistically
+```{r}
+model_data <- left_join(total_deaths, num_days, by = "Storm_Effect")
+model_data$Storm_Effect <- relevel(factor(model_data$Storm_Effect), ref = "None")
+
+poisson_model <- glm(total_deaths ~ Storm_Effect + offset(log(num_days)), data = model_data, family = poisson())
+summary(poisson_model)
+```
+
+Create a nice table of the model results
+```{r}
+# Extract coefficients and 95% confidence intervals
+coefs <- coef(summary(poisson_model))
+confint_vals <- confint(poisson_model)  # May take a few seconds
+
+# Build data frame of results
+rate_ratios <- data.frame(
+  Term = rownames(coefs),
+  Estimate = coefs[, "Estimate"],
+  Std_Error = coefs[, "Std. Error"],
+  z_value = coefs[, "z value"],
+  p_value = coefs[, "Pr(>|z|)"],
+  RR = exp(coefs[, "Estimate"]),
+  RR_lower = exp(confint_vals[, 1]),
+  RR_upper = exp(confint_vals[, 2])
+)
+
+# Clean up names
+rownames(rate_ratios) <- NULL
+rate_ratios <- rate_ratios |>
+  dplyr::select(Term, RR, RR_lower, RR_upper, p_value)
+
+# Print the table
+print(rate_ratios)
+
+```
+
+
