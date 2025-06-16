@@ -103,4 +103,171 @@ print(rate_ratios)
 
 ```
 
+Spatialize these results using a grid
+
+1. Create 0.5° grid over Florida
+```{r}
+library(sf)
+library(dplyr)
+library(purrr)
+
+# Florida boundary (sf polygon)
+library(tigris)
+florida_sf <- tigris::states(cb = TRUE, year = 2022) |>
+    filter(STUSPS == "FL") |>
+    st_transform(crs = 4326)
+
+# Set up 0.5° grid
+grid <- st_make_grid(florida_sf, cellsize = 0.5, square = TRUE) %>%
+  st_sf(grid_id = 1:length(.), geometry = .) %>%
+  st_intersection(florida_sf)  # Clip to Florida boundary
+```
+
+2. Join deaths to grid
+```{r}
+deaths_sf <- st_read(dsn = here::here("data", "outputs", "Deaths"),
+                     layer = "All_Deaths_Storm_Effects")
+colnames(deaths_sf)[1:5] <- colnames(Deaths.df)[1:5]
+
+deaths_with_grid <- st_join(deaths_sf, grid)
+```
+
+3. Aggregate and fit Poisson models per grid cell
+```{r}
+# Relevel Storm_Effect so "None" is reference
+deaths_with_grid$Storm_Effect <- relevel(factor(deaths_with_grid$Storm_Effect), ref = "None")
+
+# Group by grid cell
+models_by_cell <- deaths_with_grid %>%
+  st_drop_geometry() %>%
+  group_split(grid_id) %>%
+  map_df(function(df) {
+    if (n_distinct(df$Storm_Effect) < 2 || nrow(df) < 30) return(NULL)  # Skip sparse cells
+
+    daily_counts <- df %>%
+      group_by(Death_Date, Storm_Effect) %>%
+      summarise(deaths = n(), .groups = "drop") %>%
+      group_by(Storm_Effect) %>%
+      summarise(total_deaths = sum(deaths),
+                num_days = n_distinct(Death_Date),
+                .groups = "drop")
+
+    # Avoid division by zero
+    if (any(daily_counts$num_days == 0)) return(NULL)
+
+    model <- try(glm(total_deaths ~ Storm_Effect + offset(log(num_days)), data = daily_counts, family = poisson()), silent = TRUE)
+    if (inherits(model, "try-error")) return(NULL)
+
+    coefs <- coef(model)
+    rr <- exp(coefs)
+    rr_names <- names(rr)
+    
+    # Return all relevant RR values and grid ID
+    tibble(
+      grid_id = unique(df$grid_id)[1],
+      RR_Cleanup = rr[grepl("Cleanup", rr_names)],
+      RR_Impact = rr[grepl("Impact", rr_names)],
+      RR_Threat = rr[grepl("Threat", rr_names)]
+    )
+  })
+
+```
+
+4. Join results back to grid for mapping
+```{r}
+grid_results <- left_join(grid, models_by_cell, by = "grid_id")
+```
+
+5. Map each rate ratio
+```{r}
+library(ggplot2)
+
+ggplot(grid_results) +
+  geom_sf(aes(fill = RR_Threat)) +
+  scale_fill_gradient2(
+    low = "blue", mid = "white", high = "red", 
+    midpoint = 1, 
+    na.value = "gray80", 
+    name = "RR: Threat"
+  ) +
+  theme_minimal() +
+  ggtitle("Rate Ratio (Threat vs None)")
+```
+
+Repeat using counties instead of grids
+
+1. Load Florida counties
+```{r}
+library(tigris)
+library(sf)
+options(tigris_use_cache = TRUE)
+
+fl_counties <- counties(state = "FL", cb = TRUE, year = 2022)
+```
+
+2. Spatial join deaths to counties
+```{r}
+deaths_sf <- st_transform(deaths_sf, st_crs(fl_counties))  # Ensure same CRS
+deaths_with_county <- st_join(deaths_sf, fl_counties["GEOID"])  # Join only GEOID
+```
+
+3. Fit Poisson models per county
+```{r}
+library(dplyr)
+library(purrr)
+
+# Set "None" as reference level
+deaths_with_county$Storm_Effect <- relevel(factor(deaths_with_county$Storm_Effect), ref = "None")
+
+# Group and model
+models_by_county <- deaths_with_county %>%
+  st_drop_geometry() %>%
+  group_split(GEOID) %>%
+  map_df(function(df) {
+    if (nrow(df) < 30 || n_distinct(df$Storm_Effect) < 2) return(NULL)
+
+    daily_counts <- df %>%
+      group_by(Death_Date, Storm_Effect) %>%
+      summarise(deaths = n(), .groups = "drop") %>%
+      group_by(Storm_Effect) %>%
+      summarise(total_deaths = sum(deaths),
+                num_days = n_distinct(Death_Date),
+                .groups = "drop")
+
+    if (any(daily_counts$num_days == 0)) return(NULL)
+
+    # Fit Poisson model
+    model <- try(glm(total_deaths ~ Storm_Effect + offset(log(num_days)), family = poisson(), data = daily_counts), silent = TRUE)
+    if (inherits(model, "try-error")) return(NULL)
+
+    rr <- exp(coef(model))
+    tibble(
+      GEOID = df$GEOID[1],
+      RR_Cleanup = rr["Storm_EffectCleanup"] %||% NA,
+      RR_Impact  = rr["Storm_EffectImpact"] %||% NA,
+      RR_Threat  = rr["Storm_EffectThreat"] %||% NA
+    )
+  })
+
+```
+
+4. Merge RRs back to county map
+```{r}
+library(sf)
+library(ggplot2)
+
+county_results <- left_join(fl_counties, models_by_county, by = "GEOID")
+
+```
+
+5. Plot each RR (diverging around 1)
+```{r}
+ggplot(county_results) +
+  geom_sf(aes(fill = RR_Cleanup)) +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 1,
+                       na.value = "gray90", name = "RR: Impact") +
+  theme_minimal() +
+  ggtitle("Rate Ratio: Cleanup vs None (by County)")
+
+```
 
