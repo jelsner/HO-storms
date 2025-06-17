@@ -271,3 +271,98 @@ ggplot(county_results) +
 
 ```
 
+Repeat for ZCTAs
+
+1. Get Florida ZCTAs
+```{r}
+library(tigris)
+library(sf)
+options(tigris_use_cache = TRUE)
+
+# Get national ZCTAs and subset to those intersecting Florida
+zctas_all <- zctas(cb = TRUE, starts_with = NULL, year = 2020)
+florida <- states(cb = TRUE) %>% filter(STUSPS == "FL")
+
+# Filter ZCTAs that intersect Florida
+zctas_fl <- st_intersection(zctas_all, st_transform(florida, st_crs(zctas_all)))
+
+```
+
+2. Join deaths to ZCTAs
+```{r}
+deaths_sf <- st_transform(deaths_sf, st_crs(zctas_fl))  # Ensure CRS matches
+deaths_with_zcta <- st_join(deaths_sf, zctas_fl["GEOID20"])  # Join only GEOID20
+```
+
+3. Fit Poisson model per ZCTA
+```{r}
+library(dplyr)
+library(purrr)
+library(rlang)
+
+deaths_with_zcta$Storm_Effect <- relevel(factor(deaths_with_zcta$Storm_Effect), ref = "None")
+
+models_by_zcta <- deaths_with_zcta %>%
+  st_drop_geometry() %>%
+  group_split(GEOID20) %>%
+  map_df(function(df) {
+    if (nrow(df) < 30 || n_distinct(df$Storm_Effect) < 2) return(NULL)
+
+    daily_counts <- df %>%
+      group_by(Death_Date, Storm_Effect) %>%
+      summarise(deaths = n(), .groups = "drop") %>%
+      group_by(Storm_Effect) %>%
+      summarise(
+        total_deaths = sum(deaths),
+        num_days = n_distinct(Death_Date),
+        .groups = "drop"
+      )
+
+    if (any(daily_counts$num_days == 0)) return(NULL)
+
+    model <- try(glm(total_deaths ~ Storm_Effect + offset(log(num_days)),
+                     data = daily_counts, family = poisson()), silent = TRUE)
+    if (inherits(model, "try-error")) return(NULL)
+
+    rr <- exp(coef(model))
+    tibble(
+      GEOID20 = df$GEOID20[1],
+      RR_Cleanup = rr["Storm_EffectCleanup"] %||% NA,
+      RR_Impact  = rr["Storm_EffectImpact"] %||% NA,
+      RR_Threat  = rr["Storm_EffectThreat"] %||% NA
+    )
+  })
+
+```
+
+4. Join RRs to ZCTA geometry
+```{r}
+zcta_results <- left_join(zctas_fl, models_by_zcta, by = "GEOID20")
+```
+
+Plot all 3 RR maps in a loop
+```{r}
+library(ggplot2)
+library(purrr)
+
+rr_vars <- c("RR_Cleanup", "RR_Impact", "RR_Threat")
+titles <- c("RR: Cleanup vs None", "RR: Impact vs None", "RR: Threat vs None")
+
+walk2(rr_vars, titles, function(rr_var, plot_title) {
+  p <- ggplot(zcta_results) +
+    geom_sf(aes_string(fill = rr_var), color = "gray70", size = 0.1) +
+    scale_fill_gradient2(
+      low = "blue", mid = "white", high = "red",
+      midpoint = 1, na.value = "gray90", name = rr_var
+    ) +
+    theme_minimal() +
+    labs(title = plot_title)
+  
+  print(p)
+  ggsave(paste0(rr_var, "_ZCTA_map.png"), plot = p, width = 8, height = 6)
+})
+
+```
+
+
+
