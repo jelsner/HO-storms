@@ -364,5 +364,65 @@ walk2(rr_vars, titles, function(rr_var, plot_title) {
 
 ```
 
+Hot spot analysis on the results using Moran's I and k-nearest neighbors for spatial contiguity
+```{r}
+rr_sf <- zcta_results %>%
+  filter(!is.na(RR_Threat)) %>%
+  select(GEOID20, RR = RR_Threat, geometry)
+
+rr_sf <- rr_sf %>%
+  filter(st_geometry_type(geometry) %in% c("POLYGON", "MULTIPOLYGON")) %>%
+  st_cast("MULTIPOLYGON") # Ensure polygon geometry
+```
+
+Creat spatial weights
+```{r}
+centroids <- st_centroid(rr_sf)
+coords <- st_coordinates(centroids)
+# Choose k (e.g., 5 or 8 neighbors)
+k <- 7
+knn <- knearneigh(coords, k = k)
+nb <- knn2nb(knn)
+
+# Convert to spatial weights
+lw <- nb2listw(nb, style = "W")
+
+```
+
+Run local hotspot
+```{r}
+# Calculate Local Moran’s I
+lisa <- localmoran(rr_sf$RR, lw)
+
+# Add results to the sf object
+rr_sf <- rr_sf %>%
+  mutate(
+    local_i = lisa[, 1],         # Local Moran's I
+    p_value = lisa[, 5],         # p-value
+    hotspot_type = case_when(
+      p_value < 0.15 & RR > mean(RR, na.rm = TRUE) ~ "Hot Spot",
+      p_value < 0.15 & RR < mean(RR, na.rm = TRUE) ~ "Cold Spot",
+      TRUE ~ "Not Significant"
+    )
+  )
+
+```
+
+Map the results
+```{r}
+library(ggplot2)
+
+ggplot(rr_sf) +
+  geom_sf(aes(fill = hotspot_type), color = "gray90", size = 0.1) +
+  scale_fill_manual(values = c(
+    "Hot Spot" = "red",
+    "Cold Spot" = "gray90",
+    "Not Significant" = "gray90"
+  )) +
+  labs(title = "Local Hot Spot Analysis (Cleanup)", fill = "Cluster Type") +
+  theme_minimal()
+
+```
+
 
 
