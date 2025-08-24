@@ -358,6 +358,3 @@ ggplot(rr_sf) +
   labs(title = "Local Hot Spot Analysis (Cleanup)", fill = "Cluster Type") +
   theme_minimal()
 ```
-
-
-
