@@ -311,24 +311,24 @@ rr_sf <- rr_sf %>%
   st_cast("MULTIPOLYGON") # Ensure polygon geometry
 ```
 
-Creat spatial weights
+Create spatial weights
 ```{r}
 centroids <- st_centroid(rr_sf)
 coords <- st_coordinates(centroids)
 # Choose k (e.g., 5 or 8 neighbors)
 k <- 7
-knn <- knearneigh(coords, k = k)
-nb <- knn2nb(knn)
+knn <- spdep::knearneigh(coords, k = k)
+nb <- spdep::knn2nb(knn)
 
 # Convert to spatial weights
-lw <- nb2listw(nb, style = "W")
+lw <- spdep::nb2listw(nb, style = "W")
 
 ```
 
 Run local hotspot
 ```{r}
 # Calculate Local Moran’s I
-lisa <- localmoran(rr_sf$RR, lw)
+lisa <- spdep::localmoran(rr_sf$RR, lw)
 
 # Add results to the sf object
 rr_sf <- rr_sf %>%
@@ -352,9 +352,9 @@ ggplot(rr_sf) +
   geom_sf(aes(fill = hotspot_type), color = "gray90", size = 0.1) +
   scale_fill_manual(values = c(
     "Hot Spot" = "red",
-    "Cold Spot" = "gray90",
+    "Cold Spot" = "blue",
     "Not Significant" = "gray90"
   )) +
-  labs(title = "Local Hot Spot Analysis (Cleanup)", fill = "Cluster Type") +
+  labs(title = "Local Hot Spot Analysis (Threat)", fill = "Cluster Type") +
   theme_minimal()
 ```
