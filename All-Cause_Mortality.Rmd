@@ -2,7 +2,7 @@
 title: "All-Cause Mortality & Storms"
 output: html_document
 editor_options:
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 
 ## Analytics of deaths and storms
@@ -438,5 +438,85 @@ analyze_one <- function(rr_var, label) {
 
 # --- Run for all three RR variables ---
 iwalk(rr_vars, analyze_one)
+```
+
+
+## Shiny app
+
+Compute RRs and standard errors, then save
+```{r}
+library(dplyr)
+library(purrr)
+library(rlang)
+library(sf)
+library(spdep)
+
+# --- your objects assumed in memory: deaths_sf, zctas_fl ---
+deaths_sf <- st_transform(deaths_sf, st_crs(zctas_fl))
+deaths_with_zcta <- st_join(deaths_sf, zctas_fl["GEOID20"])
+
+deaths_with_zcta$Storm_Effect <- relevel(factor(deaths_with_zcta$Storm_Effect), ref = "None")
+
+models_by_zcta <- deaths_with_zcta %>%
+  st_drop_geometry() %>%
+  group_split(GEOID20) %>%
+  map_df(function(df) {
+    if (nrow(df) < 30 || n_distinct(df$Storm_Effect) < 2) return(NULL)
+
+    daily_counts <- df %>%
+      group_by(Death_Date, Storm_Effect) %>%
+      summarise(deaths = n(), .groups = "drop") %>%
+      group_by(Storm_Effect) %>%
+      summarise(
+        total_deaths = sum(deaths),
+        num_days = n_distinct(Death_Date),
+        .groups = "drop"
+      )
+
+    if (any(daily_counts$num_days == 0)) return(NULL)
+
+    model <- try(glm(total_deaths ~ Storm_Effect + offset(log(num_days)),
+                     data = daily_counts, family = poisson()), silent = TRUE)
+    if (inherits(model, "try-error")) return(NULL)
+
+    sm <- summary(model)$coefficients
+    # Helper to extract a term safely
+    get_row <- function(term) if (term %in% rownames(sm)) sm[term, ] else c(NA, NA, NA, NA)
+
+    cleanup <- get_row("Storm_EffectCleanup")
+    impact  <- get_row("Storm_EffectImpact")
+    threat  <- get_row("Storm_EffectThreat")
+
+    # beta -> RR; se_beta -> SE on log scale; SE(RR) via delta method
+    rr_cleanup <- if (!is.na(cleanup[1])) exp(cleanup[1]) else NA_real_
+    rr_impact  <- if (!is.na(impact[1]))  exp(impact[1])  else NA_real_
+    rr_threat  <- if (!is.na(threat[1]))  exp(threat[1])  else NA_real_
+
+    se_cleanup_log <- if (!is.na(cleanup[2])) cleanup[2] else NA_real_
+    se_impact_log  <- if (!is.na(impact[2]))  impact[2]  else NA_real_
+    se_threat_log  <- if (!is.na(threat[2]))  threat[2]  else NA_real_
+
+    se_cleanup <- if (!is.na(rr_cleanup) && !is.na(se_cleanup_log)) rr_cleanup * se_cleanup_log else NA_real_
+    se_impact  <- if (!is.na(rr_impact)  && !is.na(se_impact_log))  rr_impact  * se_impact_log  else NA_real_
+    se_threat  <- if (!is.na(rr_threat)  && !is.na(se_threat_log))  rr_threat  * se_threat_log  else NA_real_
+
+    tibble(
+      GEOID20     = df$GEOID20[1],
+      RR_Cleanup  = rr_cleanup,
+      RR_Impact   = rr_impact,
+      RR_Threat   = rr_threat,
+      SE_Cleanup  = se_cleanup,   # SE on RR scale
+      SE_Impact   = se_impact,
+      SE_Threat   = se_threat,
+      SElog_Cleanup = se_cleanup_log, # keep log-scale SEs for CIs
+      SElog_Impact  = se_impact_log,
+      SElog_Threat  = se_threat_log
+    )
+  })
+
+zcta_results <- left_join(zctas_fl, models_by_zcta, by = "GEOID20")
+
+# Save for the Shiny app to read
+saveRDS(zcta_results, "storm-mortality/zcta_results.rds")
 ```
 
