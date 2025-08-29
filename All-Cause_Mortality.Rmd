@@ -359,5 +359,83 @@ ggplot(rr_sf) +
   theme_minimal()
 
 ```
+```{r}
+# --- Packages ---
+library(sf)
+library(dplyr)
+library(spdep)
+library(ggplot2)
+library(rlang)
+library(purrr)
 
+# --- Parameters you can tweak ---
+rr_vars <- c(
+  Threat = "RR_Threat",
+  Impact = "RR_Impact",
+  Cleanup = "RR_Cleanup"
+)
+k      <- 7         # k-nearest neighbors (your code used 7)
+alpha  <- 0.15      # significance threshold to match your example
+outdir <- "figs"    # output folder for PNGs
+
+if (!dir.exists(outdir)) dir.create(outdir, recursive = TRUE)
+
+# --- Helper: run LISA for one RR variable and save the map ---
+analyze_one <- function(rr_var, label) {
+  # Prepare per-variable sf (keep only needed rows/geometry)
+  dat <- zcta_results %>%
+    select(GEOID20, RR = all_of(rr_var), geometry) %>%
+    filter(!is.na(RR)) %>%
+    filter(st_geometry_type(geometry) %in% c("POLYGON", "MULTIPOLYGON")) %>%
+    st_cast("MULTIPOLYGON")
+
+  # Build k-NN weights on centroids (for the subset being analyzed)
+  centroids <- st_centroid(dat)
+  coords <- st_coordinates(centroids)
+  knn <- spdep::knearneigh(coords, k = k)
+  nb  <- spdep::knn2nb(knn)
+  lw  <- spdep::nb2listw(nb, style = "W", zero.policy = TRUE)
+
+  # Local Moran's I
+  lisa <- spdep::localmoran(dat$RR, lw, zero.policy = TRUE)
+
+  # Classify hot/cold spots (match your rule: p < alpha and above/below mean)
+  dat <- dat %>%
+    mutate(
+      local_i = lisa[, 1],
+      p_value = lisa[, 5],
+      hotspot_type = case_when(
+        p_value < alpha & RR > mean(RR, na.rm = TRUE) ~ "Hot Spot",
+        p_value < alpha & RR < mean(RR, na.rm = TRUE) ~ "Cold Spot",
+        TRUE ~ "Not Significant"
+      ) |> factor(levels = c("Hot Spot","Cold Spot","Not Significant"))
+    )
+
+  # Plot
+  p <- ggplot(dat) +
+    geom_sf(aes(fill = hotspot_type), color = "gray90", size = 0.1) +
+    scale_fill_manual(values = c(
+      "Hot Spot" = "red",
+      "Cold Spot" = "blue",
+      "Not Significant" = "gray90"
+    )) +
+    labs(
+      title = paste0("Local Hot Spot Analysis (", label, ")"),
+      subtitle = paste0("Local Moran's I, k = ", k, ", α = ", alpha),
+      fill = "Cluster Type"
+    ) +
+    theme_minimal()
+
+  # Save PNG
+  outfile <- file.path(outdir, paste0("hotspot_", tolower(label), ".png"))
+  ggsave(outfile, plot = p, width = 8, height = 6, dpi = 300)
+
+  message("Saved: ", outfile)
+  invisible(p)
+}
+
+# --- Run for all three RR variables ---
+iwalk(rr_vars, analyze_one)
+
+```
 
