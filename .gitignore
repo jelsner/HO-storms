@@ -6,3 +6,4 @@
 data/
 data.zip
 *.rds
+deploy.R
