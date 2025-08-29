@@ -5,7 +5,7 @@ editor_options:
   chunk_output_type: inline
 ---
 
-## Analytics of deaths and storms. Start with non-spatial analytics
+## Analytics of deaths and storms
 
 Read the data table to a csv file
 ```{r}
@@ -116,7 +116,7 @@ options(digits = 4)
 print(rate_ratios)
 ```
 
-Spatialize these results
+## Spatialize results using lat/lon grids
 
 1. Create 0.05° grid over Florida
 ```{r}
@@ -207,7 +207,7 @@ ggplot(grid_results) +
   ggtitle("Rate Ratio (Impact vs None)")
 ```
 
-Repeat for ZCTAs
+## Spatialize results using zip code areas ZCTAs
 
 1. Get Florida ZCTAs
 ```{r}
@@ -300,7 +300,9 @@ walk2(rr_vars, titles, function(rr_var, plot_title) {
 })
 ```
 
-Hot spot analysis on the results using Moran's I and k-nearest neighbors for spatial contiguity
+## Hot spot analysis
+
+Using Moran's I and k-nearest neighbors for spatial contiguity
 ```{r}
 rr_sf <- zcta_results %>%
   filter(!is.na(RR_Threat)) %>%
@@ -375,7 +377,7 @@ rr_vars <- c(
   Cleanup = "RR_Cleanup"
 )
 k      <- 7         # k-nearest neighbors (your code used 7)
-alpha  <- 0.15      # significance threshold to match your example
+alpha  <- 0.15      # significance threshold to match example
 outdir <- "figs"    # output folder for PNGs
 
 if (!dir.exists(outdir)) dir.create(outdir, recursive = TRUE)
@@ -436,6 +438,5 @@ analyze_one <- function(rr_var, label) {
 
 # --- Run for all three RR variables ---
 iwalk(rr_vars, analyze_one)
-
 ```
 
