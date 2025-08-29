@@ -221,7 +221,7 @@ florida <- states(cb = TRUE) %>% filter(STUSPS == "FL")
 
 # Filter ZCTAs that intersect Florida
 zctas_fl <- st_intersection(zctas_all, st_transform(florida, st_crs(zctas_all)))
-
+zctas_fl <- st_make_valid(zctas_fl) # in case of invalid geometries
 ```
 
 2. Join deaths to ZCTAs
@@ -230,7 +230,7 @@ deaths_sf <- st_transform(deaths_sf, st_crs(zctas_fl))  # Ensure CRS matches
 deaths_with_zcta <- st_join(deaths_sf, zctas_fl["GEOID20"])  # Join only GEOID20
 ```
 
-3. Fit Poisson model per ZCTA
+3. Fit Poisson model at each ZCTA
 ```{r}
 library(dplyr)
 library(purrr)
@@ -280,13 +280,14 @@ Plot all 3 RR maps in a loop
 ```{r}
 library(ggplot2)
 library(purrr)
+library(rlang)
 
 rr_vars <- c("RR_Cleanup", "RR_Impact", "RR_Threat")
 titles <- c("RR: Cleanup vs None", "RR: Impact vs None", "RR: Threat vs None")
 
 walk2(rr_vars, titles, function(rr_var, plot_title) {
   p <- ggplot(zcta_results) +
-    geom_sf(aes_string(fill = rr_var), color = "gray70", size = 0.1) +
+    geom_sf(aes(fill = !!sym(rr_var)), color = "gray70", size = 0.1) +
     scale_fill_gradient2(
       low = "blue", mid = "white", high = "red",
       midpoint = 1, na.value = "gray90", name = rr_var
@@ -297,7 +298,6 @@ walk2(rr_vars, titles, function(rr_var, plot_title) {
   print(p)
   ggsave(paste0(rr_var, "_ZCTA_map.png"), plot = p, width = 8, height = 6)
 })
-
 ```
 
 Hot spot analysis on the results using Moran's I and k-nearest neighbors for spatial contiguity
@@ -357,4 +357,7 @@ ggplot(rr_sf) +
   )) +
   labs(title = "Local Hot Spot Analysis (Threat)", fill = "Cluster Type") +
   theme_minimal()
+
 ```
+
+
