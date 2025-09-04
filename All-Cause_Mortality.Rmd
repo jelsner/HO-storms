@@ -520,3 +520,29 @@ zcta_results <- left_join(zctas_fl, models_by_zcta, by = "GEOID20")
 saveRDS(zcta_results, "storm-mortality/zcta_results.rds")
 ```
 
+## Simplify map
+```{r}
+library(sf)
+library(rmapshaper)
+
+z <- readRDS("storm-mortality/zcta_results.rds")
+
+# 1) Make valid; coerce odd surface/curve types if present
+z_valid <- st_make_valid(z)
+
+# 2) Keep only polygonal features, then cast to MULTIPOLYGON and drop empties
+z_poly <- z_valid %>%
+  mutate(geom_type = st_geometry_type(geometry)) %>%
+  filter(geom_type %in% c("POLYGON", "MULTIPOLYGON")) %>%
+  st_cast("MULTIPOLYGON", warn = FALSE) %>%
+  filter(!st_is_empty(geometry)) %>%
+  select(-geom_type)
+
+# 3) (Leaflet-friendly) reproject to WGS84 and simplify
+z_poly <- st_transform(z_poly, 4326)
+z_slim <- rmapshaper::ms_simplify(z_poly, keep = 0.15, keep_shapes = TRUE)
+
+saveRDS(z_slim, "storm-mortality2/zcta_results_simplified.rds")
+```
+
+
