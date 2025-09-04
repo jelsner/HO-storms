@@ -15,8 +15,7 @@ ui <- fluidPage(
            tags$hr(),
            uiOutput("selected_zcta"),
            tableOutput("rr_table"),
-           tags$hr(),
-           tags$small("Debug click:"), verbatimTextOutput("click_dbg", placeholder = TRUE)
+           tags$hr()
     )
   )
 )
@@ -74,7 +73,6 @@ server <- function(input, output, session) {
   # Click handler
   observeEvent(input$map_shape_click, {
     evt <- input$map_shape_click
-    output$click_dbg <- renderPrint({ str(evt) })   # debug: see if anything arrives
     req(evt$id)
     
     selected(evt$id)
@@ -94,39 +92,38 @@ server <- function(input, output, session) {
     }
   })
   
-  output$selected_zcta <- renderUI({
-    id <- selected()
-    if (is.null(id)) return(tags$div(em("Click a ZCTA on the map…")))
-    tags$h4(paste("ZCTA", id))
-  })
-  
   output$rr_table <- renderTable({
     id <- selected(); req(id)
-    row <- zcta_data() %>% st_drop_geometry() %>% filter(GEOID20 == id)
+    
+    row <- zcta_data() %>% sf::st_drop_geometry() %>% dplyr::filter(GEOID20 == id)
     if (!nrow(row)) return(NULL)
     
-    out <- tibble::tibble(
+    base <- tibble::tibble(
       Measure = c("Threat", "Impact", "Cleanup"),
       RR      = c(row$RR_Threat, row$RR_Impact, row$RR_Cleanup),
       SE_RR   = c(row$SE_Threat, row$SE_Impact, row$SE_Cleanup),
       SE_log  = c(row$SElog_Threat, row$SElog_Impact, row$SElog_Cleanup)
     )
     
-    if (isTRUE(input$show_ci)) {
-      z <- 1.96
-      out <- out %>%
-        mutate(
-          lower = ifelse(!is.na(RR) & !is.na(SE_log), exp(log(RR) - z * SE_log), NA_real_),
-          upper = ifelse(!is.na(RR) & !is.na(SE_log), exp(log(RR) + z * SE_log), NA_real_)
-        )
-    }
+    # Always compute CI columns; show/hide later
+    zcrit <- 1.96
+    with_ci <- base %>%
+      dplyr::mutate(
+        lower = ifelse(!is.na(RR) & !is.na(SE_log), exp(log(RR) - zcrit * SE_log), NA_real_),
+        upper = ifelse(!is.na(RR) & !is.na(SE_log), exp(log(RR) + zcrit * SE_log), NA_real_)
+      ) %>%
+      dplyr::mutate(
+        RR    = round(RR, 3),
+        SE_RR = round(SE_RR, 3),
+        lower = round(lower, 3),
+        upper = round(upper, 3)
+      )
     
-    out %>% mutate(
-      RR    = round(RR, 3),
-      SE_RR = round(SE_RR, 3),
-      lower = round(lower, 3),
-      upper = round(upper, 3)
-    )
+    if (isTRUE(input$show_ci)) {
+      dplyr::select(with_ci, Measure, RR, SE_RR, lower, upper)
+    } else {
+      dplyr::select(with_ci, Measure, RR, SE_RR)
+    }
   })
 }
 

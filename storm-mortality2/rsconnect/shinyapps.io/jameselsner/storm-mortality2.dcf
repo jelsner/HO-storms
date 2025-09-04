@@ -1,0 +1,10 @@
+name: storm-mortality2
+title:
+username: jameselsner
+account: jameselsner
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 15353599
+bundleId: 10863328
+url: https://jameselsner.shinyapps.io/storm-mortality2/
+version: 1
