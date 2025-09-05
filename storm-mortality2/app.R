@@ -99,7 +99,7 @@ server <- function(input, output, session) {
     if (!nrow(row)) return(NULL)
     
     base <- tibble::tibble(
-      Measure = c("Threat", "Impact", "Cleanup"),
+      Storm = c("Threat", "Impact", "Cleanup"),
       RR      = c(row$RR_Threat, row$RR_Impact, row$RR_Cleanup),
       SE_RR   = c(row$SE_Threat, row$SE_Impact, row$SE_Cleanup),
       SE_log  = c(row$SElog_Threat, row$SElog_Impact, row$SElog_Cleanup)
@@ -120,9 +120,9 @@ server <- function(input, output, session) {
       )
     
     if (isTRUE(input$show_ci)) {
-      dplyr::select(with_ci, Measure, RR, SE_RR, lower, upper)
+      dplyr::select(with_ci, Storm, RR, SE_RR, lower, upper)
     } else {
-      dplyr::select(with_ci, Measure, RR, SE_RR)
+      dplyr::select(with_ci, Storm, RR, SE_RR)
     }
   })
 }
