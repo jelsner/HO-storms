@@ -520,7 +520,7 @@ zcta_results <- left_join(zctas_fl, models_by_zcta, by = "GEOID20")
 saveRDS(zcta_results, "storm-mortality/zcta_results.rds")
 ```
 
-## Simplify map
+## Simplify map for use in Shiny app
 ```{r}
 library(sf)
 library(rmapshaper)
