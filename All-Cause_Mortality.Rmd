@@ -5,6 +5,10 @@ editor_options:
   chunk_output_type: console
 ---
 
+Experimental setup. We assemble a multi-million–record, geocoded dataset of all-cause deaths (simple-feature points in WGS84) and tag each death day as one of four “storm effect” states: None, Threat, Impact, or Cleanup. We first aggregate to daily counts by effect, compute the number of effect-days, and fit a Poisson regression of total deaths on Storm_Effect with an offset for log(effect-day count), using “None” as the reference; coefficients are then exponentiated to rate ratios with confidence intervals. Next, for spatial detail you intersect deaths with Florida ZCTAs (2020 vintage), refit the same Poisson model separately within each ZCTA (with basic data sufficiency checks), map RRs for Cleanup/Impact/Threat, and run a local hot-spot analysis on the Threat RR using k-nearest neighbors (k=7) and Local Moran’s I to flag hot/cold clusters.
+
+Results. Daily death rates are higher on storm-effect days than on non-storm days (≈416–419 vs ≈402 deaths/day in this sample). The Poisson model quantifies small but statistically precise excesses: RR ≈ 1.043 (Threat, 95% CI 1.028–1.058), 1.037 (Impact, 1.022–1.051), and 1.034 (Cleanup, 1.020–1.049), all p < 0.001 relative to None. Spatial modeling at the ZCTA level produces choropleths of these RRs, and the Local Moran’s I highlights coherent pockets of elevated (“hot”) and depressed (“cold”) Threat RRs, indicating geographic clustering in storm-related mortality risk. Taken together, the analysis suggests modest but reliable short-run increases in all-cause mortality around storm exposure, with non-uniform spatial patterns across Florida.
+
 ## Analytics of deaths and storms
 
 Read the data table to a csv file
@@ -42,7 +46,7 @@ This tells you, for example, that .333% of all deaths occurred under an Impact s
 
 ## Death rates per day
 
-Step 1: Get number of deaths per day by Storm_Effect
+Get number of deaths per day by Storm_Effect
 ```{r}
 # Group deaths by date and storm effect
 daily_deaths <- Deaths.df |>
@@ -51,7 +55,7 @@ daily_deaths <- Deaths.df |>
   summarise(deaths = n(), .groups = "drop")
 ```
 
-Step 2: Get number of days for each storm effect
+Get number of days for each storm effect
 This step assumes Storm_Effect applies to the whole day — i.e., each Death_Date has a unique Storm_Effect
 ```{r}
 num_days <- daily_deaths |>
@@ -61,7 +65,7 @@ num_days <- daily_deaths |>
   count(Storm_Effect, name = "num_days")
 ```
 
-Step 3: Total deaths per storm effect
+Total deaths per storm effect
 ```{r}
 total_deaths <- daily_deaths |>
 #  group_by(Storm_Effect, SH) |>
@@ -69,7 +73,7 @@ total_deaths <- daily_deaths |>
   summarise(total_deaths = sum(deaths), .groups = "drop")
 ```
 
-Step 4: Calculate daily death rate
+Calculate daily death rate
 ```{r}
 # death_rates <- left_join(total_deaths, num_days, by = c("Storm_Effect", "SH")) |>
 death_rates <- left_join(total_deaths, num_days, by = "Storm_Effect") |>
