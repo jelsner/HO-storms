@@ -138,8 +138,8 @@ grid <- st_make_grid(florida_sf, cellsize = 0.05, square = TRUE) %>%
 
 2. Join deaths to grid
 ```{r}
-deaths_sf <- st_read(dsn = here::here("data", "outputs", "Deaths"),
-                     layer = "All_Deaths_Storm_Effects")
+deaths_sf <- sf::st_read(dsn = here::here("data", "outputs", "Deaths"),
+                         layer = "All_Deaths_Storm_Effects")
 colnames(deaths_sf)[1:5] <- colnames(Deaths.df)[1:5]
 
 deaths_with_grid <- st_join(deaths_sf, grid)

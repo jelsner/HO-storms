@@ -59,7 +59,7 @@ Keep only storms having USA_WIND >= 55 occurring between 1981 and 2022
 ```{r}
 Tracks2.sf <- Tracks.sf |>
   dplyr::filter(year >= 1981 & year <= 2022) |>
-  dplyr::filter(USA_WIND >= 55) |> # change to 34 for tropical storms and hurricanes
+  dplyr::filter(USA_WIND >= 64) |> # change to 34 for tropical storms and hurricanes
   dplyr::select(SID, SEASON, year, month, day, hour, min,
                 NAME, SUBBASIN, ISO_TIME,
                 USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
@@ -99,8 +99,8 @@ Swaths.sf <- Tracks2.sf |>
 Wind swaths that cross Florida. `USAboundaries` package no longer maintained on CRAN
 ```{r}
 #devtools::install_github("ropensci/USAboundariesData")
-devtools::install_github("ropensci/USAboundaries", force = TRUE)
-install.packages("USAboundariesData", repos = "https://ropensci.r-universe.dev", type = "source")
+#devtools::install_github("ropensci/USAboundaries", force = TRUE)
+#install.packages("USAboundariesData", repos = "https://ropensci.r-universe.dev", type = "source")
 
 
 Boundaries.sf <- USAboundaries::us_states(resolution = "low", states = "FL") |> 
@@ -135,6 +135,14 @@ tmap::tm_shape(Swaths2.sf) +
   tm_borders("Storm_Category") +
   tm_shape(Boundaries.sf) +
   tmap::tm_borders()
+
+hurricanes <- Swaths2.sf |>
+  dplyr::filter(NAME %in% c("ANDREW", "CHARLEY", "IAN")) |>
+  sf::st_transform(crs = 4326) |>
+  dplyr::mutate(year = lubridate::year(Date0))
+
+sf::st_write(hurricanes, "data/hurricanes.gpkg", layer = "hurricanes", delete_layer = TRUE) # move this to the story map app project
+
 ```
 
 Each storm in `Swaths2.sf` is represented by a unique polygon (or multipolygon) with an impact date
