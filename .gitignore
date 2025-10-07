@@ -7,3 +7,5 @@ data/
 data.zip
 *.rds
 deploy.R
+*.html
+rsconnect/
