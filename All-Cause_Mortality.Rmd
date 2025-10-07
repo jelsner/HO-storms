@@ -5,9 +5,9 @@ editor_options:
   chunk_output_type: console
 ---
 
-Experimental setup. We assemble a multi-million–record, geocoded dataset of all-cause deaths (simple-feature points in WGS84) and tag each death day as one of four “storm effect” states: None, Threat, Impact, or Cleanup. We first aggregate to daily counts by effect, compute the number of effect-days, and fit a Poisson regression of total deaths on Storm_Effect with an offset for log(effect-day count), using “None” as the reference; coefficients are then exponentiated to rate ratios with confidence intervals. Next, for spatial detail you intersect deaths with Florida ZCTAs (2020 vintage), refit the same Poisson model separately within each ZCTA (with basic data sufficiency checks), map RRs for Cleanup/Impact/Threat, and run a local hot-spot analysis on the Threat RR using k-nearest neighbors (k=7) and Local Moran’s I to flag hot/cold clusters.
+Experimental setup. We assemble a multi-million–record, geocoded dataset of all-cause deaths (simple-feature points in WGS84) and tag each death day as one of four “storm effect” states: None, Threat, Impact, or Cleanup. We first aggregate to daily counts by effect, compute the number of effect-days, and fit a Poisson regression of total deaths on storm effect with an offset for log(effect-day count), using “None” as the reference; coefficients are then exponentiated to rate ratios with confidence intervals. Next, for spatial detail we intersect deaths with Florida ZCTAs (2020 vintage), refit the same Poisson model separately within each ZCTA (with basic data sufficiency checks), map rate ratios for Cleanup/Impact/Threat, and run a local hot-spot analysis on the Threat rate ratios using k-nearest neighbors (k=7) and Local Moran’s I to identify hot/cold clusters.
 
-Results. Daily death rates are higher on storm-effect days than on non-storm days (≈416–419 vs ≈402 deaths/day in this sample). The Poisson model quantifies small but statistically precise excesses: RR ≈ 1.043 (Threat, 95% CI 1.028–1.058), 1.037 (Impact, 1.022–1.051), and 1.034 (Cleanup, 1.020–1.049), all p < 0.001 relative to None. Spatial modeling at the ZCTA level produces choropleths of these RRs, and the Local Moran’s I highlights coherent pockets of elevated (“hot”) and depressed (“cold”) Threat RRs, indicating geographic clustering in storm-related mortality risk. Taken together, the analysis suggests modest but reliable short-run increases in all-cause mortality around storm exposure, with non-uniform spatial patterns across Florida.
+Results. Daily death rates are higher on storm-effect days than on non-storm days (≈416–419 vs ≈402 deaths/day in this sample). The Poisson model quantifies small but statistically precise excesses: Rate ratios ≈ 1.043 (Threat, 95% CI 1.028–1.058), 1.037 (Impact, 1.022–1.051), and 1.034 (Cleanup, 1.020–1.049), all p < 0.001 relative to None. Spatial modeling at the zip code tabulation area level produces choropleths of these rate ratios, and the Local Moran’s I highlights coherent pockets of elevated (“hot”) and depressed (“cold”) Threat ratios, indicating geographic clustering in storm-related mortality risk. Taken together, the analysis suggests modest but reliable short-run increases in all-cause mortality around storm exposure, with non-uniform spatial patterns across Florida.
 
 ## Analytics of deaths and storms
 
@@ -18,7 +18,7 @@ Deaths.df <- Deaths.dt |>
   as.data.frame()
 Deaths.sf <- sf::st_read(dsn = "data/outputs/Deaths", 
                          layer = "All_Deaths_Storm_Effects")
-names(Deaths.sf)[1:5] <- names(Deaths.df)[1:5] # match the names
+names(Deaths.sf)[1:5] <- names(Deaths.df)[1:5] # match column names with those in .csv
 ```
 
 ```{r}
@@ -125,7 +125,7 @@ print(rate_ratios)
 
 ## Spatialize results using zip code areas ZCTAs
 
-1. Get Florida ZCTAs
+Get Florida ZCTAs
 ```{r}
 library(tigris)
 library(sf)
@@ -140,13 +140,13 @@ zctas_fl <- st_intersection(zctas_all, st_transform(florida, st_crs(zctas_all)))
 zctas_fl <- st_make_valid(zctas_fl) # in case of invalid geometries
 ```
 
-2. Join deaths to ZCTAs
+Join deaths to ZCTAs
 ```{r}
 Deaths.sf <- st_transform(Deaths.sf, st_crs(zctas_fl))  # Ensure CRS matches
 deaths_with_zcta <- st_join(Deaths.sf, zctas_fl["GEOID20"])  # Join only GEOID20
 ```
 
-3. Fit Poisson model at each ZCTA
+Fit Poisson models at each ZCTA
 ```{r}
 library(dplyr)
 library(purrr)
@@ -187,9 +187,20 @@ models_by_zcta <- deaths_with_zcta %>%
 
 ```
 
-4. Join RRs to ZCTA geometry
+Join RRs to ZCTA geometry
 ```{r}
 zcta_results <- left_join(zctas_fl, models_by_zcta, by = "GEOID20")
+
+# Make polygons Leaflet-ready (lightweight & clean)
+FL_ALBERS <- 3086L
+zcta_results_poly <- zcta_results |>
+  dplyr::select(GEOID20, RR_Cleanup, RR_Impact, RR_Threat, geometry) |>
+  st_transform(FL_ALBERS) |>
+  st_simplify(dTolerance = 75, preserveTopology = TRUE) |>
+  st_transform(4326)
+saveRDS(zcta_results_poly, "data/outputs/Results/zcta_results.rds")
+
+#sf::st_write(zcta_results, "data/outputs/Results/zcta_results.shp")
 ```
 
 Plot all 3 RR maps in a loop
