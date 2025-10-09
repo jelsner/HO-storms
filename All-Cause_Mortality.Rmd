@@ -18,7 +18,7 @@ Deaths.df <- Deaths.dt |>
   as.data.frame()
 Deaths.sf <- sf::st_read(dsn = "data/outputs/Deaths", 
                          layer = "All_Deaths_Storm_Effects")
-names(Deaths.sf)[1:5] <- names(Deaths.df)[1:5] # match column names with those in .csv
+names(Deaths.sf)[1:5] <- names(Deaths.df)[1:5] # match column names with those in the csv
 ```
 
 ```{r}
@@ -55,8 +55,7 @@ daily_deaths <- Deaths.df |>
   summarise(deaths = n(), .groups = "drop")
 ```
 
-Get number of days for each storm effect
-This step assumes Storm_Effect applies to the whole day — i.e., each Death_Date has a unique Storm_Effect
+Get number of days for each storm effect. This assumes Storm_Effect applies to the whole day — i.e., each Death_Date has a unique Storm_Effect
 ```{r}
 num_days <- daily_deaths |>
 #  distinct(Death_Date, Storm_Effect, SH) |>
@@ -184,7 +183,6 @@ models_by_zcta <- deaths_with_zcta %>%
       RR_Threat  = rr["Storm_EffectThreat"] %||% NA
     )
   })
-
 ```
 
 Join RRs to ZCTA geometry
@@ -251,10 +249,9 @@ nb <- spdep::knn2nb(knn)
 
 # Convert to spatial weights
 lw <- spdep::nb2listw(nb, style = "W")
-
 ```
 
-Run local hotspot
+Run local hot spot
 ```{r}
 # Calculate Local Moran’s I
 lisa <- spdep::localmoran(rr_sf$RR, lw)
@@ -271,6 +268,7 @@ rr_sf <- rr_sf %>%
     )
   )
 
+saveRDS(rr_sf, "data/outputs/Results/hot_spot_threat.rds")
 ```
 
 Map the results
@@ -286,5 +284,4 @@ ggplot(rr_sf) +
   )) +
   labs(title = "Local Hot Spot Analysis (Threat)", fill = "Cluster Type") +
   theme_minimal()
-
 ```
