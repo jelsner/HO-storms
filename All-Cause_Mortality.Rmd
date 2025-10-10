@@ -145,6 +145,14 @@ Deaths.sf <- st_transform(Deaths.sf, st_crs(zctas_fl))  # Ensure CRS matches
 deaths_with_zcta <- st_join(Deaths.sf, zctas_fl["GEOID20"])  # Join only GEOID20
 ```
 
+Check out specific zip codes, storms, etc
+```{r}
+X32778 <- deaths_with_zcta |>
+  st_drop_geometry() |>
+  dplyr::filter(GEOID20 == "32778") |>
+  dplyr::filter(!Storm_Effect == "None")
+```
+
 Fit Poisson models at each ZCTA
 ```{r}
 library(dplyr)
@@ -200,6 +208,38 @@ saveRDS(zcta_results_poly, "data/outputs/Results/zcta_results.rds")
 
 #sf::st_write(zcta_results, "data/outputs/Results/zcta_results.shp")
 ```
+
+```{r}
+library(dplyr)
+library(rlang)
+
+dat <- models_by_zcta
+#rr_cols <- c("RR_Cleanup", "RR_Impact", "RR_Threat")
+rr_cols <- c("RR_Threat")
+
+dat_ranked <- dat %>%
+  # ensure the RR columns are numeric (optional but handy)
+  mutate(across(all_of(rr_cols), as.numeric)) %>%
+  # overall scores
+  mutate(
+    rr_mean = rowMeans(across(all_of(rr_cols)), na.rm = TRUE),
+    rr_geom = exp(rowMeans(log(across(all_of(rr_cols))), na.rm = TRUE)) # tie-breaker
+  ) %>%
+  arrange(desc(rr_mean), desc(rr_geom))
+
+top10 <- dat_ranked %>%
+  slice_head(n = 10) %>%
+  select(GEOID20, all_of(rr_cols), rr_mean, rr_geom)
+
+bottom10 <- dat_ranked %>%
+  arrange(rr_mean, rr_geom) %>%
+  slice_head(n = 10) %>%
+  select(GEOID20, all_of(rr_cols), rr_mean, rr_geom)
+
+top10
+bottom10
+```
+
 
 Plot all 3 RR maps in a loop
 ```{r}
@@ -271,6 +311,27 @@ rr_sf <- rr_sf %>%
 saveRDS(rr_sf, "data/outputs/Results/hot_spot_threat.rds")
 ```
 
+```{r}
+dat <- rr_sf
+
+top10 <- dat %>%
+  filter(hotspot_type == "Hot Spot") %>%
+  arrange(desc(RR)) %>%
+  slice_head(n = 10) %>%
+  select(GEOID20, RR, hotspot_type)
+top10
+
+bottom10 <- dat %>%
+  filter(hotspot_type == "Cold Spot") %>%
+  arrange(desc(RR)) %>%
+  slice_tail(n = 10) %>%
+  select(GEOID20, RR, hotspot_type)
+bottom10
+
+top10
+bottom10
+```
+
 Map the results
 ```{r}
 library(ggplot2)
@@ -284,4 +345,140 @@ ggplot(rr_sf) +
   )) +
   labs(title = "Local Hot Spot Analysis (Threat)", fill = "Cluster Type") +
   theme_minimal()
+```
+
+
+## Attach census data
+
+```{r}
+# Packages
+library(tidycensus)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(purrr)
+library(sf)
+library(tigris)
+```
+
+```{r}
+# Make sure your Census key is set once per session
+#census_api_key("xxxx", install = FALSE)
+options(tigris_use_cache = TRUE)
+```
+
+```{r}
+# --- Helper: get Decennial 2000 variables ---
+# SF1 (population & age/sex); SF3 (income)
+sf1_vars <- load_variables(2000, "sf1", cache = TRUE)
+sf3_vars <- load_variables(2000, "sf3", cache = TRUE)
+
+# Total population (= P001001 in 2000 SF1)
+pop_var <- "P001001"
+
+# Median age (total). In 2000 SF1 this is P013001 "Median age -- Total"
+median_age_var <- "P013001"
+
+# For % 65+, we’ll sum all SF1 P012 (sex by age) components whose labels contain "65 years and over"
+age_table <- "P012"  # sex by age
+age_vars_2000 <- sf1_vars %>%
+  filter(str_starts(name, age_table)) %>%
+  mutate(is_65plus = str_detect(label, "65 to|66 to|67 to|68 to|69 to|70 to|71 to|72 to|73 to|74 to|75 to|76 to|77 to|78 to|79 to|80 to|81 to|82 to|83 to|84 to|85 years")) %>%
+  select(name, is_65plus)
+
+age_vars_65plus <- age_vars_2000 %>% filter(is_65plus) %>% pull(name)
+
+# Median household income (1999$) from 2000 SF3
+# In 2000 SF3 this is P053001: "Median household income in 1999 (dollars)"
+mhi_var <- "P053001"
+```
+
+```{r}
+# Pull Decennial 2000 SF1: population + median age
+sf1_core <- get_decennial(
+  geography = "zcta",
+  year = 2000,
+  variables = c(total_pop = pop_var, median_age = median_age_var),
+  geometry = FALSE,
+  output = "wide",
+  sumfile = "sf1"
+) %>%
+  rename(GEOID = GEOID) %>%
+  mutate(ZCTA5 = GEOID)
+
+# Pull 65+ counts and compute percent 65+
+sf1_age <- get_decennial(
+  geography = "zcta",
+  year = 2000,
+  variables = age_vars_2000$name,
+  geometry = FALSE,
+  output = "wide",
+  sumfile = "sf1"
+) %>%
+  rename(ZCTA5 = GEOID)
+
+# total population again (P001001) to be safe for % calculation
+sf1_pop_only <- get_decennial(
+  geography = "zcta",
+  year = 2000,
+  variables = pop_var,
+  geometry = FALSE,
+  output = "wide",
+  sumfile = "sf1"
+) %>%
+  rename(ZCTA5 = GEOID, pop2000 = P001001)
+
+# sum 65+ across all matching P012 components
+sf1_age_65pct <- sf1_age %>%
+  mutate(across(all_of(age_vars_65plus), as.numeric)) %>%
+  transmute(ZCTA5,
+            age65plus_2000 = rowSums(across(all_of(age_vars_65plus)), na.rm = TRUE)) %>%
+  left_join(sf1_pop_only, by = "ZCTA5") %>%
+  mutate(pct_65plus_2000 = if_else(pop2000 > 0, 100 * age65plus_2000 / pop2000, NA_real_)) %>%
+  select(ZCTA5, age65plus_2000, pop2000, pct_65plus_2000)
+
+# Pull Decennial 2000 SF3: median household income (1999$)
+sf3_income <- get_decennial(
+  geography = "zcta",
+  year = 2000,
+  variables = c(median_hh_income_1999 = mhi_var),
+  geometry = FALSE,
+  output = "wide",
+  sumfile = "sf3"
+) %>%
+  rename(ZCTA5 = GEOID)
+
+# 5) Land & water area for 2020 ZCTAs to match rr_sf$GEOID20
+# (ALAND/AWATER are in square meters; this uses 2020 TIGER shapefiles to align with GEOID20)
+zcta20 <- tigris::zctas(year = 2020, cb = TRUE, progress_bar = FALSE) %>%
+  st_drop_geometry() %>%
+  transmute(GEOID20 = ZCTA5CE20,
+            land_area_m2_2020 = ALAND20,
+            water_area_m2_2020 = AWATER20)
+
+# 6) Assemble a tidy 2000 attributes table keyed to 5-digit ZCTA
+attrs2000 <- sf1_core %>%
+  transmute(ZCTA5,
+            pop_2000 = total_pop,
+            median_age_2000 = median_age) %>%
+  left_join(sf1_age_65pct, by = "ZCTA5") %>%
+  left_join(sf3_income, by = "ZCTA5") %>%
+  # Rename income from wide column name
+  rename(median_hh_income_1999 = median_hh_income_1999) %>%
+  # Make sure ZCTA key is 5-digit character
+  mutate(ZCTA5 = str_pad(ZCTA5, width = 5, pad = "0"))
+
+# 7) Join to your rr_sf (assumes rr_sf$GEOID20 is the 5-digit ZCTA code as character)
+rr_sf_final <- rr_sf %>%
+  mutate(GEOID20 = as.character(GEOID20),
+         ZCTA5 = GEOID20) %>%
+  left_join(attrs2000, by = "ZCTA5") %>%
+  left_join(zcta20, by = "GEOID20") %>%
+  # Population density per km^2 using 2020 land area (best align with GEOID20)
+  mutate(pop_density_2000_per_km2 = if_else(!is.na(land_area_m2_2020) & land_area_m2_2020 > 0,
+                                            pop_2000 / (land_area_m2_2020 / 1e6),
+                                            NA_real_))
+
+rr <- rr_sf_final %>%
+  filter(hotspot_type %in% c("Hot Spot", "Cold Spot"))
 ```
