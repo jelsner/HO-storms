@@ -153,6 +153,32 @@ X32778 <- deaths_with_zcta |>
   dplyr::filter(!Storm_Effect == "None")
 ```
 
+List death dates & storm names by ZCTA and storm effect
+```{r}
+library(purrr)
+
+df <- deaths_with_zcta %>%
+  st_drop_geometry()
+
+# A compact tibble with a list-column of Death_Dates
+dates_by_effect_df <- df %>%
+  group_by(GEOID20, Storm_Effect) %>%
+  summarise(
+    Death_Dates = list(sort(unique(Death_Date))),   # the actual unique dates (could be more than 1 death)
+    Storm_Names = list(unique(Storm_Name)),         # storm names
+    n_records   = n(),                               # total records
+    n_dates     = length(Death_Dates[[1]]),          # unique dates
+    .groups = "drop"
+  ) %>%
+  arrange(GEOID20, Storm_Effect)
+
+dates_by_effect_df
+
+# Threat only
+dates_by_threat_df <- dates_by_effect_df %>%
+  filter(Storm_Effect == "Threat")
+```
+
 Fit Poisson models at each ZCTA
 ```{r}
 library(dplyr)
@@ -210,7 +236,6 @@ saveRDS(zcta_results_poly, "data/outputs/Results/zcta_results.rds")
 ```
 
 ```{r}
-library(dplyr)
 library(rlang)
 
 dat <- models_by_zcta
@@ -238,6 +263,14 @@ bottom10 <- dat_ranked %>%
 
 top10
 bottom10
+
+top_bottom_zctas_by_threat_rates <- c(top10$GEOID20, bottom10$GEOID20)
+
+top_bottom_dates_by_threat.df <- dates_by_threat_df %>%
+  filter(GEOID20 %in% top_bottom_zctas_by_threat_rates)
+
+dates_by_threat_df$Death_Dates[dates_by_threat_df$GEOID20 == "32750"]
+
 ```
 
 
