@@ -381,6 +381,73 @@ ggplot(rr_sf) +
 ```
 
 
+## Emergency room visits
+
+Data received from David Hsu on October 16, 2025 via email
+```{r}
+ER_visits.dt <- data.table::fread(here::here("data", "Combined_ER_Data.csv"))
+ER_visits.df <- ER_visits.dt |>
+  as.data.frame()
+```
+
+Clean ER data: pad zips, ensure Date class
+```{r}
+er_clean <- ER_visits.df %>%
+  mutate(
+    Date    = as.Date(Date),
+    ZipCode = str_pad(as.character(ZipCode), width = 5, pad = "0")
+  )
+```
+
+
+Expand list of dates per GEOID20 × Storm_Effect, then join to ER data
+```{r}
+er_match_long <- dates_by_effect_df %>%
+  select(GEOID20, Storm_Effect, Death_Dates, n_dates) %>%
+  unnest_longer(Death_Dates, values_to = "Date") %>%  # one row per death date
+  rename(Death_Date = Date) %>%
+  left_join(
+    er_clean,
+    by = c("GEOID20" = "ZipCode", "Death_Date" = "Date")
+  )
+```
+
+Compute averages per GEOID20 × Storm_Effect
+```{r}
+er_avg_by_effect <- er_match_long %>%
+  group_by(GEOID20, Storm_Effect) %>%
+  summarise(
+    avg_er_visits = if (all(is.na(Total_Visits))) NA_real_ else mean(Total_Visits, na.rm = TRUE),
+    n_er_rows     = sum(!is.na(Total_Visits)),
+    n_dates       = first(n_dates),
+    coverage      = ifelse(n_dates > 0, n_er_rows / n_dates, NA_real_),
+    .groups = "drop"
+  )
+```
+
+If we want avg_er_visits only when all dates have ER data, set non-full coverage to NA:
+```{r}
+er_avg_by_effect_strict <- er_match_long %>%
+  group_by(GEOID20, Storm_Effect) %>%
+  summarise(
+    n_er_rows = sum(!is.na(Total_Visits)),
+    n_dates   = first(n_dates),
+    coverage  = ifelse(n_dates > 0, n_er_rows / n_dates, NA_real_),
+    avg_er_visits = ifelse(coverage == 1, mean(Total_Visits, na.rm = TRUE), NA_real_),
+    .groups = "drop"
+  )
+```
+
+Attach the averages back to dates_by_effect_df
+```{r}
+dates_by_effect_with_er <- dates_by_effect_df %>%
+  left_join(er_avg_by_effect, by = c("GEOID20", "Storm_Effect"))
+
+dates_by_effect_with_er %>%
+  group_by(Storm_Effect) %>%
+  summarise(Averages = mean(avg_er_visits, na.rm = TRUE))
+```
+
 ## Attach census data
 
 ```{r}
