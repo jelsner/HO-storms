@@ -92,7 +92,7 @@ poisson_model <- glm(total_deaths ~ Storm_Effect + offset(log(num_days)), data =
 summary(poisson_model)
 ```
 
-This says that given the sample of data and a Poisson model, although the effect size is small mortality is significantly higher on storm-effect days compared to the reference level
+This says that given the sample of data and a Poisson model, although the effect size is small mortality is significantly higher on storm-effect days compared to the reference level. Note that this does not model the data at the daily time level so it does not account for possible dispersion, or control for seasonality and trend. 
 
 Create a nice table of the model results. We exponentiate the model coefficients to express them as a rate ratio and add confidence intervals
 ```{r}
@@ -399,7 +399,6 @@ er_clean <- ER_visits.df %>%
   )
 ```
 
-
 Expand list of dates per GEOID20 × Storm_Effect, then join to ER data
 ```{r}
 er_match_long <- dates_by_effect_df %>%
@@ -425,19 +424,6 @@ er_avg_by_effect <- er_match_long %>%
   )
 ```
 
-If we want avg_er_visits only when all dates have ER data, set non-full coverage to NA:
-```{r}
-er_avg_by_effect_strict <- er_match_long %>%
-  group_by(GEOID20, Storm_Effect) %>%
-  summarise(
-    n_er_rows = sum(!is.na(Total_Visits)),
-    n_dates   = first(n_dates),
-    coverage  = ifelse(n_dates > 0, n_er_rows / n_dates, NA_real_),
-    avg_er_visits = ifelse(coverage == 1, mean(Total_Visits, na.rm = TRUE), NA_real_),
-    .groups = "drop"
-  )
-```
-
 Attach the averages back to dates_by_effect_df
 ```{r}
 dates_by_effect_with_er <- dates_by_effect_df %>%
@@ -447,6 +433,207 @@ dates_by_effect_with_er %>%
   group_by(Storm_Effect) %>%
   summarise(Averages = mean(avg_er_visits, na.rm = TRUE))
 ```
+
+## Confirm (or challenge) results of the mortality rates using ER visit data
+
+Build ER effect-day counts (per ZIP × day)
+```{r}
+library(dplyr); library(tidyr); library(stringr); library(lubridate)
+
+# ER: make sure it's daily per ZIP
+er <- ER_visits.df %>%
+  mutate(Date = as.Date(Date),
+         GEOID20 = str_pad(as.character(ZipCode), width = 5, side = "left", pad = "0")) %>%
+  group_by(GEOID20, Date) %>%
+  summarise(Total_Visits = sum(Total_Visits), .groups = "drop")
+
+# Storm effect calendar: expand your list-column to a daily calendar
+cal <- dates_by_effect_df %>%
+  select(GEOID20, Storm_Effect, Death_Dates) %>%
+  unnest_longer(Death_Dates, values_to = "Date") %>%
+  mutate(flag = 1L) %>%
+  pivot_wider(names_from = Storm_Effect, values_from = flag, values_fill = 0L)
+
+# Join ER with the calendar (non-matches => None)
+er_cal <- er %>%
+  right_join(
+    expand_grid(GEOID20 = unique(cal$GEOID20), Date = seq(min(cal$Date), max(cal$Date), by="day")),
+    by = c("GEOID20","Date")
+  ) %>%
+  left_join(cal, by = c("GEOID20","Date")) %>%
+  mutate(across(all_of(c("Impact","Threat","Cleanup","None")), ~replace_na(.x, 0L)),
+         None = ifelse((Impact+Threat+Cleanup)==0, 1L, None),
+         Total_Visits = coalesce(Total_Visits, 0L))   # or NA if you prefer strict coverage
+```
+
+Create long data frame of zcta_results
+```{r}
+mort_rr_long <- zcta_results %>%
+  st_drop_geometry() %>%
+  transmute(
+    GEOID20 = str_pad(as.character(GEOID20), 5, side = "left", pad = "0"),
+    RR_Impact  = as.numeric(RR_Impact),
+    RR_Threat  = as.numeric(RR_Threat),
+    RR_Cleanup = as.numeric(RR_Cleanup)
+  ) %>%
+  pivot_longer(
+    cols = starts_with("RR_"),
+    names_to = "Storm_Effect",
+    names_pattern = "RR_(.*)",
+    values_to = "RR_Mort"
+  ) %>%
+  filter(is.finite(RR_Mort)) %>%
+  mutate(
+    Storm_Effect = factor(Storm_Effect, levels = c("Impact","Threat","Cleanup"))
+  )
+```
+
+Aggregate to weeks so most weeks exceed the threshold even if some days don’t. Model weekly totals with offsets for partial coverage and with storm-effect exposure defined as days per week.
+```{r}
+library(dplyr)
+library(lubridate)
+library(mgcv)
+# weekly table, but add a compact time index
+wk <- er_cal %>%
+  mutate(week = floor_date(as.Date(Date), "week", week_start = 1)) %>%
+  group_by(GEOID20, week) %>%
+  summarise(
+    visits_wk    = sum(as.numeric(Total_Visits), na.rm = TRUE),
+    n_obs_days   = sum(!is.na(Total_Visits)),
+    Impact_days  = sum((Impact  > 0L), na.rm = TRUE),
+    Threat_days  = sum((Threat  > 0L), na.rm = TRUE),
+    Cleanup_days = sum((Cleanup > 0L), na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    GEOID20     = factor(sprintf("%05s", as.character(GEOID20))),
+    doy         = yday(week),                                   # 1..366
+    tw          = as.integer(difftime(week, min(week), "weeks")),# small integer time
+    offset_days = log(pmax(n_obs_days, 1L))
+  )
+
+wk_fit <- wk %>% filter(n_obs_days >= 3)
+
+# knots for cyclic day-of-year smooth
+knots_list <- list(doy = c(0.5, 366.5))
+
+# Use bam() + discrete = TRUE (fast, memory-efficient) + fREML
+m_wk <- bam(
+  visits_wk ~ Impact_days + Threat_days + Cleanup_days +
+    s(doy, bs = "cc", k = 12) +       # smaller basis is plenty weekly
+    s(tw,  k = 30) +                  # trend on compact integer time
+    s(GEOID20, bs = "re"),            # random intercept by ZIP
+  family   = nb(link = "log"),
+  offset   = offset_days,
+  data     = wk_fit,
+  method   = "fREML",
+  discrete = TRUE,
+  nthreads = max(1, parallel::detectCores() - 1),
+  knots    = knots_list
+)
+summary(m_wk)
+```
+
+```{r}
+sel <- c("Impact_days","Threat_days","Cleanup_days")
+b   <- coef(m_wk)[sel]
+V   <- vcov(m_wk)[sel, sel, drop = FALSE]
+se  <- sqrt(diag(V))
+
+out <- data.frame(
+  Storm_Effect = c("Impact","Threat","Cleanup"),
+  RR_week      = exp(b),
+  RR_lo        = exp(b - 1.96*se),
+  RR_hi        = exp(b + 1.96*se),
+  row.names = NULL
+)
+out
+```
+
+Cleanup days show a clear increase in ER load per additional day that week (≈ +1.7% each). Threat days show a small but significant decrease (≈ −0.8% each) — plausible if people defer non-urgent care on days with active threats. Impact days show no clear aggregate effect at the weekly scale (could reflect offsetting mechanisms: acute spikes in some ZIPs/weeks vs access barriers or suppression elsewhere).
+
+Allow for more zipcode-specific variation (do it in stages)
+```{r}
+library(dplyr); library(lubridate)
+
+wk <- er_cal %>%
+  mutate(week = floor_date(as.Date(Date), "week", week_start = 1)) %>%
+  group_by(GEOID20, week) %>%
+  summarise(
+    visits_wk    = sum(as.numeric(Total_Visits), na.rm = TRUE),
+    n_obs_days   = sum(!is.na(Total_Visits)),
+    Impact_days  = sum(Impact  > 0L, na.rm = TRUE),
+    Threat_days  = sum(Threat  > 0L, na.rm = TRUE),
+    Cleanup_days = sum(Cleanup > 0L, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    GEOID20     = factor(sprintf("%05s", as.character(GEOID20))),
+    doy         = yday(week),
+    tw          = as.integer(difftime(week, min(week), "weeks")),
+    offset_days = log(pmax(n_obs_days, 1L))
+  )
+
+wk_fit <- wk %>% filter(n_obs_days >= 3)
+
+# Fourier seasonality (K = 2)
+K <- 2
+fourier <- purrr::map_dfc(1:K, function(k) {
+  tibble::tibble(
+    !!paste0("sin", k) := sin(2*pi*k*wk_fit$doy/366),
+    !!paste0("cos", k) := cos(2*pi*k*wk_fit$doy/366)
+  )
+})
+wk_fit <- dplyr::bind_cols(wk_fit, fourier)
+fourier_terms <- paste(names(fourier), collapse = " + ")
+
+library(glmmTMB)
+
+# Model A — Random intercept only (should converge)
+form_A <- as.formula(
+  paste(
+    "visits_wk ~ Impact_days + Threat_days + Cleanup_days +",
+    fourier_terms, "+ poly(tw, 2) + (1 | GEOID20)"
+  )
+)
+
+m_A <- glmmTMB(
+  form_A,
+  family = nbinom2,
+  offset = wk_fit$offset_days,
+  data   = wk_fit,
+  control = glmmTMBControl(optimizer = optim, optArgs = list(method = "BFGS"))
+)
+summary(m_A)
+
+
+# Model B - One random slope (Threat term)
+
+library(glmmTMB)
+
+# Keep your wk_fit with K=2 Fourier terms
+form_B <- as.formula(
+  paste(
+    "visits_wk ~ Impact_days + Threat_days + Cleanup_days +",
+    "sin1 + cos1 + sin2 + cos2 + poly(tw, 2)",
+    "+ (1 | GEOID20) + (0 + Threat_days | GEOID20)"  # or Cleanup_days
+  )
+)
+
+m_B <- glmmTMB(
+  form_B, family = nbinom2,
+  offset = wk_fit$offset_days, data = wk_fit,
+  control = glmmTMBControl(optimizer = optim, optArgs = list(method = "BFGS"))
+)
+summary(m_B)
+
+```
+
+
+
+
+
+
 
 ## Attach census data
 
