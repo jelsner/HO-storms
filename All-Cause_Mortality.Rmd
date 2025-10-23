@@ -48,11 +48,17 @@ This tells you, for example, that .333% of all deaths occurred under an Impact s
 
 Get number of deaths per day by Storm_Effect
 ```{r}
-# Group deaths by date and storm effect
+# Range of dates for which there was a storm effect
+range <- Deaths.df |>
+  filter(Storm_Effect != "None")
+range(range$Death_Date)
+
+# Group deaths by date and storm effect and remove deaths before 1985
 daily_deaths <- Deaths.df |>
 #  group_by(Death_Date, Storm_Effect, SH) |>
   group_by(Death_Date, Storm_Effect) |>
-  summarise(deaths = n(), .groups = "drop")
+  summarise(deaths = n(), .groups = "drop") |>
+  filter(Death_Date >= as.Date("1985-01-01"))
 ```
 
 Get number of days for each storm effect. This assumes Storm_Effect applies to the whole day — i.e., each Death_Date has a unique Storm_Effect
@@ -81,50 +87,75 @@ death_rates <- left_join(total_deaths, num_days, by = "Storm_Effect") |>
 print(death_rates)
 ```
 
-This tells us that in this sample the daily death rate is somewhat higher on storm-effect days than on non-storm-effect days
+This tells us that in this sample the daily death rate is somewhat LOWER on storm-effect days than on non-storm-effect days. But a lot is going on: trend, seasonality, autocorrelation. We need a model that accounts for these things
 
-Test it statistically using a Poisson regression model with the reference level being a non-storm-effect day
+## Model using a negative binomial generalized additive model
+
+Setup data frame
 ```{r}
-model_data <- left_join(total_deaths, num_days, by = "Storm_Effect")
-model_data$Storm_Effect <- relevel(factor(model_data$Storm_Effect), ref = "None")
+library(lubridate)
 
-poisson_model <- glm(total_deaths ~ Storm_Effect + offset(log(num_days)), data = model_data, family = poisson())
-summary(poisson_model)
+dat <- daily_deaths %>%              # your table: Death_Date, Storm_Effect, deaths
+  transmute(
+    date  = as.Date(Death_Date),
+    y     = as.integer(deaths),
+    effect = factor(Storm_Effect, levels = c("None","Threat","Impact","Cleanup")),
+    dow   = wday(date, label = TRUE, week_start = 1), # Mon..Sun
+    doy   = yday(date),                               # 1..366 (handles leap days too)
+    tnum  = as.integer(date - min(date))              # days since start (well-scaled)
+  )
 ```
 
-This says that given the sample of data and a Poisson model, although the effect size is small mortality is significantly higher on storm-effect days compared to the reference level. Note that this does not model the data at the daily time level so it does not account for possible dispersion, or control for seasonality and trend. 
-
-Create a nice table of the model results. We exponentiate the model coefficients to express them as a rate ratio and add confidence intervals
+Generalized linear model (negative binomial)
 ```{r}
-# Extract coefficients and 95% confidence intervals
-coefs <- coef(summary(poisson_model))
-confint_vals <- confint(poisson_model)  # May take a few seconds
+m_glm <- MASS::glm.nb(
+  y ~ effect + dow + poly(doy, 3) + poly(tnum, 3),
+  data = dat, link = log
+)
+summary(m_glm)
 
-# Build data frame of results
-rate_ratios <- data.frame(
-  Term = rownames(coefs),
-  Estimate = coefs[, "Estimate"],
-  Std_Error = coefs[, "Std. Error"],
-  z_value = coefs[, "z value"],
-  p_value = coefs[, "Pr(>|z|)"],
-  RR = exp(coefs[, "Estimate"]),
-  RR_lower = exp(confint_vals[, 1]),
-  RR_upper = exp(confint_vals[, 2])
+acf(residuals(m_glm))
+```
+
+This looks good, but there is large autocorrelation in the residuals. Let's try another model that includes autocorrelation
+
+```{r}
+library(gratia)
+library(mgcv)
+
+# mark start of series (single series here)
+dat$ARstart <- c(TRUE, rep(FALSE, nrow(dat)-1))
+
+# Cyclic smooth needs knots that wrap (0.5, 366.5) for stability
+knots_list <- list(doy = c(0.5, 366.5))
+
+m_ar1 <- bam(
+  y ~ effect + dow + s(doy, bs = "cc", k = 20) + s(tnum, k = 100),
+  family = nb(link = "log"),
+  data = dat,
+  method = "fREML",
+  discrete = TRUE,
+  knots = knots_list,
+  AR.start = dat$ARstart,
+  rho = 0.58  # set to your estimated lag-1 corr if you have it
 )
 
-# Clean up names
-rownames(rate_ratios) <- NULL
-rate_ratios <- rate_ratios |>
-  dplyr::select(Term, RR, RR_lower, RR_upper, p_value)
-
-# Print the table
-options(digits = 4)
-print(rate_ratios)
+summary(m_ar1)
 ```
 
-## Spatialize results using zip code areas ZCTAs
+Effect days are no longer statistically significant. Autocorrelation inflates z-scores. Plain (quasi/NB) GLMs assume independent residuals. Daily mortality has strong AR structure; ignoring it underestimates SEs, making small effects look “significant.” Adding AR(1) (or equivalently, using time-stratified controls) raises SEs → p-values go up. Also there is collinearity with seasonality/trend. Storm phases cluster in certain seasons/years. Flexible smooths (or fine time strata) explain a lot of the same variance; the unique contribution of storm indicators shrinks.
 
-Get Florida ZCTAs
+Multiple testing/time-of-day confounding (more relevant at ZIP scale), but with many ZIPs, some will look “significant” by chance unless we account for dependence and control false detection rate.
+
+## Poisson model with stratum fixed effects
+
+We will try a time-stratified conditional Poisson (“case-crossover”) design. It is robust and efficient for daily counts. Robust to autocorrelation and seasonality, and easy to scale per ZIP. 
+
+First we need to create fine time strata (e.g., year × month × day-of-week) so comparisons are within the same month and weekday—this controls long-term trend, seasonal cycle, and DOW without smooths. 
+
+Then we fit a Poisson with stratum fixed effects. This is equivalent to conditioning on the stratum totals and largely removes serial confounding. Use robust (clustered) SEs by stratum to protect against residual correlation within a stratum.
+
+Get Florida zips
 ```{r}
 library(tigris)
 library(sf)
@@ -139,21 +170,21 @@ zctas_fl <- st_intersection(zctas_all, st_transform(florida, st_crs(zctas_all)))
 zctas_fl <- st_make_valid(zctas_fl) # in case of invalid geometries
 ```
 
-Join deaths to ZCTAs
+Spatial join deaths to zips
 ```{r}
-Deaths.sf <- st_transform(Deaths.sf, st_crs(zctas_fl))  # Ensure CRS matches
-deaths_with_zcta <- st_join(Deaths.sf, zctas_fl["GEOID20"])  # Join only GEOID20
+Deaths2.sf <- Deaths.sf |>
+  filter(Death_Date >= as.Date("1985-01-01")) | # first storm occurs in 1985
+  st_transform(st_crs(zctas_fl))  # Ensure CRS matches
+deaths_with_zcta <- st_join(Deaths2.sf, zctas_fl["GEOID20"])  # Join only GEOID20
+
+sum(is.na(deaths_with_zcta$GEOID20))
+
+# remove rows (deaths) without a zip
+deaths_with_zcta <- deaths_with_zcta |>
+  drop_na(GEOID20)
 ```
 
-Check out specific zip codes, storms, etc
-```{r}
-X32778 <- deaths_with_zcta |>
-  st_drop_geometry() |>
-  dplyr::filter(GEOID20 == "32778") |>
-  dplyr::filter(!Storm_Effect == "None")
-```
-
-List death dates & storm names by ZCTA and storm effect
+List death dates & storm names by zip and storm effect
 ```{r}
 library(purrr)
 
@@ -173,11 +204,838 @@ dates_by_effect_df <- df %>%
   arrange(GEOID20, Storm_Effect)
 
 dates_by_effect_df
-
-# Threat only
-dates_by_threat_df <- dates_by_effect_df %>%
-  filter(Storm_Effect == "Threat")
+length(unique(dates_by_effect_df$GEOID20))
 ```
+
+Convert dates_by_effect_df to a zip-day calendar and fill all other days as "None".
+```{r}
+library(tidyr)
+library(stringr)
+
+# Unnest the list of dates into one row per GEOID20 × Date × Storm_Effect
+effect_by_zip_day <- dates_by_effect_df %>%
+  select(GEOID20, Storm_Effect, Death_Dates) %>%
+  mutate(GEOID20 = str_pad(as.character(GEOID20), 5, pad = "0")) %>%
+  unnest_longer(Death_Dates, values_to = "Date") %>%   # now the column is "Date"
+  transmute(
+    GEOID20,
+    Date = as.Date(Date),
+    Storm_Effect
+  )
+
+# If a zip–day shows up with multiple effects (rare), resolve by priority:
+effect_priority <- c("Impact" = 3, "Threat" = 2, "Cleanup" = 1, "None" = 0)
+effect_by_zip_day <- effect_by_zip_day %>%
+  mutate(p = effect_priority[Storm_Effect]) %>%
+  arrange(GEOID20, Date, desc(p)) %>%
+  distinct(GEOID20, Date, .keep_all = TRUE) %>%
+  select(GEOID20, Date, Storm_Effect)
+
+# Complete the full daily grid and fill missing as "None"
+date_rng <- range(effect_by_zip_day$Date, na.rm = TRUE)
+all_zips <- effect_by_zip_day %>% distinct(GEOID20)
+
+effect_by_zip_day <- expand_grid(
+    GEOID20 = all_zips$GEOID20,
+    Date = seq(date_rng[1], date_rng[2], by = "day")
+  ) %>%
+  left_join(effect_by_zip_day, by = c("GEOID20","Date")) %>%
+  mutate(Storm_Effect = replace_na(Storm_Effect, "None"))
+```
+
+Death counts by zip-day
+```{r}
+library(forcats)
+
+# Daily death counts per zip
+death_counts <- deaths_with_zcta %>%
+  st_drop_geometry() %>%
+  transmute(
+    GEOID20 = stringr::str_pad(as.character(GEOID20), 5, pad = "0"),
+    Date    = as.Date(Death_Date)
+  ) %>%
+  count(GEOID20, Date, name = "y")  # y = deaths that day in that zip
+
+# Full daily grid for all zips across the entire date range
+all_zips <- death_counts %>% distinct(GEOID20)
+date_rng <- range(death_counts$Date, na.rm = TRUE)
+full_grid <- tidyr::expand_grid(
+  GEOID20 = all_zips$GEOID20,
+  Date    = seq(date_rng[1], date_rng[2], by = "day")
+)
+
+# Join the effect calendar (must be zip–day)
+panel_df <- full_grid %>%
+  left_join(
+    effect_by_zip_day %>%   # <- zip–day effect labels
+      transmute(
+        GEOID20 = str_pad(as.character(GEOID20), 5, pad = "0"),
+        Date = as.Date(Date),
+        Storm_Effect = factor(Storm_Effect, levels = c("None","Threat","Impact","Cleanup"))
+      ),
+    by = c("GEOID20","Date")
+  ) %>%
+ # mutate(Storm_Effect = fct_explicit_na(Storm_Effect, na_level = "None")) %>%
+  mutate(Storm_Effect = fct_na_value_to_level(Storm_Effect, "None")) %>%
+  # join counts and fill missing with 0
+  left_join(death_counts, by = c("GEOID20","Date")) %>%
+  mutate(y = coalesce(y, 0L)) %>%
+  # add handy covariates for models
+  mutate(
+    zip  = GEOID20,
+    date = Date,
+    effect = Storm_Effect,
+    ym   = format(date, "%Y-%m"),
+    dow  = wday(date, label = TRUE, week_start = 1)
+  ) %>%
+  select(zip, date, y, effect, ym, dow)
+```
+
+```{r}
+panel_df %>%
+  group_by(effect) %>%
+  summarize(Nzeros = sum(y == 0))
+```
+
+
+deaths_with_zcta: 5.8M rows, one per death, with GEOID20, Death_Date
+panel_df: per-ZIP per-date table with columns at least zip, date, effect (this is your exposure/effect calendar; it must include all ZIP–dates, even with no deaths)
+
+Create an exposure calendar
+```{r}
+library(data.table)
+library(sf)
+
+# Deaths (points) -> table
+dt <- as.data.table(st_drop_geometry(deaths_with_zcta))
+setnames(dt,
+  old = c("GEOID20","Death_Date"),
+  new = c("zip","date"),
+  skip_absent = TRUE
+)
+dt[, date := as.IDate(date)]
+
+# Exposure calendar from your earlier panel (or any equivalent)
+cal <- as.data.table(panel_df)[, .(zip = as.character(zip),
+                                   date = as.IDate(date),
+                                   effect = as.character(effect))]
+
+# Normalize effect levels (order matters only for checks)
+lvl <- c("None","Cleanup","Threat","Impact")
+cal[, effect := factor(effect, levels = lvl)]
+
+stopifnot(cal[, .N, by = .(zip,date)][, all(N == 1)])
+
+grid <- copy(cal)
+```
+
+Make sure calendar is complete
+```{r}
+all_zips  <- sort(unique(cal$zip))
+all_dates <- seq(min(cal$date), max(cal$date), by = "day")
+full_grid <- CJ(zip = all_zips, date = all_dates)
+
+cal_full <- cal[full_grid, on = .(zip,date)]
+cal_full[is.na(effect), effect := "None"]
+cal_full[, effect := factor(effect, levels = lvl)]
+```
+
+
+Count deaths per zip-date
+```{r}
+# Death counts by ZIP–date
+counts <- dt[, .(y = .N), by = .(zip, date)]
+
+# Left-join onto the calendar/grid (keep every ZIP–date from the calendar)
+zip_day <- counts[grid, on = .(zip, date)]
+zip_day[is.na(y), y := 0L]
+
+# Optional: restrict to hurricane season
+zip_day <- zip_day[ between(as.integer(format(date, "%m")), 6, 11) ]
+
+# Quick QA: we should have zeros across all effects now
+zip_day[, .(zeros = sum(y == 0L), rows = .N), by = effect][order(effect)]
+
+```
+
+
+
+Sanity checks
+```{r}
+panel_df %>% count(effect)              # see distribution of effects
+panel_df %>% summarise(min(date), max(date), n = n())  # coverage
+panel_df %>% count(zip) %>% summary()   # rows per zip
+
+# Prep: coerce to factors
+panel_df2 <- panel_df %>%
+  mutate(
+    zip    = factor(zip),
+    ym     = factor(ym),                                # e.g. "1985-01"
+    dow    = factor(dow)                               # Mon..Sun
+  )
+```
+
+Keep None only if within ±7 days of any Impact date (per zip)
+```{r}
+library(dplyr)
+library(forcats)
+library(purrr)
+library(fixest)
+library(broom)
+
+panel_filtered <- panel_df %>%
+  group_by(zip) %>%
+  mutate(
+    within_7_of_impact = {
+      imp_dates <- date[effect == "Impact"]
+      if (length(imp_dates) == 0L) {
+        FALSE
+      } else {
+        # check distance to ANY impact date in this ZIP
+        vapply(date, function(d) any(abs(as.integer(d - imp_dates)) <= 7L), logical(1))
+      }
+    }
+  ) %>%
+  ungroup() %>%
+  filter(effect != "None" | within_7_of_impact) %>%
+  mutate(
+    # after filtering, reassert the full level set so 'None' is still a level (even if absent)
+    effect = fct_relevel(effect, "None", "Threat", "Impact", "Cleanup")
+  )
+```
+
+Now get daily death rate ratios relative to None for the state as a whole
+```{r}
+summary_by_effect <- panel_filtered %>%
+  group_by(effect) %>%
+  summarise(
+    n_zipdays    = n(),                # number of ZIP-days in this effect
+    total_deaths = sum(y, na.rm = TRUE),
+    mean_y       = mean(y, na.rm = TRUE),  # average deaths per ZIP-day
+    sd_y         = sd(y,   na.rm = TRUE),
+    se_mean      = sd_y / sqrt(n_zipdays),
+    ci_lo        = mean_y - 1.96 * se_mean,
+    ci_hi        = mean_y + 1.96 * se_mean,
+    median_y     = median(y, na.rm = TRUE),
+    q25          = quantile(y, 0.25, na.rm = TRUE),
+    q75          = quantile(y, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+summary_by_effect
+
+base <- summary_by_effect %>% filter(effect == "None")
+rr_table <- summary_by_effect %>%
+  filter(effect != "None") %>%
+  mutate(
+    rr      = mean_y / base$mean_y,
+    # Delta-method SE on log(rr): sqrt( (se/mu)^2 + (se0/mu0)^2 )
+    se_logr = sqrt( (se_mean / mean_y)^2 + (base$se_mean / base$mean_y)^2 ),
+    lo_rr   = exp(log(rr) - 1.96 * se_logr),
+    hi_rr   = exp(log(rr) + 1.96 * se_logr)
+  ) %>%
+  select(effect, rr, lo_rr, hi_rr, mean_y, ci_lo, ci_hi, n_zipdays, total_deaths)
+
+rr_table
+```
+
+Repeat this for all zip codes
+```{r}
+library(tidyr)
+library(purrr)
+library(stringr)
+
+min_n_none   <- 5
+min_n_effect <- 3
+
+mk_rr <- function(mu_e, se_e, mu_0, se_0) {
+  if (is.na(mu_e) || is.na(mu_0) || mu_e <= 0 || mu_0 <= 0) return(c(NA, NA, NA))
+  rr <- mu_e / mu_0
+  se_log <- sqrt( (se_e / mu_e)^2 + (se_0 / mu_0)^2 )
+  c(rr, exp(log(rr) - 1.96*se_log), exp(log(rr) + 1.96*se_log))
+}
+
+zip_eff_sum <- panel_filtered %>%
+  mutate(effect = fct_relevel(effect, "None","Threat","Impact","Cleanup")) %>%
+  group_by(zip, effect) %>%
+  summarise(
+    n_days  = n(),
+    total_y = sum(y),
+    mean_y  = mean(y),
+    sd_y    = sd(y),
+    se_mean = sd_y / sqrt(n_days),
+    .groups = "drop"
+  )
+
+zip_wide <- zip_eff_sum %>%
+  select(zip, effect, n_days, mean_y, se_mean) %>%
+  pivot_wider(names_from = effect, values_from = c(n_days, mean_y, se_mean), names_sep = ".")
+
+rr_zip <- zip_wide %>%
+  mutate(
+    ok_none    = !is.na(n_days.None)   & n_days.None   >= min_n_none   & !is.na(mean_y.None)   & mean_y.None   > 0,
+    ok_threat  = !is.na(n_days.Threat) & n_days.Threat >= min_n_effect,
+    ok_impact  = !is.na(n_days.Impact) & n_days.Impact >= min_n_effect,
+    ok_cleanup = !is.na(n_days.Cleanup)& n_days.Cleanup>= min_n_effect
+  ) %>%
+  rowwise() %>%
+  mutate(
+    rr_threat_vec  = list(set_names(if (ok_none && ok_threat)
+                          mk_rr(mean_y.Threat,  se_mean.Threat,  mean_y.None, se_mean.None)
+                        else rep(NA_real_, 3),
+                        c("rr_threat","rr_threat_lo","rr_threat_hi"))),
+    rr_impact_vec  = list(set_names(if (ok_none && ok_impact)
+                          mk_rr(mean_y.Impact,  se_mean.Impact,  mean_y.None, se_mean.None)
+                        else rep(NA_real_, 3),
+                        c("rr_impact","rr_impact_lo","rr_impact_hi"))),
+    rr_cleanup_vec = list(set_names(if (ok_none && ok_cleanup)
+                          mk_rr(mean_y.Cleanup, se_mean.Cleanup, mean_y.None, se_mean.None)
+                        else rep(NA_real_, 3),
+                        c("rr_cleanup","rr_cleanup_lo","rr_cleanup_hi")))
+  ) %>%
+  ungroup() %>%
+  unnest_wider(rr_threat_vec) %>%
+  unnest_wider(rr_impact_vec) %>%
+  unnest_wider(rr_cleanup_vec) %>%
+  select(
+    zip,
+    starts_with("n_days."), starts_with("mean_y."),
+    rr_threat, rr_threat_lo, rr_threat_hi,
+    rr_impact, rr_impact_lo, rr_impact_hi,
+    rr_cleanup, rr_cleanup_lo, rr_cleanup_hi
+  )
+
+```
+
+
+
+
+
+Time-stratified fixed effects within zip code areas. This model gives us global effects. We use zip x (YM x DOW) FE by interacting them
+```{r}
+library(fixest)
+panel_df2 <- panel_df2 %>%
+  mutate(stratum = interaction(zip, ym, dow, drop = TRUE))
+
+start <- Sys.time()
+m_zip <- fepois(
+  y ~ effect | stratum,
+  data    = panel_df2,
+  cluster = ~ stratum  # cluster-robust SEs by stratum
+)
+Sys.time() - start
+```
+
+```{r}
+# Rate ratios vs "None"
+exp(coef(m_zip)[grepl("^effect", names(coef(m_zip)))])
+
+sel <- grep("^effect", names(coef(m_zip)), value = TRUE)
+ci <- confint(m_zip, parm = sel)  # matrix with 2 cols
+
+# assemble a tidy table and exponentiate to get rate ratios
+out <- tibble(
+  term   = sel,
+  effect = sub("^effect", "", sel),
+  RR     = exp(coef(m_zip)[sel]),
+  RR_lo  = exp(ci[, 1]),
+  RR_hi  = exp(ci[, 2])
+)
+out
+```
+
+On days labeled Threat, Impact, or Cleanup, statewide deaths are roughly ~2× the level of “None” days within the same ZIP, same month, and same day-of-week. Because the stratum fixed effects removes slow trends and seasonal/DOW patterns, these are within-stratum contrasts—very robust to confounding by time
+
+See what is being dropped
+```{r}
+drop_diag <- panel_df2 %>%
+  mutate(stratum = interaction(zip, ym, dow, drop = TRUE)) %>%
+  group_by(stratum) %>%
+  summarise(n = n(), sum_y = sum(y), .groups = "drop") %>%
+  mutate(reason = dplyr::case_when(
+    n == 1 ~ "singleton",
+    sum_y == 0 ~ "all_zero",
+    TRUE ~ "kept"
+  ))
+
+table(drop_diag$reason)
+drop_diag %>% filter(reason != "kept") %>% slice_head(n = 10)
+```
+
+Coarsen the time strata so fewer are all-zero. Most efficient and stays in the same framework.
+zip × Month FE + DOW as a regressor.
+```{r}
+panel_df2 <- panel_df2 %>% 
+  mutate(stratum_m = interaction(zip, ym, drop = TRUE))
+
+start <- Sys.time()
+m_zip <- fixest::fepois(
+  y ~ effect + dow | stratum_m,
+  data = panel_df2,
+  cluster = ~ stratum_m
+)
+Sys.time() - start
+
+exp(coef(m_zip)[grepl("^effect", names(coef(m_zip)))])
+
+sel <- grep("^effect", names(coef(m_zip)), value = TRUE)
+ci <- confint(m_zip, parm = sel)  # matrix with 2 cols
+
+out <- tibble(
+  term   = sel,
+  effect = sub("^effect", "", sel),
+  RR     = exp(coef(m_zip)[sel]),
+  RR_lo  = exp(ci[, 1]),
+  RR_hi  = exp(ci[, 2])
+)
+out
+```
+
+Aggregate to weeks before modeling. Weekly ZIP counts greatly reduce zeros and still let us use time-stratified Poisson (e.g., ZIP×year-week FE + DOW composition or just FE).
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(stringr)
+library(fixest)
+
+wk <- panel_df2 %>%
+  mutate(week = floor_date(date, "week", week_start = 1)) %>%
+  group_by(zip, week, effect) %>%
+  summarise(
+    y    = sum(y),
+    days = n(),                    # exposure: # of effect-days in that week
+    .groups = "drop"
+  ) %>%
+  complete(zip, week, effect, fill = list(y = 0L, days = 0L)) %>%
+  mutate(
+    yw        = paste(year(week), sprintf("%02d", isoweek(week)), sep = "-"),
+    stratum_w = interaction(zip, yw, drop = TRUE)
+  ) %>%
+  filter(days > 0)                 # no time-at-risk → drop
+
+m_zip_w <- fepois(
+  y ~ effect + offset(log(days)) | stratum_w,
+  data    = wk,
+  cluster = ~ stratum_w
+)
+
+# Rate ratios with CIs
+sel <- grep("^effect", names(coef(m_zip_w)), value = TRUE)
+ci  <- confint(m_zip_w, parm = sel)
+
+out_pooled <- tibble::tibble(
+  term   = sel,
+  effect = sub("^effect", "", sel),
+  RR     = exp(coef(m_zip_w)[sel]),
+  RR_lo  = exp(ci[, 1]),
+  RR_hi  = exp(ci[, 2])
+)
+out_pooled
+```
+
+
+Fit weekly fixed effects panel models at each zip code.
+```{r}
+# Weekly label (ISO weeks so year boundaries are safe)
+panel_wk <- panel_df2 %>%
+  mutate(week = floor_date(date, "week", week_start = 1),
+         yw   = paste0(isoyear(week), "-W", sprintf("%02d", isoweek(week)))) %>%
+  group_by(zip, yw, effect) %>%
+  summarise(y = sum(y), .groups = "drop") %>%
+  # ensure each ZIP–week has all 4 effect rows (missing → 0)
+  complete(zip, yw, effect, fill = list(y = 0L))
+
+panel_wk %>% count(effect)
+panel_wk %>% summarise(n_zips = n_distinct(zip), n_weeks = n_distinct(yw))
+```
+
+Filter sparse zips to speed things up
+```{r}
+zip_ok <- panel_wk %>%
+  group_by(zip) %>%
+  summarise(storm_weeks = sum(effect != "None" & y > 0), .groups = "drop") %>%
+  filter(storm_weeks >= 5) %>%
+  pull(zip)
+
+panel_wk <- panel_wk %>% filter(zip %in% zip_ok)
+```
+
+Split by zip (weekly time series by zip)
+```{r}
+by_zip <- panel_wk %>% group_split(zip)
+length(by_zip)  # number of zips that will be fitted
+```
+
+ZIP-wise weekly conditional Poisson with within-week fixed effects
+Model: y ~ effect + factor(week_id)
+Weeks act as strata inside each ZIP ⇒ we compare effect counts within the same week
+Cluster-robust SEs by week (semi-robust to within-week dependence)
+```{r}
+library(sandwich)
+library(lmtest)
+library(purrr)
+library(tibble)
+
+fit_one_zip_weekly <- function(dfz) {
+  zid <- as.character(dfz$zip[1])
+
+  dfz <- dfz %>%
+    mutate(stratum_w = factor(yw)) %>%
+    filter(days > 0) %>%                 # keep only weeks with exposure
+    mutate(off = log(days))
+
+  if (nrow(dfz) == 0 || nlevels(dfz$stratum_w) < 2 || nlevels(dfz$effect) < 2) {
+    return(tibble::tibble(GEOID20 = zid, term = character(), logRR = numeric(),
+                          se = numeric(), stat = numeric(), p = numeric()))
+  }
+
+  res <- try({
+    m  <- stats::glm(y ~ effect + factor(stratum_w),
+                     family = poisson(), data = dfz, offset = off)
+    vc <- sandwich::vcovCL(m, cluster = ~ stratum_w, type = "HC1")
+    lmtest::coeftest(m, vcov. = vc)
+  }, silent = TRUE)
+  if (inherits(res, "try-error")) {
+    message("Skipping ZIP (fit error): ", zid)
+    return(tibble::tibble(GEOID20 = zid, term = character(), logRR = numeric(),
+                          se = numeric(), stat = numeric(), p = numeric()))
+  }
+
+  ct <- res
+  keep <- grep("^effect", rownames(ct))
+  if (!length(keep)) {
+    return(tibble::tibble(GEOID20 = zid, term = character(), logRR = numeric(),
+                          se = numeric(), stat = numeric(), p = numeric()))
+  }
+  stat_col <- intersect(colnames(ct), c("z value","t value"))
+  if (!length(stat_col)) stat_col <- colnames(ct)[3]
+  p_col <- intersect(colnames(ct), c("Pr(>|z|)","Pr(>|t|)"))
+
+  tibble::tibble(
+    GEOID20 = zid,
+    term    = rownames(ct)[keep],
+    logRR   = unname(ct[keep, "Estimate"]),
+    se      = unname(ct[keep, "Std. Error"]),
+    stat    = unname(ct[keep, stat_col[1]]),
+    p       = if (length(p_col)) unname(ct[keep, p_col[1]])
+              else 2*pnorm(-abs(unname(ct[keep, stat_col[1]])))
+  )
+}
+```
+
+Test on a few zips
+```{r}
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(stringr)
+
+# 1) choose a tiny set to test
+z_test <- panel_df %>%
+  transmute(zip = str_pad(as.character(zip), 5, pad = "0")) %>%
+  distinct(zip) %>%
+  slice_head(n = 3) %>%             # <-- change to 2 or 3 as you like
+  pull(zip)
+
+# 2) build weekly table with exposure = # effect-days
+wk_small <- panel_df %>%
+  transmute(
+    zip   = str_pad(as.character(zip), 5, pad = "0"),
+    date  = as.Date(date),
+    y     = as.integer(y),
+    effect= factor(effect, levels = c("None","Threat","Impact","Cleanup")),
+    week  = floor_date(date, "week", week_start = 1),
+    yw    = paste0(isoyear(week), "-W", sprintf("%02d", isoweek(week)))
+  ) %>%
+  filter(zip %in% z_test) %>%
+  group_by(zip, yw, effect) %>%
+  summarise(y = sum(y), days = n(), .groups = "drop") %>%
+  complete(zip, yw, effect, fill = list(y = 0L, days = 0L)) %>%
+  mutate(stratum_w = interaction(zip, yw, drop = TRUE))
+
+# 3) split & run fitter (same function as before, using offset(log(days)))
+by_zip_small <- wk_small %>% group_split(zip)
+
+zip_fit_small <- purrr::imap_dfr(by_zip_small, function(dfz, i) {
+  message(sprintf("Testing ZIP %s (%d/%d)", as.character(dfz$zip[1]), i, length(by_zip_small)))
+  fit_one_zip_weekly(dfz)  # <- your patched function that uses offset(log(days))
+})
+
+# 4) tidy RRs
+zip_effects_small <- zip_fit_small %>%
+  mutate(
+    Storm_Effect = sub("^effect", "", term),
+    RR = exp(logRR),
+    lo = exp(logRR - 1.96*se),
+    hi = exp(logRR + 1.96*se)
+  ) %>%
+  select(GEOID20, Storm_Effect, RR, lo, hi, p)
+zip_effects_small
+```
+
+One big model but chunked so no memory issues.
+```{r}
+library(dplyr)
+library(tidyr)
+library(fixest)
+library(purrr)
+library(broom)
+
+# --- 0) wk must already exist with weekly exposure ---
+# Required columns: y (weekly deaths), effect (factor, ref "None"),
+# days (exposure = # effect-days in that ZIP-week), zip (factor or 5-char),
+# yw (year-week label), stratum_w = interaction(zip, yw), and days > 0 rows only.
+
+wk <- wk %>%
+  mutate(
+    zip    = factor(sprintf("%05s", as.character(zip))),
+    effect = factor(effect, levels = c("None","Threat","Impact","Cleanup"))
+  ) %>%
+  filter(days > 0)
+
+all_zips <- levels(wk$zip)
+
+# --- 1) Make blocks of ZIPs (tune block size to your RAM; 20–100 is typical) ---
+block_size <- 50
+blocks <- split(all_zips, ceiling(seq_along(all_zips) / block_size))
+
+# --- 2) Fit function for one block (filter data, then fit) ---
+fit_block <- function(block_zips) {
+  wk_block <- wk %>% filter(zip %in% block_zips)
+
+  m <- fepois(
+    y ~ i(effect, zip, ref = "None") + offset(log(days)) | stratum_w,
+    data    = wk_block,
+    cluster = ~ stratum_w
+  )
+
+  broom::tidy(m, conf.int = TRUE) %>%
+    # keep only the effect×zip interaction coefficients
+    dplyr::filter(grepl("^effect::", term)) %>%
+    tidyr::separate(term, into = c("tmp","Storm_Effect","GEOID20"), sep = "::", remove = TRUE) %>%
+    dplyr::transmute(
+      GEOID20, Storm_Effect,
+      logRR = estimate,
+      se    = std.error,
+      p     = p.value,
+      RR    = exp(estimate),
+      RR_lo = exp(conf.low),
+      RR_hi = exp(conf.high)
+    )
+}
+
+# --- 3) Run over blocks (optionally in parallel with furrr) ---
+# Sequential:
+res_blocks <- map_dfr(blocks, fit_block)
+
+# Parallel version:
+# library(furrr); plan(multisession, workers = max(1, parallel::detectCores()-1))
+# res_blocks <- future_map_dfr(blocks, fit_block, .options = furrr_options(seed = TRUE))
+
+# Optional performance tweaks:
+# fixest::setFixest_nthreads(max(1, parallel::detectCores()-1))
+# fixest::setFixest_perf(mem.clean = TRUE)
+
+# --- 4) BH/FDR per effect & quick sanity checks ---
+res_blocks <- res_blocks %>%
+  group_by(Storm_Effect) %>%
+  mutate(q = p.adjust(p, method = "BH"),
+         sig = q < 0.05) %>%
+  ungroup()
+
+res_blocks %>% count(Storm_Effect, sig)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+Fit with progress running for 2.5 days
+```{r}
+N <- length(by_zip)
+zip_fit_raw <- imap_dfr(by_zip2, function(dfz, i) {
+  if (i %% 50 == 1) message(sprintf("... %d / %d (ZIP %s)", i, N, as.character(dfz$zip[1])))
+  fit_one_zip_weekly(dfz)
+})
+```
+
+Tidy the output
+```{r}
+zip_effects_wk <- zip_fit_raw %>%
+  mutate(
+    Storm_Effect = sub("^effect", "", term),
+    RR  = exp(logRR),
+    lo  = exp(logRR - 1.96*se),
+    hi  = exp(logRR + 1.96*se)
+  ) %>%
+  select(GEOID20, Storm_Effect, logRR, se, stat, p, RR, lo, hi) %>%
+  filter(Storm_Effect %in% c("Threat","Impact","Cleanup")) %>%
+  group_by(Storm_Effect) %>%
+  mutate(q = p.adjust(p, method = "BH"),
+         sig = q < 0.05) %>%
+  ungroup()
+
+# quick peek
+zip_effects_wk %>% count(Storm_Effect, sig)
+zip_effects_wk %>% arrange(desc(RR)) %>% head(10)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Load packages
+```{r}
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(lubridate)
+library(fixest)
+library(broom)
+library(purrr)
+library(sandwich)
+library(lmtest)
+```
+
+Ensure the panel data is clean & factors are set
+```{r}
+library(dplyr)
+library(lubridate)
+library(stringr)
+
+panel_df2 <- panel_df %>%
+  mutate(
+    # keep only 5-digit numeric ZIPs; drop NA/malformed
+    zip_chr = str_extract(as.character(zip), "\\d+"),
+    zip_chr = str_pad(zip_chr, 5, pad = "0"),
+    ok_zip  = !is.na(zip_chr) & nchar(zip_chr) == 5,
+    date    = as.Date(date),
+    y       = as.integer(y),
+    effect  = factor(effect, levels = c("None","Threat","Impact","Cleanup")),
+    ym      = factor(ym),
+    dow     = factor(dow)
+  ) %>%
+  filter(ok_zip, !is.na(date), !is.na(y), !is.na(effect), !is.na(ym), !is.na(dow)) %>%
+  transmute(
+    zip = factor(zip_chr),
+    date, y, effect, ym, dow
+  ) %>%
+  arrange(zip, date)
+
+# quick sanity check
+panel_df2 %>% count(zip) %>% summarise(min=n(), max=n(), n_zips=n())
+```
+
+Fit the time-stratified conditional Poisson per ZIP. Inside each ZIP, we control for year-month × day-of-week with fixed effects (factor(stratum)) and cluster SEs by stratum. This gives robust RRs for Threat/Impact/Cleanup vs None
+
+Zip wise fitter
+```{r}
+library(sandwich)
+library(lmtest)
+library(purrr)
+library(tidyr)
+library(tibble)
+
+fit_one_zip <- function(dfz) {
+  zid <- as.character(dfz$zip[1])
+
+  dfz <- dfz %>%
+    dplyr::mutate(
+      ym      = factor(format(date, "%Y-%m")),
+      dow     = factor(lubridate::wday(date, label = TRUE, week_start = 1)),
+      stratum = interaction(ym, dow, drop = TRUE)
+    )
+
+  # skip if no variation to estimate
+  if (nlevels(dfz$stratum) < 2 || nlevels(dfz$effect) < 2) {
+    return(tibble::tibble(GEOID20 = zid, term = character(), logRR = numeric(),
+                          se = numeric(), stat = numeric(), p = numeric()))
+  }
+
+  # fit with clustered SEs by stratum (robust)
+  res <- try({
+    m  <- stats::glm(y ~ effect + factor(stratum), family = poisson(), data = dfz)
+    vc <- sandwich::vcovCL(m, cluster = ~ stratum, type = "HC1")
+    lmtest::coeftest(m, vcov. = vc)
+  }, silent = TRUE)
+
+  if (inherits(res, "try-error")) {
+    message("Skipping ZIP (fit error): ", zid)
+    return(tibble::tibble(GEOID20 = zid, term = character(), logRR = numeric(),
+                          se = numeric(), stat = numeric(), p = numeric()))
+  }
+
+  ct <- res
+  keep <- grep("^effect", rownames(ct))
+  if (length(keep) == 0) {
+    return(tibble::tibble(GEOID20 = zid, term = character(), logRR = numeric(),
+                          se = numeric(), stat = numeric(), p = numeric()))
+  }
+
+  # column names can vary across methods; pick whatever exists
+  stat_col <- intersect(colnames(ct), c("z value","t value"))
+  if (length(stat_col) == 0) stat_col <- colnames(ct)[3]  # fallback
+
+  p_col <- intersect(colnames(ct), c("Pr(>|z|)","Pr(>|t|)"))
+  # build tibble
+  out <- tibble::tibble(
+    GEOID20 = zid,
+    term    = rownames(ct)[keep],
+    logRR   = unname(ct[keep, "Estimate"]),
+    se      = unname(ct[keep, "Std. Error"]),
+    stat    = unname(ct[keep, stat_col[1]])
+  )
+
+  # add p-values (from table if present, else compute from stat)
+  if (length(p_col) > 0) {
+    out$p <- unname(ct[keep, p_col[1]])
+  } else {
+    out$p <- 2 * pnorm(-abs(out$stat))
+  }
+
+  out
+}
+
+```
+
+Progress while running for 2.5 days
+```{r}
+by_zip <- panel_df2 %>% group_split(zip)
+
+N <- length(by_zip)
+zip_fit_raw <- purrr::imap_dfr(by_zip, function(dfz, i) {
+  if (i %% 50 == 1) message(sprintf("... %d / %d (ZIP %s)", i, N, as.character(dfz$zip[1])))
+  fit_one_zip(dfz)
+})
+```
+
 
 Fit Poisson models at each ZCTA
 ```{r}
