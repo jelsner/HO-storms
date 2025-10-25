@@ -59,7 +59,7 @@ Keep only storms having USA_WIND >= 55 occurring between 1981 and 2022
 ```{r}
 Tracks2.sf <- Tracks.sf |>
   dplyr::filter(year >= 1981 & year <= 2022) |>
-  dplyr::filter(USA_WIND >= 64) |> # change to 34 for tropical storms and hurricanes
+  dplyr::filter(USA_WIND >= 55) |> # change to 34 for tropical storms and hurricanes
   dplyr::select(SID, SEASON, year, month, day, hour, min,
                 NAME, SUBBASIN, ISO_TIME,
                 USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
@@ -151,8 +151,8 @@ What to do with storms having multiple landfalls (e.g., Peninsula then Panhandle
 
 Check to see which storms these are
 ```{r}
-#x <- sf::st_geometry_type(Swaths2.sf$geometry) == "MULTIPOLYGON"
-#Swaths2.sf$NAME[x]
+x <- sf::st_geometry_type(Swaths2.sf$geometry) == "MULTIPOLYGON"
+Swaths2.sf$NAME[x]
 ```
 
 The situations are different for Erin, Fay, and Irma so it is not clear what to do. One approach is to simply remove these storms from further consideration. Here we keep them essentially ignoring the second landfall
@@ -195,9 +195,101 @@ storm_months <- unique(TIC.sf$Month)
 storm_year_range <- range(TIC.sf$Year)
 ```
 
+## Build a zip x date effect calendar
+
+This is needed by the `All-Cause_Mortality.Rmd` script where models are fit to these data
+
+Get Florida zips
 ```{r}
-sf::st_geometry(TIC.sf) <- "geom" #Can't have matching column names when merging with birth/death records
+library(tigris)
+library(sf)
+library(dplyr)
+options(tigris_use_cache = TRUE)
+
+# Get national ZCTAs and subset to those intersecting Florida
+zctas_all <- zctas(cb = TRUE, starts_with = NULL, year = 2020)
+florida <- states(cb = TRUE) %>% filter(STUSPS == "FL")
+
+# Filter ZCTAs that intersect Florida
+zctas_fl <- st_intersection(zctas_all, st_transform(florida, st_crs(zctas_all)))
+zctas_fl <- st_make_valid(zctas_fl) # in case of invalid geometries
 ```
+
+Aligns CRSs and clean geometries
+```{r}
+library(data.table)
+
+# Harmonize CRS: bring TIC polygons to ZCTA CRS (or vice versa; either is fine)
+tic_aligned  <- st_transform(TIC.sf,  st_crs(zctas_fl))
+zcta_valid   <- st_make_valid(zctas_fl) |> dplyr::select(GEOID20, geometry)
+
+# (Optional) keep s2 on for geographic CRSs (default TRUE)
+sf_use_s2(TRUE)
+```
+
+Spatial join: which zctas intersect each TIC polygon (by date & effect)
+```{r}
+# Keep only the columns we need from TIC
+tic_keep <- tic_aligned |> select(Date, Storm_Effect, geometry)
+
+# Point-in-polygon for polygons: we want polygon–polygon overlaps (intersects)
+zcta_date_effect_sf <- st_join(
+  zcta_valid, tic_keep,
+  join = st_intersects,
+  left = FALSE   # keep only ZCTAs that intersect a TIC polygon on that date
+)
+
+# Drop geometry for the calendar
+zcta_date_effect <- as.data.table(st_drop_geometry(zcta_date_effect_sf))
+setnames(zcta_date_effect, c("GEOID20","Date","Storm_Effect"),
+         c("zip","date","effect"))
+
+# Normalize types
+zcta_date_effect[, `:=`(
+  zip    = as.character(zip),
+  date   = as.IDate(date),
+  effect = as.character(effect)
+)]
+```
+
+Probably only need if the Threat and Cleanup days are longer than 1 day. Resolve multiple effects on the same zip-date: Choose most severe
+```{r}
+# Severity ranking (None < Cleanup < Threat < Impact)
+sev <- data.table(effect = c("None","Cleanup","Threat","Impact"),
+                  rank   = 0:3)
+
+zde <- sev[zcta_date_effect, on = "effect"]
+# Keep the single most-severe label per ZIP–date
+zde <- zde[ , .SD[which.max(rank)], by = .(zip, date)][ , .(zip, date, effect)]
+```
+
+Build the full zip x date data frame & fill missing days with "None"
+```{r}
+# Domain
+all_zips  <- sort(unique(zcta_valid$GEOID20))
+all_dates <- as.IDate(seq(as.Date("1985-01-01"), as.Date("2022-12-31"), by = "day"))
+
+# Full grid
+grid <- CJ(zip = as.character(all_zips), date = all_dates)
+
+# Left-join the observed effects; fill NA → "None"
+effect_calendar <- zcta_date_effect[grid, on = .(zip, date)]
+effect_calendar[is.na(effect), effect := "None"]
+
+# Optional: keep a factor with ordered levels
+effect_calendar[, effect := factor(effect, levels = c("None","Cleanup","Threat","Impact"))]
+```
+
+Quality assurance checks
+```{r}
+# Exactly one effect per ZIP–day?
+stopifnot(effect_calendar[, .N, by = .(zip, date)][, all(N == 1)])
+
+# Effects present?
+effect_calendar[, table(effect)]
+```
+
+If merge and saved already complete, start with the `All-Cause_Mortality.Rmd`
 
 ## Merge with birth records
 
@@ -208,6 +300,10 @@ Email from Jihoon on December 11, 2024
 The first Trimester: the weeks 1-13, The second Trimester: the weeks 14-28, The third Trimester: the weeks 29 ~
 ```{r}
 library(data.table)
+
+# Rename geometry colum. Can't have matching names when merging w/ birth/death records
+sf::st_geometry(TIC.sf) <- "geom"
+
 Trimesters.df <- data.table::fread(file = "data/all_births_hurricane.csv")
 ```
 
