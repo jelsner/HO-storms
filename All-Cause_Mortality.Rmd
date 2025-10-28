@@ -5,9 +5,10 @@ editor_options:
   chunk_output_type: console
 ---
 
+## Summary
 Experimental setup. We assemble a multi-million–record, geocoded dataset of all-cause deaths (simple-feature points in WGS84) and tag each death as one of four “storm effect” states: None, Threat, Impact, or Cleanup from an empirical storm model. We then aggregate to daily counts by zip code areas and create zip x date storm effect panel data using only days during hurricane seasons (May-November). We fit a fixed-effects Poisson model where the dependent variable is the daily death count and the fixed effects are indicator variables including zip code, year-month, and day of the week. The zip variable controls for all time-invariant differences between zip codes (e.g., population size, socioeconomic level, health infrastructure), the year-month variable controls for month-specific factors common to all zip areas (e.g., statewide seasonality, flu/COVID waves, long-term trends) and the day of the week variable controls for weekly cycles in mortality (e.g., weekend vs. weekday effects). We include a clustering option with the zip and year-month variables to ensure the standard errors are robust to residual correlation within zip codes over time and within months across zip codes. Conceptually the model estimates how daily mortality rates differ on storm-effect days (Threat, Impact, Cleanup) relative to normal “None” days, after adjusting for: differences between zip codes, monthly/seasonal patterns and day-of-week patterns.
 
-Results. The model shows that compared with “None” days, statewide Threat days are associated with an ~8% increase in daily deaths (95% CI ~2%–15%), Cleanup days with ~8%, and Impact days with ~7% (borderline statistical evidence). The adjusted pseudo R-squared is 0.195 and the squared correlation is 0.241 indicating reasonable explanatory power given these are daily death counts with strong fixed effects. A time-stratified model per zip code yields choropleths of these rate ratios, and the Local Moran’s I highlights coherent pockets of elevated (“hot”) and depressed (“cold”) Threat ratios, indicating geographic clustering in storm-related mortality risk. Taken together, the analysis suggests modest but reliable short-run increases in all-cause mortality around storm exposure, with non-uniform spatial patterns across Florida.
+Results. The model shows that compared with “None” days, statewide Threat days are associated with an ~8% increase in daily deaths (95% CI ~2%–15%), Cleanup days with ~8%, and Impact days with ~7% (borderline statistical evidence). The adjusted pseudo R-squared is 0.195 and the squared correlation is 0.241 indicating reasonable explanatory power given these are daily death counts with strong fixed effects. A time-stratified model per zip code yields choropleths of these rate ratios, and the Local Moran’s I highlights pockets of elevated (“hot”) and depressed (“cold”) Threat ratios, indicating geographic clustering in storm-related mortality risk. Taken together, the analysis suggests modest but reliable short-run increases in all-cause mortality around storm exposure, with non-uniform spatial patterns across Florida.
 
 ## Analytics of deaths and storms
 
@@ -556,6 +557,12 @@ table(map_sf$rr_bin, useNA = "ifany")
 sum(is.infinite(map_sf$RR_shr))
 ```
 
+Output for story-map
+```{r}
+saveRDS(map_sf, "data/outputs/Results/zcta_results2.rds")
+```
+
+
 ## Hot spot analysis
 
 Using Moran's I and k-nearest neighbors for spatial contiguity
@@ -658,6 +665,162 @@ ER_visits.dt <- data.table::fread(here::here("data", "Combined_ER_Data.csv"))
 ER_visits.df <- ER_visits.dt |>
   as.data.frame()
 ```
+
+Merge with daily mortality counts
+```{r}
+library(data.table)
+
+setDT(zip_day)
+setDT(ER_visits.df)
+
+# Pad ZipCode to 5 chars; drop non-sensical codes (0/NA/too short/too big)
+ER_visits.df[
+  , ZipCode := fifelse(ZipCode > 0 & ZipCode < 1e6, sprintf("%05d", ZipCode), NA_character_)
+]
+ER_visits.df[, Date := as.IDate(Date)]
+
+ER_visits_clean <- ER_visits.df[!is.na(ZipCode) & nchar(ZipCode) == 5]
+
+# Standardize names to match zip_day; optionally collapse duplicates
+setnames(ER_visits_clean, c("ZipCode","Date","Total_Visits"),
+                           c("zip",    "date","er_visits"))
+
+# If there can be multiple ER rows per (zip,date), aggregate to daily total
+ER_visits_clean <- ER_visits_clean[, .(er_visits = sum(er_visits, na.rm = TRUE)),
+                                   by = .(zip, date)]
+
+# Standardize zip_day types 
+zip_day[, date := as.IDate(date)]
+zip_day[, zip  := as.character(zip)] # already looks like "31537", but safe
+
+# Merge: keep all zip_day rows (left join) 
+zip_day_with_visits <- merge(
+  zip_day,
+  ER_visits_clean,
+  by = c("zip","date"),
+  all.x = TRUE,
+  allow.cartesian = TRUE  # only matters if duplicates remain
+)
+
+# Optional: treat missing ER as 0 instead of NA
+zip_day_with_visits[is.na(er_visits), er_visits := 0L]
+```
+
+A model for daily death counts using ER visits as a covariate and test whether slopes differ by effect
+```{r}
+library(fixest)
+
+dat <- copy(zip_day_with_visits)
+
+# --- Build filters and control variables ---
+dat[, year  := as.integer(format(date, "%Y"))]
+dat[, month := as.integer(format(date, "%m"))]
+
+# Keep hurricane season & target years
+dat <- dat[year %between% c(2005, 2022) & month %in% 5:11]
+
+# Seasonality: month-of-year (factor, May..Nov)
+dat[, month_fac := factor(month, levels = 5:11, labels = month.abb[5:11])]
+
+# Day-of-week (factor)
+dow_levels <- c("Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
+dat[, dow := factor(weekdays(as.Date(date)), levels = dow_levels)]
+
+# Time trend: numeric index (scale to years for stability)
+dat[, t_years := as.numeric(date) / 365.25]
+
+# For clustering by year-month (optional but recommended)
+dat[, ym := format(date, "%Y-%m")]
+
+# Optional: handle missing ER visits (choose either 0 or keep as NA and drop)
+dat[is.na(er_visits), er_visits := 0L]
+
+# Optional: scale ER for easier interpretation (e.g., per 10 visits)
+dat[, er10 := er_visits / 10]
+
+m_er_int <- fepois(
+  deaths ~ 
+    er10 +                          # baseline ER slope on "None" days
+    i(effect, ref = "None") +       # mean shifts for Threat/Impact/Cleanup vs None
+    i(effect, var = er10, ref = "None") +  # ER slope *differences* by effect
+    poly(t_years, 2) |              # smooth trend
+    zip + month_fac + dow,          # fixed effects (ZIP, seasonality, DOW)
+  data    = dat,
+  cluster = ~ zip + ym
+)
+
+summary(m_er_int)
+```
+
+The model says that there is a 1.5% increase in daily deaths per 10 additional ER visits, but that increase is not changed by storm effect.
+
+Censored Poison via {brms} package
+```{r}
+install.packages("cmdstanr",
+                 repos = c("https://stan-dev.r-universe.dev", getOption("repos")))
+library(cmdstanr)
+cmdstanr::check_cmdstan_toolchain(fix = TRUE)    # confirms your compiler setup
+cmdstanr::install_cmdstan(cores = 2)             # downloads & builds CmdStan
+```
+
+```{r}
+library(brms)
+
+dat <- copy(zip_day_with_visits)
+
+# Restrict to hurricane season, 2005–2022
+dat[, year  := as.integer(format(date, "%Y"))]
+dat[, month := as.integer(format(date, "%m"))]
+dat <- dat[year %between% c(2005, 2022) & month %in% 5:11]
+
+# How many days have missing values for er_visits
+
+# Storm effect factor with "None" as ref
+dat[, effect := factor(effect, levels = c("None","Threat","Impact","Cleanup"))]
+
+# Censoring indicator per brms: "left" for censored obs, "none" otherwise
+dat[, cens_flag := ifelse(er_visits == 6L, "left", "none")]
+
+# Controls: weekday, month FE; trend as smooth; ZIP as varying intercept (random effect)
+# (Random intercepts approximate ZIP FE while keeping the model computationally feasible.)
+dow_levels <- c("Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
+dat[, dow := factor(weekdays(as.Date(date)), levels = dow_levels)]
+dat[, ym  := format(date, "%Y-%m")]
+dat[, t_years := as.numeric(date)/365.25]
+
+bf_er <- bf(
+  er_visits | cens(cens_flag) ~ 
+    effect + dow + factor(month) + s(t_years, k = 6) + (1 | zip),
+  family = poisson()
+)
+
+# Reasonable, weakly informative priors
+pri <- c(
+  set_prior("normal(0, 0.5)", class = "b"),       # population-level
+  set_prior("exponential(1)", class = "sd"),      # group-level std dev
+  set_prior("exponential(1)", class = "sds")      # smooth term
+)
+
+# Fit (uses Stan; uses cmdstanr backend)
+fit_cens <- brm(
+  bf_er, data = dat,
+  prior = pri,
+  backend = "cmdstanr", chains = 4, cores = 4, iter = 2000
+)
+
+summary(fit_cens)
+```
+
+
+
+
+
+
+
+
+
+
+
 
 Clean ER data: pad zips, ensure Date class
 ```{r}
