@@ -268,7 +268,78 @@ daily_by_zip %>%
   filter(n > 1)  # rows here mean the same zip–date appears under multiple effects
 ```
 
-Join deaths to the calendar. The calendar is created in `HO-storms.Rmd` and is called `effect_calendar`
+Compute death totals by zip by effect with the effect as separate columns (wide format), then join to zip polygons, then make choropleth maps
+```{r}
+death_counts_wide <- deaths_with_zip %>%
+  sf::st_drop_geometry() %>%  
+  filter(Storm_Effect %in% c("Threat","Impact","Cleanup")) %>%
+  count(GEOID20, Storm_Effect, name = "deaths") %>%
+  tidyr::pivot_wider(
+    names_from  = Storm_Effect,
+    values_from = deaths,
+    values_fill = 0
+  )
+
+zcta_poly <- zctas_fl %>%
+  mutate(GEOID20 = as.character(GEOID20)) %>%
+  { if (is.na(sf::st_crs(.)$epsg) || sf::st_crs(.)$epsg != 4326) sf::st_transform(., 4326) else . } %>%
+  sf::st_make_valid()
+
+# keep polygonal features only and cast to MULTIPOLYGON
+zcta_poly <- zcta_poly[sf::st_geometry_type(zcta_poly) %in% c("POLYGON","MULTIPOLYGON"), , drop = FALSE]
+zcta_poly <- zcta_poly[!sf::st_is_empty(zcta_poly), , drop = FALSE]
+zcta_poly <- suppressWarnings(sf::st_cast(zcta_poly, "MULTIPOLYGON", warn = FALSE))
+
+# left join counts (preserves polygon geometry)
+death_map_sf <- zcta_poly %>%
+  left_join(death_counts_wide, by = "GEOID20") %>%
+  mutate(
+    Threat = replace_na(Threat, 0L),
+    Impact = replace_na(Impact, 0L),
+    Cleanup = replace_na(Cleanup, 0L)
+  ) %>%
+  select(GEOID20, Threat, Impact, Cleanup, geometry)
+
+# for story map
+saveRDS(death_map_sf, "data/outputs/Results/zcta_death_counts.rds")
+```
+
+Make maps
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(sf)
+library(RColorBrewer)
+
+make_map <- function(data_sf, col, title = col) {
+  ggplot(data_sf) +
+    geom_sf(aes(fill = .data[[col]]), color = "white", size = 0.05) +
+    scale_fill_stepsn(
+      colors  = pal,
+      breaks  = bins,
+      limits  = range(bins),
+      na.value = "#cccccc",
+      name    = "Deaths per ZCTA"
+    ) +
+    labs(title = title) +
+    coord_sf(datum = NA) +
+    theme_void(base_size = 12) +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5))
+}
+
+p_threat  <- make_map(death_map_sf, "Threat",  "Threat deaths")
+p_impact  <- make_map(death_map_sf, "Impact",  "Impact deaths")
+p_cleanup <- make_map(death_map_sf, "Cleanup", "Cleanup deaths")
+
+# Print or save
+# p_threat; p_impact; p_cleanup
+# ggsave("zcta_deaths_threat.png",  p_threat,  width = 7.2, height = 6, dpi = 300)
+# ggsave("zcta_deaths_impact.png",  p_impact,  width = 7.2, height = 6, dpi = 300)
+# ggsave("zcta_deaths_cleanup.png", p_cleanup, width = 7.2, height = 6, dpi = 300)
+```
+
+Join deaths to a full calendar. The calendar is created in `HO-storms.Rmd` and is called `effect_calendar`
 ```{r}
 dbz <- as.data.table(daily_by_zip)[ , .(
   zip   = as.character(zip),
@@ -330,10 +401,11 @@ rr_tbl
 We fit a fixed-effects Poisson with: ZIP fixed effects (| zip) → controls for all time-invariant differences across ZIPs (population size, baseline mortality, socio-demographics, etc.), Year-month fixed effects (| ym) → controls for statewide shocks and seasonality at the month level (flu waves, hurricanes seasons, COVID waves, etc.). Day-of-week fixed effects (| dow) → controls for weekly pattern. So the effect:: coefficients are within-ZIP log rate ratios vs “None”, after removing month and weekday patterns. Exponentiate them to get rate ratios (RR).
 
 What the coefficients mean
-We fit a fixed-effects Poisson with: ZIP fixed effects (| zip) → controls for all time-invariant differences across ZIPs (population size, baseline mortality, socio-demographics, etc.).
-Year-month fixed effects (| ym) → controls for statewide shocks and seasonality at the month level (flu waves, hurricanes seasons, COVID waves, etc.).
-Day-of-week fixed effects (| dow) → controls for weekly pattern.
+We fit a fixed-effects Poisson with: ZIP fixed effects (| zip) → controls for all time-invariant differences across ZIPs (population size, baseline mortality, socio-demographics, etc.)
+Year-month fixed effects (| ym) → controls for statewide shocks and seasonality at the month level (flu waves, hurricanes seasons, COVID waves, etc.)
+Day-of-week fixed effects (| dow) → controls for weekly pattern
 So the effect::… coefficients are within-ZIP log rate ratios vs “None”, after removing month and weekday patterns. Exponentiate them to get rate ratios (RR). Convert the estimates to RRs (95% CI)
+
 Threat: β = 0.07994 (SE 0.02950), p = 0.0067
 RR = 1.083 (95% CI 1.022–1.148) → ~8.3% higher deaths vs None, adjusted for ZIP / YM / DOW.
 Impact: β = 0.06389 (SE 0.03286), p = 0.0518
@@ -490,29 +562,27 @@ rr_shrunk <- log_rr %>%
     RR_shr   = exp(post)
   ) %>%
   select(zip, effect, RR_shr)
+
+# for story map (Threat only)
+rr_wide <- rr_shrunk %>%
+  filter(effect == "Threat") %>%
+  mutate(GEOID20 = zip,
+         Threat = RR_shr) %>%
+  select(GEOID20, Threat)
+
+rr_map_sf <- zcta_poly %>%
+  left_join(rr_wide, by = "GEOID20") %>%
+  select(GEOID20, Threat, geometry)
 ```
 
-Join to zip polygons and map
+Map the Threat
 ```{r}
-library(ggplot2)
-library(forcats)
-
-# Choose which effect to map (e.g., "Impact"); swap to "Threat"/"Cleanup" as needed
-effect_to_map <- "Threat"
-
-# Build an sf for mapping (join your RR table to polygons)
-zcta_sf <- zctas_fl %>% select(zip = GEOID20, geometry)
-
-map_sf <- rr_shrunk %>%
-  filter(effect == effect_to_map, is.finite(RR_shr), RR_shr > 0, RR_shr < 10) %>%  # keep sensible RRs
-  right_join(zcta_sf, by = "zip") %>%                          # keep all polygons
-  st_as_sf()
-
+effect_to_map = "Threat"
 # Bin RRs: [0,1), [1,2), [2,4), [4,∞)
-map_sf <- map_sf %>%
+rr_map_sf <- rr_map_sf %>%
   mutate(
     rr_bin = cut(
-      RR_shr,
+      Threat,
       breaks = c(0, 1, 2, 4, Inf),  # last break is Inf
       labels = c("0–1", "1–2", "2–4", ">4"),
       right  = TRUE,                   # (a, b] so last bin is (8, Inf]
@@ -521,6 +591,9 @@ map_sf <- map_sf %>%
     # lock the level order to match the palette keys
     rr_bin = fct_relevel(rr_bin, "0–1", "1–2", "2–4", ">4")
   )
+
+# for story map
+saveRDS(rr_map_sf, "data/outputs/Results/zcta_results.rds")
 
 # Define a discrete palette (colorblind-friendly)
 pal <- c(
@@ -531,7 +604,7 @@ pal <- c(
 )
 
 # Plot
-ggplot(map_sf) +
+ggplot(rr_map_sf) +
   geom_sf(aes(fill = rr_bin), color = NA) +
   scale_fill_manual(
     values   = pal,
@@ -553,13 +626,15 @@ ggplot(map_sf) +
   )
 
 # Sanity check
-table(map_sf$rr_bin, useNA = "ifany")
-sum(is.infinite(map_sf$RR_shr))
+table(rr_map_sf$rr_bin, useNA = "ifany")
+sum(is.infinite(rr_map_sf$RR_shr))
 ```
 
-Output for story-map
+Output for story-map (Threat only)
 ```{r}
-saveRDS(map_sf, "data/outputs/Results/zcta_results2.rds")
+rr_shrunk_threat_only <- rr_shrunk %>%
+  filter(effect == "Threat")
+saveRDS(rr_shrunk_threat_only, "data/outputs/Results/zcta_results.rds")
 ```
 
 
