@@ -608,7 +608,7 @@ ggplot(rr_map_sf) +
   geom_sf(aes(fill = rr_bin), color = NA) +
   scale_fill_manual(
     values   = pal,
-    limits = levels(map_sf$rr_bin),
+    limits = levels(rr_map_sf$rr_bin),
     drop     = FALSE,
     na.value = "grey90",
     name     = paste0("RR vs None (", effect_to_map, ")")
@@ -630,106 +630,130 @@ table(rr_map_sf$rr_bin, useNA = "ifany")
 sum(is.infinite(rr_map_sf$RR_shr))
 ```
 
-Output for story-map (Threat only)
+Save per zip model results for story-map (Threat only)
 ```{r}
+# zcta_results.rds
 rr_shrunk_threat_only <- rr_shrunk %>%
   filter(effect == "Threat")
 saveRDS(rr_shrunk_threat_only, "data/outputs/Results/zcta_results.rds")
 ```
 
-
 ## Hot spot analysis
-
-Using Moran's I and k-nearest neighbors for spatial contiguity
 ```{r}
-Moran_sf <- map_sf %>%
-  filter(!is.na(RR_shr)) %>%
-  select(zip, RR = RR_shr, geometry)
+library(spdep)
 
-Moran_sf <- Moran_sf %>%
-  filter(st_geometry_type(geometry) %in% c("POLYGON", "MULTIPOLYGON")) %>%
-  st_cast("MULTIPOLYGON") # Ensure polygon geometry
-```
+# Prep: keep only rows with RR, keep polygons ---------------------------
+g <- Moran_sf %>%
+  filter(!is.na(RR)) %>%
+  st_make_valid()
 
-Create spatial weights
-```{r}
-centroids <- st_centroid(Moran_sf)
-coords <- st_coordinates(centroids)
-# Choose k (e.g., 5 or 8 neighbors)
-k <- 7
-knn <- spdep::knearneigh(coords, k = k)
-nb <- spdep::knn2nb(knn)
+# Neighbors & weights (Queen) -------------------------------------------
+# Set queen = TRUE (default). Use rook = FALSE (change to TRUE for rook)
+nb <- spdep::poly2nb(g, queen = TRUE)
+lw <- spdep::nb2listw(nb, style = "W", zero.policy = TRUE)  # allow islands
 
-# Convert to spatial weights
-lw <- spdep::nb2listw(nb, style = "W")
-```
+RR_vec <- as.numeric(log(g$RR))  # logs and make simple vector
 
-Run local hot spot
-```{r}
-# Calculate Local Moran’s I
+# Local Moran's I with permutations -------------------------------------
+# 999 permutations; two-sided test; handle islands
+lm <- spdep::localmoran_perm(
+  x = RR_vec,
+  listw = lw,
+  nsim = 999,
+  alternative = "two.sided",
+  zero.policy = TRUE
+)
+lm <- as.data.frame(lm)
+names(lm) <- c("Ii","E.Ii","Var.Ii","Z.Ii","p.value")
 
-# 1) Make sure 'RR' is a plain numeric vector (drop geometry to avoid tibble quirks)
-x <- Moran_sf %>% st_drop_geometry() %>% pull(RR) %>% as.numeric()
+# Multiple-testing correction (FDR)
+lm$p.adj <- p.adjust(lm$p.value, method = "fdr")
 
-# 2) Keep only finite values and subset the weights accordingly
-ok <- is.finite(x)
+# Spatial lag of RR (for quadrant classification)
+lagRR <- spdep::lag.listw(lw, g$RR, zero.policy = TRUE)
 
-# If your listw 'lw' was built from Moran_sf in the same row order:
-lw_ok <- spdep::subset.listw(lw, ok)
+# Cluster classification -------------------------------------------------
+alpha <- 0.25
+mx <- mean(g$RR, na.rm = TRUE)
 
-# 3) Run local Moran’s I on the clean vector, allowing for isolated units if any
-lisa_ok <- spdep::localmoran(x[ok], lw_ok, zero.policy = TRUE)
+cluster <- dplyr::case_when(
+  g$RR >= mx & lagRR >= mx & lm$Ii > 0 & lm$p.value < alpha ~ "High-High",
+  g$RR <= mx & lagRR <= mx & lm$Ii > 0 & lm$p.value < alpha ~ "Low-Low",
+  g$RR >= mx & lagRR <= mx & lm$Ii < 0 & lm$p.value < alpha ~ "High-Low",
+  g$RR <= mx & lagRR >= mx & lm$Ii < 0 & lm$p.value < alpha ~ "Low-High",
+  TRUE ~ "Not Significant"
+)
 
-# Add results to the sf object
-Moran_sf <- Moran_sf %>%
+g_locI <- g %>%
   mutate(
-    local_i = lisa_ok[, 1],         # Local Moran's I
-    p_value = lisa_ok[, 5],         # p-value
-    hotspot_type = case_when(
-      p_value < 0.15 & RR > mean(RR, na.rm = TRUE) ~ "Hot Spot",
-      p_value < 0.15 & RR < mean(RR, na.rm = TRUE) ~ "Cold Spot",
-      TRUE ~ "Not Significant"
-    )
+    Ii       = lm$Ii,
+    E_Ii     = lm$E.Ii,
+    Var_Ii   = lm$Var.Ii,
+    Z_I      = lm$Z.Ii,
+    p_value  = lm$p.value,
+    p_adj    = lm$p.adj,
+    lag_RR   = lagRR,
+    cluster  = factor(cluster,
+                      levels = c("High-High","Low-Low","High-Low","Low-High","Not Significant"))
   )
 
-# For input to story map
-saveRDS(rr_sf, "data/outputs/Results/hot_spot_threat.rds")
+# Join back to the full set (keeps rows where RR was NA) ----------------
+Moran_out <- Moran_sf %>%
+  left_join(
+    g_locI %>%
+      st_drop_geometry() %>%
+      select(GEOID20, Ii, E_Ii, Var_Ii, Z_I, p_value, p_adj, lag_RR, cluster),
+    by = "GEOID20"
+  ) %>%
+  mutate(
+    cluster = ifelse(is.na(cluster), "No data", as.character(cluster)),
+    cluster = factor(cluster,
+      levels = c("High-High","Low-Low","High-Low","Low-High","Not Significant","No data")
+    )
+  )
 ```
 
+Maps
 ```{r}
-dat <- Moran_sf
+# Map local Moran's I
+library(scales)
 
-top10 <- dat %>%
-  filter(hotspot_type == "Hot Spot") %>%
-  arrange(desc(RR)) %>%
-  slice_head(n = 10) %>%
-  select(zip, RR, hotspot_type)
-top10
+# Pick a symmetric range around 0 so colors are comparable
+imax <- max(abs(g_locI$Ii), na.rm = TRUE)
 
-bottom10 <- dat %>%
-  filter(hotspot_type == "Cold Spot") %>%
-  arrange(desc(RR)) %>%
-  slice_tail(n = 10) %>%
-  select(zip, RR, hotspot_type)
-bottom10
+ggplot(g_locI) +
+  geom_sf(aes(fill = Ii), color = NA) +
+  scale_fill_gradient2(
+    low    = "#2b6cb0",   # blue  (negative Ii)
+    mid    = "#f7f7f7",   # light
+    high   = "#e53e3e",   # red   (positive Ii)
+    midpoint = 0,
+    limits = c(-imax, imax),
+    oob = squish,
+    name = "Local Moran's I"
+  ) +
+  coord_sf(datum = NA) +
+  theme_void(base_size = 12) +
+  theme(legend.position = "right")
 
-top10
-bottom10
+# Map the clusters
+pal <- c("High-High"="#e53e3e","Low-Low"="#2b6cb0",
+         "High-Low" ="#f59e0b","Low-High"="#10b981",
+         "Not Significant"="#d9d9d9","No data"="#cccccc")
+
+ggplot(Moran_out) +
+  geom_sf(aes(fill = cluster), color = NA) +
+  scale_fill_manual(values = pal, drop = FALSE) +
+  theme_void() + labs(fill = "Local Moran clusters")
 ```
 
-Map the results
+Save per zip local Moran's results for story-map (Threat only)
 ```{r}
-library(ggplot2)
+# zcta_clusters.rds
+rr_clusters <- g_locI %>%
+  select(GEOID20, Ii, geometry)
 
-ggplot(Moran_sf) +
-  geom_sf(aes(fill = hotspot_type), color = "gray90", size = 0.1) +
-  scale_fill_manual(values = c(
-    "Hot Spot" = "red",
-    "Cold Spot" = "blue",
-    "Not Significant" = "gray90"
-  )) +
-  labs(title = "Local Hot Spot Analysis (Threat)", fill = "Cluster Type") +
-  theme_minimal()
+saveRDS(rr_clusters, "data/outputs/Results/zcta_clusters.rds")
 ```
 
 ## Emergency room visits
@@ -829,7 +853,7 @@ summary(m_er_int)
 
 The model says that there is a 1.5% increase in daily deaths per 10 additional ER visits, but that increase is not changed by storm effect.
 
-Censored Poison via {brms} package
+## Model using censored Poison via {brms} package
 ```{r}
 install.packages("cmdstanr",
                  repos = c("https://stan-dev.r-universe.dev", getOption("repos")))
@@ -886,389 +910,43 @@ fit_cens <- brm(
 summary(fit_cens)
 ```
 
+This takes too long (~ 85 hours, 3.5 days) and the following warnings:
+1: Parts of the model have not converged (some Rhats are > 1.05). Be careful when analysing the results! We recommend running more iterations and/or setting stronger priors. 
+2: There were 2003 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 
+## Model using logit and Poisson separately
 
+Try a two-part “threshold (≤6) + truncated count (>6)” approximation (stays in `fixest`). The process is modeled as:
+Part A (logit): probability the true count is ≤6 (we observe 6)
+Part B (Poisson on truncated support): conditional mean for counts >6
+Then combine for interpretation
 
-
-
-
-
-
-
-
-
-Clean ER data: pad zips, ensure Date class
 ```{r}
-er_clean <- ER_visits.df %>%
-  mutate(
-    Date    = as.Date(Date),
-    ZipCode = str_pad(as.character(ZipCode), width = 5, pad = "0")
-  )
-```
-
-Expand list of dates per GEOID20 × Storm_Effect, then join to ER data
-```{r}
-er_match_long <- dates_by_effect_df %>%
-  select(GEOID20, Storm_Effect, Death_Dates, n_dates) %>%
-  unnest_longer(Death_Dates, values_to = "Date") %>%  # one row per death date
-  rename(Death_Date = Date) %>%
-  left_join(
-    er_clean,
-    by = c("GEOID20" = "ZipCode", "Death_Date" = "Date")
-  )
-```
-
-Compute averages per GEOID20 × Storm_Effect
-```{r}
-er_avg_by_effect <- er_match_long %>%
-  group_by(GEOID20, Storm_Effect) %>%
-  summarise(
-    avg_er_visits = if (all(is.na(Total_Visits))) NA_real_ else mean(Total_Visits, na.rm = TRUE),
-    n_er_rows     = sum(!is.na(Total_Visits)),
-    n_dates       = first(n_dates),
-    coverage      = ifelse(n_dates > 0, n_er_rows / n_dates, NA_real_),
-    .groups = "drop"
-  )
-```
-
-Attach the averages back to dates_by_effect_df
-```{r}
-dates_by_effect_with_er <- dates_by_effect_df %>%
-  left_join(er_avg_by_effect, by = c("GEOID20", "Storm_Effect"))
-
-dates_by_effect_with_er %>%
-  group_by(Storm_Effect) %>%
-  summarise(Averages = mean(avg_er_visits, na.rm = TRUE))
-```
-
-## Confirm (or challenge) results of the mortality rates using ER visit data
-
-Build ER effect-day counts (per ZIP × day)
-```{r}
-library(dplyr); library(tidyr); library(stringr); library(lubridate)
-
-# ER: make sure it's daily per ZIP
-er <- ER_visits.df %>%
-  mutate(Date = as.Date(Date),
-         GEOID20 = str_pad(as.character(ZipCode), width = 5, side = "left", pad = "0")) %>%
-  group_by(GEOID20, Date) %>%
-  summarise(Total_Visits = sum(Total_Visits), .groups = "drop")
-
-# Storm effect calendar: expand your list-column to a daily calendar
-cal <- dates_by_effect_df %>%
-  select(GEOID20, Storm_Effect, Death_Dates) %>%
-  unnest_longer(Death_Dates, values_to = "Date") %>%
-  mutate(flag = 1L) %>%
-  pivot_wider(names_from = Storm_Effect, values_from = flag, values_fill = 0L)
-
-# Join ER with the calendar (non-matches => None)
-er_cal <- er %>%
-  right_join(
-    expand_grid(GEOID20 = unique(cal$GEOID20), Date = seq(min(cal$Date), max(cal$Date), by="day")),
-    by = c("GEOID20","Date")
-  ) %>%
-  left_join(cal, by = c("GEOID20","Date")) %>%
-  mutate(across(all_of(c("Impact","Threat","Cleanup","None")), ~replace_na(.x, 0L)),
-         None = ifelse((Impact+Threat+Cleanup)==0, 1L, None),
-         Total_Visits = coalesce(Total_Visits, 0L))   # or NA if you prefer strict coverage
-```
-
-Create long data frame of zcta_results
-```{r}
-mort_rr_long <- zcta_results %>%
-  st_drop_geometry() %>%
-  transmute(
-    GEOID20 = str_pad(as.character(GEOID20), 5, side = "left", pad = "0"),
-    RR_Impact  = as.numeric(RR_Impact),
-    RR_Threat  = as.numeric(RR_Threat),
-    RR_Cleanup = as.numeric(RR_Cleanup)
-  ) %>%
-  pivot_longer(
-    cols = starts_with("RR_"),
-    names_to = "Storm_Effect",
-    names_pattern = "RR_(.*)",
-    values_to = "RR_Mort"
-  ) %>%
-  filter(is.finite(RR_Mort)) %>%
-  mutate(
-    Storm_Effect = factor(Storm_Effect, levels = c("Impact","Threat","Cleanup"))
-  )
-```
-
-Aggregate to weeks so most weeks exceed the threshold even if some days don’t. Model weekly totals with offsets for partial coverage and with storm-effect exposure defined as days per week.
-```{r}
+library(fixest)
 library(dplyr)
-library(lubridate)
-library(mgcv)
-# weekly table, but add a compact time index
-wk <- er_cal %>%
-  mutate(week = floor_date(as.Date(Date), "week", week_start = 1)) %>%
-  group_by(GEOID20, week) %>%
-  summarise(
-    visits_wk    = sum(as.numeric(Total_Visits), na.rm = TRUE),
-    n_obs_days   = sum(!is.na(Total_Visits)),
-    Impact_days  = sum((Impact  > 0L), na.rm = TRUE),
-    Threat_days  = sum((Threat  > 0L), na.rm = TRUE),
-    Cleanup_days = sum((Cleanup > 0L), na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  mutate(
-    GEOID20     = factor(sprintf("%05s", as.character(GEOID20))),
-    doy         = yday(week),                                   # 1..366
-    tw          = as.integer(difftime(week, min(week), "weeks")),# small integer time
-    offset_days = log(pmax(n_obs_days, 1L))
-  )
 
-wk_fit <- wk %>% filter(n_obs_days >= 3)
-
-# knots for cyclic day-of-year smooth
-knots_list <- list(doy = c(0.5, 366.5))
-
-# Use bam() + discrete = TRUE (fast, memory-efficient) + fREML
-m_wk <- bam(
-  visits_wk ~ Impact_days + Threat_days + Cleanup_days +
-    s(doy, bs = "cc", k = 12) +       # smaller basis is plenty weekly
-    s(tw,  k = 30) +                  # trend on compact integer time
-    s(GEOID20, bs = "re"),            # random intercept by ZIP
-  family   = nb(link = "log"),
-  offset   = offset_days,
-  data     = wk_fit,
-  method   = "fREML",
-  discrete = TRUE,
-  nthreads = max(1, parallel::detectCores() - 1),
-  knots    = knots_list
-)
-summary(m_wk)
-```
-
-```{r}
-sel <- c("Impact_days","Threat_days","Cleanup_days")
-b   <- coef(m_wk)[sel]
-V   <- vcov(m_wk)[sel, sel, drop = FALSE]
-se  <- sqrt(diag(V))
-
-out <- data.frame(
-  Storm_Effect = c("Impact","Threat","Cleanup"),
-  RR_week      = exp(b),
-  RR_lo        = exp(b - 1.96*se),
-  RR_hi        = exp(b + 1.96*se),
-  row.names = NULL
-)
-out
-```
-
-Cleanup days show a clear increase in ER load per additional day that week (≈ +1.7% each). Threat days show a small but significant decrease (≈ −0.8% each) — plausible if people defer non-urgent care on days with active threats. Impact days show no clear aggregate effect at the weekly scale (could reflect offsetting mechanisms: acute spikes in some ZIPs/weeks vs access barriers or suppression elsewhere).
-
-Allow for more zipcode-specific variation (do it in stages)
-```{r}
-library(dplyr); library(lubridate)
-
-wk <- er_cal %>%
-  mutate(week = floor_date(as.Date(Date), "week", week_start = 1)) %>%
-  group_by(GEOID20, week) %>%
-  summarise(
-    visits_wk    = sum(as.numeric(Total_Visits), na.rm = TRUE),
-    n_obs_days   = sum(!is.na(Total_Visits)),
-    Impact_days  = sum(Impact  > 0L, na.rm = TRUE),
-    Threat_days  = sum(Threat  > 0L, na.rm = TRUE),
-    Cleanup_days = sum(Cleanup > 0L, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  mutate(
-    GEOID20     = factor(sprintf("%05s", as.character(GEOID20))),
-    doy         = yday(week),
-    tw          = as.integer(difftime(week, min(week), "weeks")),
-    offset_days = log(pmax(n_obs_days, 1L))
-  )
-
-wk_fit <- wk %>% filter(n_obs_days >= 3)
-
-# Fourier seasonality (K = 2)
-K <- 2
-fourier <- purrr::map_dfc(1:K, function(k) {
-  tibble::tibble(
-    !!paste0("sin", k) := sin(2*pi*k*wk_fit$doy/366),
-    !!paste0("cos", k) := cos(2*pi*k*wk_fit$doy/366)
-  )
-})
-wk_fit <- dplyr::bind_cols(wk_fit, fourier)
-fourier_terms <- paste(names(fourier), collapse = " + ")
-
-library(glmmTMB)
-
-# Model A — Random intercept only (should converge)
-form_A <- as.formula(
-  paste(
-    "visits_wk ~ Impact_days + Threat_days + Cleanup_days +",
-    fourier_terms, "+ poly(tw, 2) + (1 | GEOID20)"
-  )
+d2 <- dat %>% mutate(
+  is_le6 = as.integer(er_visits == 6L)           # proxy for "true ≤ 6"
 )
 
-m_A <- glmmTMB(
-  form_A,
-  family = nbinom2,
-  offset = wk_fit$offset_days,
-  data   = wk_fit,
-  control = glmmTMBControl(optimizer = optim, optArgs = list(method = "BFGS"))
-)
-summary(m_A)
-
-
-# Model B - One random slope (Threat term)
-
-library(glmmTMB)
-
-# Keep your wk_fit with K=2 Fourier terms
-form_B <- as.formula(
-  paste(
-    "visits_wk ~ Impact_days + Threat_days + Cleanup_days +",
-    "sin1 + cos1 + sin2 + cos2 + poly(tw, 2)",
-    "+ (1 | GEOID20) + (0 + Threat_days | GEOID20)"  # or Cleanup_days
-  )
+# Part A: logistic model for being ≤ 6
+mA <- feglm(
+  is_le6 ~ i(effect, ref="None") | zip + ym + dow,
+  data = d2, family = binomial("logit"),
+  cluster = ~ zip + ym
 )
 
-m_B <- glmmTMB(
-  form_B, family = nbinom2,
-  offset = wk_fit$offset_days, data = wk_fit,
-  control = glmmTMBControl(optimizer = optim, optArgs = list(method = "BFGS"))
+# Part B: Poisson on Y>6 (treat observed counts >6 as exact)
+d_gt6 <- filter(d2, er_visits > 6L)
+mB <- fepois(
+  er_visits ~ i(effect, ref="None") | zip + ym + dow,
+  data = d_gt6, cluster = ~ zip + ym
 )
-summary(m_B)
+
+summary(mA); summary(mB)
 
 ```
 
 
 
-## Attach census data
 
-```{r}
-# Packages
-library(tidycensus)
-library(dplyr)
-library(tidyr)
-library(stringr)
-library(purrr)
-library(sf)
-library(tigris)
-```
-
-```{r}
-# Make sure your Census key is set once per session
-#census_api_key("xxxx", install = FALSE)
-options(tigris_use_cache = TRUE)
-```
-
-```{r}
-# --- Helper: get Decennial 2000 variables ---
-# SF1 (population & age/sex); SF3 (income)
-sf1_vars <- load_variables(2000, "sf1", cache = TRUE)
-sf3_vars <- load_variables(2000, "sf3", cache = TRUE)
-
-# Total population (= P001001 in 2000 SF1)
-pop_var <- "P001001"
-
-# Median age (total). In 2000 SF1 this is P013001 "Median age -- Total"
-median_age_var <- "P013001"
-
-# For % 65+, we’ll sum all SF1 P012 (sex by age) components whose labels contain "65 years and over"
-age_table <- "P012"  # sex by age
-age_vars_2000 <- sf1_vars %>%
-  filter(str_starts(name, age_table)) %>%
-  mutate(is_65plus = str_detect(label, "65 to|66 to|67 to|68 to|69 to|70 to|71 to|72 to|73 to|74 to|75 to|76 to|77 to|78 to|79 to|80 to|81 to|82 to|83 to|84 to|85 years")) %>%
-  select(name, is_65plus)
-
-age_vars_65plus <- age_vars_2000 %>% filter(is_65plus) %>% pull(name)
-
-# Median household income (1999$) from 2000 SF3
-# In 2000 SF3 this is P053001: "Median household income in 1999 (dollars)"
-mhi_var <- "P053001"
-```
-
-```{r}
-# Pull Decennial 2000 SF1: population + median age
-sf1_core <- get_decennial(
-  geography = "zcta",
-  year = 2000,
-  variables = c(total_pop = pop_var, median_age = median_age_var),
-  geometry = FALSE,
-  output = "wide",
-  sumfile = "sf1"
-) %>%
-  rename(GEOID = GEOID) %>%
-  mutate(ZCTA5 = GEOID)
-
-# Pull 65+ counts and compute percent 65+
-sf1_age <- get_decennial(
-  geography = "zcta",
-  year = 2000,
-  variables = age_vars_2000$name,
-  geometry = FALSE,
-  output = "wide",
-  sumfile = "sf1"
-) %>%
-  rename(ZCTA5 = GEOID)
-
-# total population again (P001001) to be safe for % calculation
-sf1_pop_only <- get_decennial(
-  geography = "zcta",
-  year = 2000,
-  variables = pop_var,
-  geometry = FALSE,
-  output = "wide",
-  sumfile = "sf1"
-) %>%
-  rename(ZCTA5 = GEOID, pop2000 = P001001)
-
-# sum 65+ across all matching P012 components
-sf1_age_65pct <- sf1_age %>%
-  mutate(across(all_of(age_vars_65plus), as.numeric)) %>%
-  transmute(ZCTA5,
-            age65plus_2000 = rowSums(across(all_of(age_vars_65plus)), na.rm = TRUE)) %>%
-  left_join(sf1_pop_only, by = "ZCTA5") %>%
-  mutate(pct_65plus_2000 = if_else(pop2000 > 0, 100 * age65plus_2000 / pop2000, NA_real_)) %>%
-  select(ZCTA5, age65plus_2000, pop2000, pct_65plus_2000)
-
-# Pull Decennial 2000 SF3: median household income (1999$)
-sf3_income <- get_decennial(
-  geography = "zcta",
-  year = 2000,
-  variables = c(median_hh_income_1999 = mhi_var),
-  geometry = FALSE,
-  output = "wide",
-  sumfile = "sf3"
-) %>%
-  rename(ZCTA5 = GEOID)
-
-# 5) Land & water area for 2020 ZCTAs to match rr_sf$GEOID20
-# (ALAND/AWATER are in square meters; this uses 2020 TIGER shapefiles to align with GEOID20)
-zcta20 <- tigris::zctas(year = 2020, cb = TRUE, progress_bar = FALSE) %>%
-  st_drop_geometry() %>%
-  transmute(GEOID20 = ZCTA5CE20,
-            land_area_m2_2020 = ALAND20,
-            water_area_m2_2020 = AWATER20)
-
-# 6) Assemble a tidy 2000 attributes table keyed to 5-digit ZCTA
-attrs2000 <- sf1_core %>%
-  transmute(ZCTA5,
-            pop_2000 = total_pop,
-            median_age_2000 = median_age) %>%
-  left_join(sf1_age_65pct, by = "ZCTA5") %>%
-  left_join(sf3_income, by = "ZCTA5") %>%
-  # Rename income from wide column name
-  rename(median_hh_income_1999 = median_hh_income_1999) %>%
-  # Make sure ZCTA key is 5-digit character
-  mutate(ZCTA5 = str_pad(ZCTA5, width = 5, pad = "0"))
-
-# 7) Join to your rr_sf (assumes rr_sf$GEOID20 is the 5-digit ZCTA code as character)
-rr_sf_final <- rr_sf %>%
-  mutate(GEOID20 = as.character(GEOID20),
-         ZCTA5 = GEOID20) %>%
-  left_join(attrs2000, by = "ZCTA5") %>%
-  left_join(zcta20, by = "GEOID20") %>%
-  # Population density per km^2 using 2020 land area (best align with GEOID20)
-  mutate(pop_density_2000_per_km2 = if_else(!is.na(land_area_m2_2020) & land_area_m2_2020 > 0,
-                                            pop_2000 / (land_area_m2_2020 / 1e6),
-                                            NA_real_))
-
-rr <- rr_sf_final %>%
-  filter(hotspot_type %in% c("Hot Spot", "Cold Spot"))
-```
