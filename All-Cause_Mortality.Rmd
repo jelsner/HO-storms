@@ -853,7 +853,7 @@ summary(m_er_int)
 
 The model says that there is a 1.5% increase in daily deaths per 10 additional ER visits, but that increase is not changed by storm effect.
 
-## Model using censored Poison via {brms} package
+### Model using censored Poison via {brms} package
 ```{r}
 install.packages("cmdstanr",
                  repos = c("https://stan-dev.r-universe.dev", getOption("repos")))
@@ -914,7 +914,7 @@ This takes too long (~ 85 hours, 3.5 days) and the following warnings:
 1: Parts of the model have not converged (some Rhats are > 1.05). Be careful when analysing the results! We recommend running more iterations and/or setting stronger priors. 
 2: There were 2003 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 
-## Model using logit and Poisson separately
+### Model using logit and Poisson separately
 
 Try a two-part “threshold (≤6) + truncated count (>6)” approximation (stays in `fixest`). The process is modeled as:
 Part A (logit): probability the true count is ≤6 (we observe 6)
