@@ -944,7 +944,6 @@ mB <- fepois(
 )
 
 summary(mA); summary(mB)
-
 ```
 
 
