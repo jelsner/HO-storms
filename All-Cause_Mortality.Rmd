@@ -164,7 +164,7 @@ m_ar1 <- bam(
 summary(m_ar1)
 ```
 
-Effect days are no longer statistically significant. Autocorrelation inflates z-scores. Plain (quasi/NB) GLMs assume independent residuals. Daily mortality has strong AR structure; ignoring it underestimates SEs, making small effects look “significant.” Adding AR(1) (or equivalently, using time-stratified controls) raises SEs → p-values go up. Also there is collinearity with seasonality/trend. Storms cluster in certain seasons & years. Flexible smooths (or fine time strata) explain a lot of the same variance; the unique contribution of storm indicators shrinks.
+Effect days are no longer statistically significant. Autocorrelation inflates z-scores. Plain (quasi/NB) GLMs assume independent residuals. Daily mortality has strong autoregression (AR) structure; ignoring it underestimates SEs, making small effects look “significant.” Adding AR(1) (or equivalently, using time-stratified controls) raises SEs → p-values go up. Also there is collinearity with seasonality/trend. Storms cluster in certain seasons & years. Flexible smooths (or fine time strata) explain a lot of the same variance; the unique contribution of storm indicators shrinks.
 
 Multiple testing/time-of-day confounding (more relevant at ZIP scale), but with many ZIPs, some will look “significant” by chance unless we account for dependence and control false detection rate.
 
@@ -400,7 +400,7 @@ rr_tbl
 
 We fit a fixed-effects Poisson with: ZIP fixed effects (| zip) → controls for all time-invariant differences across ZIPs (population size, baseline mortality, socio-demographics, etc.), Year-month fixed effects (| ym) → controls for statewide shocks and seasonality at the month level (flu waves, hurricanes seasons, COVID waves, etc.). Day-of-week fixed effects (| dow) → controls for weekly pattern. So the effect:: coefficients are within-ZIP log rate ratios vs “None”, after removing month and weekday patterns. Exponentiate them to get rate ratios (RR).
 
-What the coefficients mean
+What the coefficients mean: 
 We fit a fixed-effects Poisson with: ZIP fixed effects (| zip) → controls for all time-invariant differences across ZIPs (population size, baseline mortality, socio-demographics, etc.)
 Year-month fixed effects (| ym) → controls for statewide shocks and seasonality at the month level (flu waves, hurricanes seasons, COVID waves, etc.)
 Day-of-week fixed effects (| dow) → controls for weekly pattern
@@ -540,7 +540,7 @@ pooled_eff <- broom::tidy(m_pooled, conf.int = FALSE) %>%
   filter(grepl("^effect::", term)) %>%
   transmute(effect = sub("^effect::","",term), mu0 = estimate)   # log-RR prior
 
-# Approximate per-ZIP log-RR variance from your model (delta from CI)
+# Approximate per-ZIP log-RR variance from the model (delta from CI)
 log_rr <- rr_by_zip %>%
   mutate(
     logRR   = log(RR),
@@ -858,7 +858,7 @@ The model says that there is a 1.5% increase in daily deaths per 10 additional E
 install.packages("cmdstanr",
                  repos = c("https://stan-dev.r-universe.dev", getOption("repos")))
 library(cmdstanr)
-cmdstanr::check_cmdstan_toolchain(fix = TRUE)    # confirms your compiler setup
+cmdstanr::check_cmdstan_toolchain(fix = TRUE)    # confirms compiler setup
 cmdstanr::install_cmdstan(cores = 2)             # downloads & builds CmdStan
 ```
 
@@ -910,13 +910,15 @@ fit_cens <- brm(
 summary(fit_cens)
 ```
 
-This takes too long (~ 85 hours, 3.5 days) and the following warnings:
+This takes very long (~ 85 hours, 3.5 days) and the following warnings:
 1: Parts of the model have not converged (some Rhats are > 1.05). Be careful when analysing the results! We recommend running more iterations and/or setting stronger priors. 
 2: There were 2003 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 
+DO NOT INTERPRET RESULTS
+
 ### Model using logit and Poisson separately
 
-Try a two-part “threshold (≤6) + truncated count (>6)” approximation (stays in `fixest`). The process is modeled as:
+Instead use a two-part “threshold (≤6) + truncated count (>6)” approximation (stays in `fixest`). The process is modeled as:
 Part A (logit): probability the true count is ≤6 (we observe 6)
 Part B (Poisson on truncated support): conditional mean for counts >6
 Then combine for interpretation
@@ -946,6 +948,89 @@ mB <- fepois(
 summary(mA); summary(mB)
 ```
 
+Interpretation of the results from a two-part model for ER visits
+
+Model 1: We fit:
+Model 1A (mA): logit model for whether ER visits are in the censored bin (coded as 6)
+Model 1B (mB): Poisson model for the number of ER visits given that visits > 6
+Both control for ZIP, month (ym), and day-of-week with fixed effects, and cluster SEs by ZIP and month
+
+Model 1A
+GLM estimation, family = binomial, Dep. Var.: is_le6
+Observations: 1,835,341
+Fixed-effects: zip: 673,  ym: 126,  dow: 7
+Standard-errors: Clustered (zip & ym) 
+                 Estimate Std. Error  z value  Pr(>|z|)    
+effect::Threat   0.431304   0.164050  2.62910 0.0085612 ** 
+effect::Impact   0.881900   0.380303  2.31894 0.0203983 *  
+effect::Cleanup -0.281038   0.243237 -1.15541 0.2479237    
+Log-Likelihood: -312,448.7   Adj. Pseudo R2: 0.291291
+           BIC:  636,536.5     Squared Cor.: 0.185756
+Model 1B
+Poisson estimation, Dep. Var.: er_visits
+Observations: 2,725,008
+Fixed-effects: zip: 928,  ym: 126,  dow: 7
+Standard-errors: Clustered (zip & ym) 
+                 Estimate Std. Error   z value   Pr(>|z|)    
+effect::Threat  -0.080044   0.021385 -3.743002 0.00018183 ***
+effect::Impact  -0.241847   0.075104 -3.220179 0.00128111 ** 
+effect::Cleanup  0.033312   0.039993  0.832946 0.40487508    
+Log-Likelihood: -8,509,566.8   Adj. Pseudo R2: 0.604975
+ BIC: 17,034,870.3     Squared Cor.: 0.880402
+ 
+Model 1A: Probability that ER visits are in the “≤6” bin
+Outcome:
+is_le6 = 1 if er_visits == 6 (i.e., the left-censored bin “true ≤ 6"),
+is_le6 = 0 if er_visits > 6
+
+Key coefficients (log-odds; exponentiated below as odds ratios):
+Threat: 0.4313 → OR ≈ 1.54
+Impact: 0.8819 → OR ≈ 2.42
+Cleanup: −0.2810 → OR ≈ 0.75 (not statistically significant)
+
+Interpretation (all relative to None days, holding ZIP, ym, and DOW constant):
+On Threat days, the odds that the ER count is in the censored bucket (≤6) are about 54% higher than on None days
+On Impact days, the odds of being in the censored bucket are about 2.4 times higher than on None days
+On Cleanup days, the odds are about 25% lower, but this is not statistically significant (p ≈ 0.25), so we can’t confidently claim a difference from None
+
+In other words, Threat and Impact days are more likely to be “low-visit” days (in the censored sense) compared with normal (None) days, after accounting for location, season, and weekday
+
+Model 1B: Mean ER visits given > 6 visits
+Outcome:
+er_visits (count) but only on days where er_visits > 6. This is a Poisson FE model.
+Exponentiating the coefficients gives rate ratios (RRs):
+Threat: −0.0800 → RR ≈ 0.92
+Impact: −0.2418 → RR ≈ 0.79
+Cleanup: 0.0333 → RR ≈ 1.03 (not significant)
+
+Interpretation (again relative to None days, conditional on being > 6):
+On Threat days, among days with >6 visits, the mean ER count is about 7–8% lower than on None days (RR ≈ 0.92, p < 0.001)
+On Impact days, given >6 visits, the mean count is about 21–22% lower than on None days (RR ≈ 0.79, p ≈ 0.001)
+On Cleanup days, the mean is about 3% higher, but not statistically distinguishable from None (p ≈ 0.40)
+So, when the ER is “busy” ( > 6 visits), Threat and Impact days actually show fewer visits than comparable None days, controlling for ZIP, month, and DOW
+
+Putting both parts together
+Think of the ER visits distribution on a given day in two stages:
+Stage 1 – Are visits in the low bin (≤6) or above it?
+Threat and Impact days are more likely than None days to fall in the low (≤6) category.
+Cleanup days don’t differ clearly from None.
+Stage 2 – If visits are above 6, how large is the count?
+On Threat and Impact days with >6 visits, the average ER volume is lower than on comparable None days.
+Cleanup days again look similar to None
+
+Qualitatively:
+Threat & Impact:
+Higher chance of being in the censored/low bucket.
+Lower mean when above the threshold.
+
+Overall, these phases shift the ER visit distribution downward relative to None days, given the censoring structure.
+Cleanup:
+No strong evidence of a difference from None in either the probability of being ≤6 or the mean above 6.
+This is all conditional on our controls (ZIP FE, ym FE, DOW FE), so those patterns are net of geography, broad seasonality/trend, and weekday effects
+
+We can
+Convert these effects into an approximate overall change in mean ER visits by effect (combining both stages), or
+Compare these ER patterns to the death models to see how ER demand vs. mortality co-move across storm effect phases
 
 
 

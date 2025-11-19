@@ -1,0 +1,382 @@
+---
+title: "Death rates across the storm track"
+output: html_document
+editor_options:
+  chunk_output_type: console
+---
+
+Get and import the IBTraCS storm data
+
+https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/
+https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/doc/IBTrACS_v04_Technical_Details.pdf
+https://www.ncei.noaa.gov/sites/default/files/2021-07/IBTrACS_v04_column_documentation.pdf
+
+```{r}
+library(sf)
+
+L <- "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/IBTrACS.NA.list.v04r00.lines.zip"
+  
+if(!"IBTrACS.NA.list.v04r00.lines.zip" %in% list.files(here::here("data"))) {
+download.file(url = L,
+              destfile = here::here("data",
+                                    "IBTrACS.NA.list.v04r00.lines.zip"))
+unzip(here::here("data", "IBTrACS.NA.list.v04r00.lines.zip"),
+      exdir = here::here("data"))
+}
+
+Tracks.sf <- st_read(dsn = here::here("data"), 
+                         layer = "IBTrACS.NA.list.v04r00.lines") |>
+  st_transform(crs = 32616)
+```
+
+Geometry type is LINESTRING. Wind speed is in units of knots (nautical mile per hour)
+
+Keep only storms having USA_WIND >= 34 occurring between 1985 and 2022
+```{r}
+library(dplyr)
+
+tracks_sf <- Tracks.sf |>
+  filter(year >= 1985 & year <= 2022) |>
+  filter(USA_WIND >= 34) |> # change to 34 for tropical storms and hurricanes
+  select(SID, SEASON, year, month, day, hour, min,
+         NAME, SUBBASIN, ISO_TIME,
+         USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
+```
+
+Florida only. `USAboundaries` package no longer maintained on CRAN
+```{r}
+#devtools::install_github("ropensci/USAboundariesData")
+#devtools::install_github("ropensci/USAboundaries", force = TRUE)
+#install.packages("USAboundariesData", repos = "https://ropensci.r-universe.dev", type = "source")
+
+
+Boundaries.sf <- USAboundaries::us_states(resolution = "low", states = "FL") |> 
+  sf::st_transform(crs = 32616)
+
+X <- tracks_sf |>
+  st_intersects(Boundaries.sf, sparse = FALSE) #Does the track intersect the state border?
+tracks_fl <- tracks_sf[X, ]
+tracks_fl <- tracks_fl |>
+  mutate(Date = as_date(ISO_TIME)) #Add a date column
+fl_sids <- unique(tracks_fl$SID)
+
+st_crs(tracks_fl)
+```
+
+```{r}
+Deaths.df <- data.table::fread(file = "data/all_deaths_hurricane.csv")
+```
+
+Create a simple feature data frame with point geometry from the original data frame
+```{r}
+library(lubridate)
+library(sf)
+
+deaths_sf <- Deaths.df |>
+  mutate(Date = as_date(DATE_OF_DEATH),
+         year = year(Date)) |>
+  filter(year >= 1985 & year <= 2022) |>
+  st_as_sf(coords = c("final_lon", "final_lat"),
+               crs = 4326) |>
+  select(Death_ID = ID, Death_Date = Date)
+
+# Transform deaths into same CRS as tracks (UTM 16N)
+deaths_utm <- st_transform(deaths_sf, st_crs(tracks_fl))
+```
+
+Each SID currently has multiple rows, each with a LINESTRING. We merge them into a single track per storm
+```{r}
+tracks_merged <- tracks_fl %>%
+  group_by(SID, SEASON, NAME) %>%
+  summarize(
+    min_date = min(as.Date(ISO_TIME)),
+    max_date = max(as.Date(ISO_TIME)),
+    geometry = st_union(geometry),
+    .groups = "drop"
+  )
+
+# First ensure MULTILINESTRING
+tracks_merged <- st_cast(tracks_merged, "MULTILINESTRING")
+
+# Then merge into one continuous LINESTRING
+tracks_merged <- st_line_merge(tracks_merged)
+```
+
+Next we densify the track so that distances to the track are well-resolved and forward motion is smooth. Here we use 5 km spacing, but you can use 1–10 km
+```{r}
+spacing_m <- 5000  # or whatever you chose
+
+tracks_densified <- st_segmentize(tracks_merged, dfMaxLength = spacing_m)
+
+track_points <- tracks_densified %>%
+  # 1) LINESTRING → MULTIPOINT (keeps all vertices)
+  st_cast("MULTIPOINT") %>%
+  # 2) MULTIPOINT → POINT (one feature per vertex)
+  st_cast("POINT", warn = FALSE) %>%
+  group_by(SID, SEASON, NAME) %>%
+  mutate(point_id = row_number()) %>%  # order along the track
+  ungroup()
+
+# compute forward motion vectors
+track_points <- track_points %>%
+  group_by(SID) %>%
+  mutate(
+    x = st_coordinates(geometry)[, 1],
+    y = st_coordinates(geometry)[, 2],
+    lead_x = lead(x),
+    lead_y = lead(y),
+    v_x    = lead_x - x,
+    v_y    = lead_y - y
+  ) %>%
+  filter(!is.na(v_x) & !is.na(v_y)) %>%
+  ungroup()
+```
+
+Build storm metadata: one row per storm with min/max dates
+```{r}
+storm_meta <- tracks_merged %>%
+  st_drop_geometry() %>%
+  select(SID, SEASON, NAME, min_date, max_date)
+
+storm_meta
+```
+This gives each storm’s overall life window (in days)
+
+Loop over storms: match only deaths in that storm’s active window. Now we go storm by storm. For each SID: Take only deaths whose Death_Date lies in [min_date, max_date], use only that storm’s track_points, compute signed distance (right vs left) to that storm’s track
+```{r}
+library(purrr)
+
+# Ensure Death_Date exists in deaths_utm (it should from your earlier code)
+deaths_utm <- deaths_utm %>%
+  mutate(Death_Date = as.Date(Death_Date))
+
+storm_death_list <- vector("list", nrow(storm_meta))
+
+for (i in seq_len(nrow(storm_meta))) {
+  this_sid   <- storm_meta$SID[i]
+  this_name  <- storm_meta$NAME[i]
+  this_season <- storm_meta$SEASON[i]
+  d_start    <- storm_meta$min_date[i]
+  d_end      <- storm_meta$max_date[i]
+  
+  # Deaths during this storm's active window
+  d_sub <- deaths_utm %>%
+    filter(Death_Date >= d_start, Death_Date <= d_end)
+  
+  if (nrow(d_sub) == 0) {
+    storm_death_list[[i]] <- NULL
+    next
+  }
+  
+  # Track points for this SID (with forward motion vectors)
+  tp_sid <- track_points %>%
+    filter(SID == this_sid)
+  
+  # Nearest track point for each death (for THIS storm only)
+  nearest_idx <- st_nearest_feature(d_sub, tp_sid)
+  
+  death_coords <- st_coordinates(d_sub)
+  track_coords_sid <- st_coordinates(tp_sid)
+  
+  # Coordinates of matched track points
+  tx <- track_coords_sid[nearest_idx, 1]
+  ty <- track_coords_sid[nearest_idx, 2]
+  
+  vx <- tp_sid$v_x[nearest_idx]
+  vy <- tp_sid$v_y[nearest_idx]
+  
+  # vector from track to death
+  w_x <- death_coords[, 1] - tx
+  w_y <- death_coords[, 2] - ty
+  
+  # cross product v x w
+  cross <- vx * w_y - vy * w_x
+  
+  side <- ifelse(cross > 0,  1,
+          ifelse(cross < 0, -1, 0))  # left=+1, right=-1
+  
+  # distance magnitude in km
+  dist_km <- sqrt(w_x^2 + w_y^2) / 1000
+  
+  # Our convention: positive = RIGHT of motion, negative = LEFT
+  dist_signed <- -dist_km * side
+  
+  d_sub_out <- d_sub %>%
+    mutate(
+      SID         = this_sid,
+      SEASON      = this_season,
+      STORM_NAME  = this_name,
+      track_x     = tx,
+      track_y     = ty,
+      v_x         = vx,
+      v_y         = vy,
+      dist_km     = dist_km,
+      side        = side,
+      dist_signed = dist_signed,
+      dist_bin_5km = 5 * floor(dist_signed / 5)
+    )
+  
+  storm_death_list[[i]] <- d_sub_out
+}
+
+# Bind all storm-specific death records together
+storm_deaths_nn <- bind_rows(storm_death_list)
+```
+
+Build the fully time- & storm-specific cross-track profile. Now aggregate by distance bin
+```{r}
+storm_profile <- storm_deaths_nn %>%
+  st_drop_geometry() %>%
+  count(dist_bin_5km, name = "deaths_storm") %>%
+  arrange(dist_bin_5km)
+```
+
+This is a storm-day, storm-specific “case” profile: how many deaths occurred at each signed distance from the track during storms, counted for the specific storm that was active
+
+Plot
+```{r}
+library(ggplot2)
+
+ggplot(storm_profile, aes(x = dist_bin_5km, y = deaths_storm)) +
+  geom_col(width = 5) +
+  geom_hline(yintercept = 0) +
+  xlim(c(-500, 500)) +
+  labs(
+    x = "Distance from storm track (km)\nRight of storm motion: positive   |   Left of storm motion: negative",
+    y = "Number of deaths during storm-active days",
+    title = "Time- and storm-specific cross-track mortality profile\nFlorida tropical cyclones, 1985–2022"
+  ) +
+  theme_minimal()
+```
+
+Build a set of matched non-storm control days. Define non-storm days
+```{r}
+storm_days <- unique(storm_deaths_nn$Death_Date)
+all_days <- seq(min(deaths_utm$Death_Date), max(deaths_utm$Death_Date), by="1 day")
+non_storm_days <- setdiff(all_days, storm_days)
+```
+
+Build a control sampling window. Match each case death date to non-storm dates within a ±7-day window.
+```{r}
+match_window <- 7   # days on either side
+k_controls   <- 5     # choose 5 controls per case
+
+# All non-storm deaths
+non_storm_df <- deaths_utm %>%
+  filter(!(Death_Date %in% storm_days))
+
+# Match
+
+set.seed(2025)
+
+control_rows <- map_dfr(
+  1:nrow(storm_deaths_nn),
+  function(i) {
+
+    this_date <- storm_deaths_nn$Death_Date[i]
+
+    # eligible non-storm deaths in window
+    eligible <- non_storm_df %>%
+      filter(Death_Date >= this_date - match_window,
+             Death_Date <= this_date + match_window)
+
+    if (nrow(eligible) == 0)
+      return(NULL)
+
+    # sample k controls without replacement (or with)
+    sampled <- eligible %>%
+      slice_sample(n = min(k_controls, nrow(eligible))) %>%
+      mutate(case_date = this_date)
+
+    sampled
+  }
+)
+
+controls_matched <- control_rows
+```
+
+Now we have number of cases = nrow(storm_deaths_nn) and number of controls ≈ 5 × cases (balanced)
+
+Compute distances for controls using the same nearest-track logic, but without storm filtering. For controls we need spatial-only distances to the whole historical track network, using track_points as before
+```{r}
+# Compute nearest track point for controls
+nearest_idx_ctrl <- st_nearest_feature(controls_matched, track_points)
+
+control_coords <- st_coordinates(controls_matched)
+track_pts_coords <- st_coordinates(track_points)
+
+tx_c <- track_pts_coords[nearest_idx_ctrl, 1]
+ty_c <- track_pts_coords[nearest_idx_ctrl, 2]
+vx_c <- track_points$v_x[nearest_idx_ctrl]
+vy_c <- track_points$v_y[nearest_idx_ctrl]
+
+w_x <- control_coords[,1] - tx_c
+w_y <- control_coords[,2] - ty_c
+
+cross <- vx_c * w_y - vy_c * w_x
+side  <- ifelse(cross > 0, 1, ifelse(cross < 0, -1, 0))
+
+dist_km <- sqrt(w_x^2 + w_y^2) / 1000
+
+# Our convention: positive = RIGHT of track motion, negative = LEFT
+dist_signed <- -dist_km * side
+
+controls_nn <- controls_matched %>%
+  mutate(
+    track_x     = tx_c,
+    track_y     = ty_c,
+    v_x         = vx_c,
+    v_y         = vy_c,
+    dist_km     = dist_km,
+    side        = side,
+    dist_signed = dist_signed,
+    dist_bin_5km = 5 * floor(dist_signed / 5)
+  )
+```
+
+Build parallel case and control profiles
+```{r}
+# Case profile
+
+case_profile <- storm_deaths_nn %>%
+  st_drop_geometry() %>%
+  count(dist_bin_5km, name = "case_count")
+
+# Control profile
+
+control_profile <- controls_nn %>%
+  st_drop_geometry() %>%
+  count(dist_bin_5km, name = "ctrl_count")
+
+# Join profiles
+
+cc_profile <- full_join(case_profile, control_profile, by="dist_bin_5km") %>%
+  replace_na(list(case_count = 0, ctrl_count = 0)) %>%
+  mutate(
+    case_rate = case_count / sum(case_count),
+    ctrl_rate = ctrl_count / sum(ctrl_count),
+    rate_ratio = case_rate / ctrl_rate
+  )
+```
+
+Plot
+```{r}
+ggplot(cc_profile, aes(x = dist_bin_5km, y = rate_ratio)) +
+  geom_hline(yintercept = 1, color = "grey60", linetype = "dashed") +
+  geom_line(color = "black", linewidth = 1) +
+  geom_point(size = 2) +
+  xlim(c(-50, 50)) +
+  labs(
+    x = "Signed distance from storm track (km)\n+ = right of forward storm motion   |   − = left of forward storm motion",
+    y = "Case / control rate ratio",
+    title = "Cross-track excess mortality\nMatched case/control profile (time- and storm-specific)"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+cc <- cc_profile %>%
+  filter(dist_bin_5km > -50) %>%
+  filter(dist_bin_5km < 50)
+```
+
