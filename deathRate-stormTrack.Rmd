@@ -251,21 +251,39 @@ ggplot(storm_profile, aes(x = dist_bin_5km, y = deaths_storm)) +
 
 Build a set of matched non-storm control days. Define non-storm days
 ```{r}
-storm_days <- unique(storm_deaths_nn$Death_Date)
-all_days <- seq(min(deaths_utm$Death_Date), max(deaths_utm$Death_Date), by="1 day")
+# All storm-active days from storm_meta
+storm_days <- storm_meta %>%
+  rowwise() %>%
+  mutate(dates = list(seq(min_date, max_date, by = "1 day"))) %>%
+  unnest(dates) %>%
+  ungroup() %>%
+  distinct(dates) %>%
+  pull(dates)
+
+# All days in the death record period
+all_days <- seq(
+  min(deaths_utm$Death_Date),
+  max(deaths_utm$Death_Date),
+  by = "1 day"
+)
+
+# True non-storm days
 non_storm_days <- setdiff(all_days, storm_days)
+
+# All non-storm deaths
+non_storm_df <- deaths_utm %>%
+  filter(Death_Date %in% non_storm_days)
 ```
 
 Build a control sampling window. Match each case death date to non-storm dates within a ±7-day window.
 ```{r}
+library(purrr)
+library(dplyr)
+
 match_window <- 7   # days on either side
-k_controls   <- 5     # choose 5 controls per case
+k_controls   <- 5   # choose 5 controls per case
 
-# All non-storm deaths
-non_storm_df <- deaths_utm %>%
-  filter(!(Death_Date %in% storm_days))
-
-# Match
+# non_storm_df already defined with the corrected storm/non-storm logic
 
 set.seed(2025)
 
@@ -274,11 +292,14 @@ control_rows <- map_dfr(
   function(i) {
 
     this_date <- storm_deaths_nn$Death_Date[i]
+    this_sid  <- storm_deaths_nn$SID[i]
 
     # eligible non-storm deaths in window
     eligible <- non_storm_df %>%
-      filter(Death_Date >= this_date - match_window,
-             Death_Date <= this_date + match_window)
+      filter(
+        Death_Date >= this_date - match_window,
+        Death_Date <= this_date + match_window
+      )
 
     if (nrow(eligible) == 0)
       return(NULL)
@@ -286,7 +307,10 @@ control_rows <- map_dfr(
     # sample k controls without replacement (or with)
     sampled <- eligible %>%
       slice_sample(n = min(k_controls, nrow(eligible))) %>%
-      mutate(case_date = this_date)
+      mutate(
+        case_date = this_date,
+        case_sid  = this_sid
+      )
 
     sampled
   }
@@ -295,43 +319,67 @@ control_rows <- map_dfr(
 controls_matched <- control_rows
 ```
 
-Now we have number of cases = nrow(storm_deaths_nn) and number of controls ≈ 5 × cases (balanced)
+Now we have number of cases and number of controls ≈ 5 × cases (balanced)
 
 Compute distances for controls using the same nearest-track logic, but without storm filtering. For controls we need spatial-only distances to the whole historical track network, using track_points as before
 ```{r}
-# Compute nearest track point for controls
-nearest_idx_ctrl <- st_nearest_feature(controls_matched, track_points)
+controls_groups <- split(controls_matched, controls_matched$case_sid)
 
-control_coords <- st_coordinates(controls_matched)
-track_pts_coords <- st_coordinates(track_points)
+controls_nn_list <- vector("list", length(controls_groups))
+idx <- 1
 
-tx_c <- track_pts_coords[nearest_idx_ctrl, 1]
-ty_c <- track_pts_coords[nearest_idx_ctrl, 2]
-vx_c <- track_points$v_x[nearest_idx_ctrl]
-vy_c <- track_points$v_y[nearest_idx_ctrl]
+for (sid in names(controls_groups)) {
+  df <- controls_groups[[sid]]
+  
+  # storm track points for this SID
+  tp_sid <- track_points %>%
+    filter(SID == sid)
+  
+  if (nrow(tp_sid) == 0) {
+    controls_nn_list[[idx]] <- NULL
+    idx <- idx + 1
+    next
+  }
+  
+  nearest_idx <- st_nearest_feature(df, tp_sid)
+  
+  control_coords <- st_coordinates(df)
+  track_coords_sid <- st_coordinates(tp_sid)
+  
+  tx_c <- track_coords_sid[nearest_idx, 1]
+  ty_c <- track_coords_sid[nearest_idx, 2]
+  vx_c <- tp_sid$v_x[nearest_idx]
+  vy_c <- tp_sid$v_y[nearest_idx]
+  
+  w_x <- control_coords[,1] - tx_c
+  w_y <- control_coords[,2] - ty_c
+  
+  cross <- vx_c * w_y - vy_c * w_x
+  side  <- ifelse(cross > 0, 1, ifelse(cross < 0, -1, 0))   # left=+1, right=-1
+  
+  dist_km <- sqrt(w_x^2 + w_y^2) / 1000
+  
+  # Convention: positive = RIGHT of forward motion, negative = LEFT
+  dist_signed <- -dist_km * side
+  
+  df_out <- df %>%
+    mutate(
+      SID         = sid,
+      track_x     = tx_c,
+      track_y     = ty_c,
+      v_x         = vx_c,
+      v_y         = vy_c,
+      dist_km     = dist_km,
+      side        = side,
+      dist_signed = dist_signed,
+      dist_bin_5km = 5 * floor(dist_signed / 5)
+    )
+  
+  controls_nn_list[[idx]] <- df_out
+  idx <- idx + 1
+}
 
-w_x <- control_coords[,1] - tx_c
-w_y <- control_coords[,2] - ty_c
-
-cross <- vx_c * w_y - vy_c * w_x
-side  <- ifelse(cross > 0, 1, ifelse(cross < 0, -1, 0))
-
-dist_km <- sqrt(w_x^2 + w_y^2) / 1000
-
-# Our convention: positive = RIGHT of track motion, negative = LEFT
-dist_signed <- -dist_km * side
-
-controls_nn <- controls_matched %>%
-  mutate(
-    track_x     = tx_c,
-    track_y     = ty_c,
-    v_x         = vx_c,
-    v_y         = vy_c,
-    dist_km     = dist_km,
-    side        = side,
-    dist_signed = dist_signed,
-    dist_bin_5km = 5 * floor(dist_signed / 5)
-  )
+controls_nn <- bind_rows(controls_nn_list)
 ```
 
 Build parallel case and control profiles
@@ -365,7 +413,8 @@ ggplot(cc_profile, aes(x = dist_bin_5km, y = rate_ratio)) +
   geom_hline(yintercept = 1, color = "grey60", linetype = "dashed") +
   geom_line(color = "black", linewidth = 1) +
   geom_point(size = 2) +
-  xlim(c(-50, 50)) +
+  ylim(c(0.5, 1.5)) +
+  xlim(c(-200, 200)) +
   labs(
     x = "Signed distance from storm track (km)\n+ = right of forward storm motion   |   − = left of forward storm motion",
     y = "Case / control rate ratio",
@@ -374,9 +423,20 @@ ggplot(cc_profile, aes(x = dist_bin_5km, y = rate_ratio)) +
   theme_minimal()
 ```
 
+Plot raw shapes
 ```{r}
-cc <- cc_profile %>%
-  filter(dist_bin_5km > -50) %>%
-  filter(dist_bin_5km < 50)
+ggplot(cc_profile, aes(x = dist_bin_5km)) +
+  geom_line(aes(y = ctrl_rate, color = "Control"), linewidth = 1) +
+  geom_line(aes(y = case_rate, color = "Case"), linewidth = 1) +
+  geom_point(aes(y = ctrl_rate, color = "Control")) +
+  geom_point(aes(y = case_rate, color = "Case")) +
+  scale_color_manual(values = c("Case" = "black", "Control" = "grey60")) +
+  xlim(c(-50, 50)) +
+  labs(
+    x = "Signed distance from storm track (km)\n+ = right (strong-wind side), − = left (weaker-wind side)",
+    y = "Normalized density",
+    color = "",
+    title = "Case and control cross-track death profiles"
+  ) +
+  theme_minimal()
 ```
-
