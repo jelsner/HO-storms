@@ -20,9 +20,10 @@ Deaths.df <- Deaths.dt |>
 Deaths.sf <- sf::st_read(dsn = "data/outputs/Deaths", 
                          layer = "All_Deaths_Storm_Effects")
 names(Deaths.sf)[1:5] <- names(Deaths.df)[1:5] # match column names with those in the csv
+```
 
-# Remove rows before 1985 as the first storm since 1981 occurred in that year
-
+Remove rows before 1985 as the first storm since 1981 occurred in that year
+```{r}
 library(dplyr)
 Deaths.df <- Deaths.df |>
   filter(Death_Date >= as.Date("1985-01-01"))
@@ -101,7 +102,7 @@ print(death_rates)
 
 This tells us that in this sample the statewide daily death rate is somewhat higher on non-storm-effect days. But a lot is going on: time and spatial trends, seasonality, autocorrelation. We need a model that accounts for these things
 
-## Negative binomial generalized additive model (NOT USED)
+## Model using a negative binomial generalized additive model
 
 Setup the data frame
 ```{r}
@@ -205,10 +206,11 @@ sf_use_s2(TRUE)
 deaths_with_zip <- st_join(
   Deaths_aligned,
   zctas_valid,
-  join = st_intersects,   # st_intersects includes boundary points
+  join = st_intersects,   # or st_intersects if you want to include boundary points
   left = TRUE
 )
 
+# QA checks
 # Any points that didn't land in a polygon? (e.g., offshore or boundary issues)
 sum(is.na(deaths_with_zip$GEOID20))
 # returns 1915 (~.03%) when st_within or st_intersects. Could snap unmatched points to nearest polygon
@@ -218,9 +220,9 @@ dup_check <- deaths_with_zip |>
   st_drop_geometry() |>
   count(Death_ID) |>
   filter(n > 1)
-dup_check # <0 rows> -> every point matches at most one ZCTA
+dup_check
 
-# Remove deaths that didn't land in a polygon
+# Remove those deaths
 deaths_with_zip <- deaths_with_zip |> 
   filter(!is.na(GEOID20))
 ```
@@ -268,8 +270,6 @@ daily_by_zip %>%
 
 Compute death totals by zip by effect with the effect as separate columns (wide format), then join to zip polygons, then make choropleth maps
 ```{r}
-library(tidyr)
-
 death_counts_wide <- deaths_with_zip %>%
   sf::st_drop_geometry() %>%  
   filter(Storm_Effect %in% c("Threat","Impact","Cleanup")) %>%
@@ -301,16 +301,16 @@ death_map_sf <- zcta_poly %>%
   select(GEOID20, Threat, Impact, Cleanup, geometry)
 
 # for story map
-#saveRDS(death_map_sf, "data/outputs/Results/zcta_death_counts.rds")
+saveRDS(death_map_sf, "data/outputs/Results/zcta_death_counts.rds")
 ```
 
 Make maps
 ```{r}
 library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(sf)
 library(RColorBrewer)
-
-bins <- c(0, 5, 10, 20, 40, 70, 100)
-pal  <- brewer.pal(length(bins) - 1, "YlOrRd")
 
 make_map <- function(data_sf, col, title = col) {
   ggplot(data_sf) +
@@ -328,9 +328,9 @@ make_map <- function(data_sf, col, title = col) {
     theme(plot.title = element_text(face = "bold", hjust = 0.5))
 }
 
-p_threat  <- make_map(death_map_sf, "Threat",  "Deaths on threat days")
-p_impact  <- make_map(death_map_sf, "Impact",  "Deaths on impact days")
-p_cleanup <- make_map(death_map_sf, "Cleanup", "Deaths on cleanup days")
+p_threat  <- make_map(death_map_sf, "Threat",  "Threat deaths")
+p_impact  <- make_map(death_map_sf, "Impact",  "Impact deaths")
+p_cleanup <- make_map(death_map_sf, "Cleanup", "Cleanup deaths")
 
 # Print or save
 # p_threat; p_impact; p_cleanup
@@ -434,9 +434,7 @@ summary(m_pooled2)
 
 Results are essentially the same
 
-Note: When including weaker tropical storms 34-55 kt, the effect sizes are about 1/2 the effect sizes of including only storms at 55 kt or stronger.
-
-## Time stratified Poisson fixed effect model per zip code area
+## Time stratified Poisson fixed effect per zip code area
 
 Choose candidate zips worth modeling
 ```{r}
@@ -509,7 +507,7 @@ The extreme RRs are a data-sparsity/separation artifact of per-ZIP, heavily stra
 Where are the extremes coming from?
 ```{r}
 # per-ZIP support by effect
-zip_support <- dat %>%      # dat = per-ZIP daily frame 
+zip_support <- dat2 %>%      # dat = per-ZIP daily frame 
   group_by(zip, effect) %>%
   summarise(
     days   = n(),
@@ -758,317 +756,281 @@ rr_clusters <- g_locI %>%
 saveRDS(rr_clusters, "data/outputs/Results/zcta_clusters.rds")
 ```
 
+## Emergency room visits
 
-### Figure 1: Study design and workflow
-
+Data received from David Hsu on October 16, 2025 via email
 ```{r}
-library(ggplot2)
-library(dplyr)
-library(tibble)
+ER_visits.dt <- data.table::fread(here::here("data", "Combined_ER_Data.csv"))
+ER_visits.df <- ER_visits.dt |>
+  as.data.frame()
+```
 
-# ------------------------------------------------------------
-# Define boxes (positions tuned for a clean layout)
-# ------------------------------------------------------------
-boxes <- tibble(
-  id = c(
-    "deaths_geo",
-    "storms",
-    "zcta",
-    "panel_all",
-    "panel_restr",
-    "state_model",
-    "state_outputs",
-    "zip_models",
-    "zip_rrs",
-    "zip_lisa"
-  ),
-  xmin = c(
-    0.5,  # deaths_geo
-    3.0,  # storms
-    5.5,  # zcta
-    2.0,  # panel_all
-    2.0,  # panel_restr
-    0.5,  # state_model
-    0.5,  # state_outputs
-    4.5,  # zip_models
-    4.5,  # zip_rrs
-    4.5   # zip_lisa
-  ),
-  xmax = c(
-    2.5,  # deaths_geo
-    5.0,  # storms
-    7.5,  # zcta
-    6.0,  # panel_all
-    6.0,  # panel_restr
-    3.5,  # state_model
-    3.5,  # state_outputs
-    7.5,  # zip_models
-    7.5,  # zip_rrs
-    7.5   # zip_lisa
-  ),
-  ymin = c(
-    8.0,  # deaths_geo
-    8.0,  # storms
-    8.0,  # zcta
-    6.5,  # panel_all
-    5.0,  # panel_restr
-    3.5,  # state_model
-    2.0,  # state_outputs
-    3.5,  # zip_models
-    2.0,  # zip_rrs
-    0.5   # zip_lisa
-  ),
-  ymax = c(
-    9.0,  # deaths_geo
-    9.0,  # storms
-    9.0,  # zcta
-    7.5,  # panel_all
-    6.0,  # panel_restr
-    4.5,  # state_model
-    3.0,  # state_outputs
-    4.5,  # zip_models
-    3.0,  # zip_rrs
-    1.5   # zip_lisa
-  )
+Merge with daily mortality counts
+```{r}
+library(data.table)
+
+setDT(zip_day)
+setDT(ER_visits.df)
+
+# Pad ZipCode to 5 chars; drop non-sensical codes (0/NA/too short/too big)
+ER_visits.df[
+  , ZipCode := fifelse(ZipCode > 0 & ZipCode < 1e6, sprintf("%05d", ZipCode), NA_character_)
+]
+ER_visits.df[, Date := as.IDate(Date)]
+
+ER_visits_clean <- ER_visits.df[!is.na(ZipCode) & nchar(ZipCode) == 5]
+
+# Standardize names to match zip_day; optionally collapse duplicates
+setnames(ER_visits_clean, c("ZipCode","Date","Total_Visits"),
+                           c("zip",    "date","er_visits"))
+
+# If there can be multiple ER rows per (zip,date), aggregate to daily total
+ER_visits_clean <- ER_visits_clean[, .(er_visits = sum(er_visits, na.rm = TRUE)),
+                                   by = .(zip, date)]
+
+# Standardize zip_day types 
+zip_day[, date := as.IDate(date)]
+zip_day[, zip  := as.character(zip)] # already looks like "31537", but safe
+
+# Merge: keep all zip_day rows (left join) 
+zip_day_with_visits <- merge(
+  zip_day,
+  ER_visits_clean,
+  by = c("zip","date"),
+  all.x = TRUE,
+  allow.cartesian = TRUE  # only matters if duplicates remain
 )
 
-boxes <- boxes %>%
-  mutate(
-    x = (xmin + xmax) / 2,
-    y = (ymin + ymax) / 2
-  )
+# Optional: treat missing ER as 0 instead of NA
+zip_day_with_visits[is.na(er_visits), er_visits := 0L]
+```
 
-# Labels
-label_map <- c(
-  deaths_geo = "Vital records\nGeocoded deaths\n(point-level, daily)",
-  storms     = "Storm data\nIBTrACS + windfields\n(Threat/Impact/Cleanup)",
-  zcta       = "ZCTA/ZIP boundaries\nPopulation & covariates",
-  panel_all  = "ZIP–day mortality panel\nTagged by storm effect\n(1985–2022)",
-  panel_restr = "Analysis sample\n1985–2022, May–Nov\nFlorida ZIP–day deaths",
-  state_model = "Statewide time-stratified\nfixed-effects Poisson\n(daily deaths ~ storm effect\n+ calendar/time strata)",
-  state_outputs = "Statewide rate ratios (RRs)\nThreat / Impact / Cleanup vs None\nEvent-time profiles",
-  zip_models = "ZIP-level Poisson models\n(deaths ~ storm effect\n+ time fixed effects)",
-  zip_rrs = "Shrunken ZIP-level RRs\nby storm phase\n(Threat / Impact / Cleanup)",
-  zip_lisa = "Spatial clustering of RRs\nLocal Moran's I\nHot and cold spot maps"
+A model for daily death counts using ER visits as a covariate and test whether slopes differ by effect
+```{r}
+library(fixest)
+
+dat <- copy(zip_day_with_visits)
+
+# --- Build filters and control variables ---
+dat[, year  := as.integer(format(date, "%Y"))]
+dat[, month := as.integer(format(date, "%m"))]
+
+# Keep hurricane season & target years
+dat <- dat[year %between% c(2005, 2022) & month %in% 5:11]
+
+# Seasonality: month-of-year (factor, May..Nov)
+dat[, month_fac := factor(month, levels = 5:11, labels = month.abb[5:11])]
+
+# Day-of-week (factor)
+dow_levels <- c("Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
+dat[, dow := factor(weekdays(as.Date(date)), levels = dow_levels)]
+
+# Time trend: numeric index (scale to years for stability)
+dat[, t_years := as.numeric(date) / 365.25]
+
+# For clustering by year-month (optional but recommended)
+dat[, ym := format(date, "%Y-%m")]
+
+# Optional: handle missing ER visits (choose either 0 or keep as NA and drop)
+dat[is.na(er_visits), er_visits := 0L]
+
+# Optional: scale ER for easier interpretation (e.g., per 10 visits)
+dat[, er10 := er_visits / 10]
+
+m_er_int <- fepois(
+  deaths ~ 
+    er10 +                          # baseline ER slope on "None" days
+    i(effect, ref = "None") +       # mean shifts for Threat/Impact/Cleanup vs None
+    i(effect, var = er10, ref = "None") +  # ER slope *differences* by effect
+    poly(t_years, 2) |              # smooth trend
+    zip + month_fac + dow,          # fixed effects (ZIP, seasonality, DOW)
+  data    = dat,
+  cluster = ~ zip + ym
 )
 
-boxes$plot_label <- label_map[boxes$id]
-
-# ------------------------------------------------------------
-# Define arrows between boxes
-# ------------------------------------------------------------
-arrows <- tibble(
-  from = c(
-    "deaths_geo",
-    "storms",
-    "zcta",
-    "panel_all",
-    "panel_all",
-    "panel_restr",
-    "panel_restr",
-    "state_model",
-    "zip_models",
-    "zip_rrs"
-  ),
-  to = c(
-    "panel_all",
-    "panel_all",
-    "panel_all",
-    "panel_restr",
-    # If you don't want two arrows from panel_all, comment one of these
-    "panel_restr",
-    "state_model",
-    "zip_models",
-    "state_outputs",
-    "zip_rrs",
-    "zip_lisa"
-  )
-) %>%
-  left_join(boxes %>% select(id, x, y), by = c("from" = "id")) %>%
-  rename(xstart = x, ystart = y) %>%
-  left_join(boxes %>% select(id, x, y), by = c("to" = "id")) %>%
-  rename(xend = x, yend = y) %>%
-  mutate(
-    # optional small nudges to avoid arrow overlap from top row
-    ystart = case_when(
-      from == "deaths_geo" ~ ystart - 0.1,
-      from == "storms"     ~ ystart,
-      from == "zcta"       ~ ystart + 0.1,
-      TRUE ~ ystart
-    )
-  )
-
-# ------------------------------------------------------------
-# Plot
-# ------------------------------------------------------------
-p_fig1 <- ggplot() +
-  # Arrows
-  geom_curve(
-    data = arrows,
-    aes(x = xstart, y = ystart, xend = xend, yend = yend),
-    curvature = 0.1,
-    arrow = arrow(length = unit(0.15, "inches")),
-    linewidth = 0.4
-  ) +
-  # Boxes
-  geom_rect(
-    data = boxes,
-    aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
-    fill = "white",
-    color = "black",
-    linewidth = 0.4
-  ) +
-  # Box labels
-  geom_text(
-    data = boxes,
-    aes(x = x, y = y, label = plot_label),
-    size = 3.3,
-    lineheight = 0.9
-  ) +
-  coord_fixed(xlim = c(0, 8), ylim = c(0, 9), expand = FALSE) +
-  theme_void() +
-  theme(
-    plot.margin = margin(10, 10, 10, 10),
-    panel.background = element_rect(fill = "white", color = NA)
-  )
-
-p_fig1
-# p_fig1 + ggtitle("Figure 1. Study design and analysis workflow")
+summary(m_er_int)
 ```
 
+The model says that there is a 1.5% increase in daily deaths per 10 additional ER visits, but that increase is not changed by storm effect.
 
-### Figure 2: Coefficient plot
+### Model using censored Poison via {brms} package
 ```{r}
-library(broom)
+install.packages("cmdstanr",
+                 repos = c("https://stan-dev.r-universe.dev", getOption("repos")))
+library(cmdstanr)
+cmdstanr::check_cmdstan_toolchain(fix = TRUE)    # confirms compiler setup
+cmdstanr::install_cmdstan(cores = 2)             # downloads & builds CmdStan
+```
+
+```{r}
+library(brms)
+
+dat <- copy(zip_day_with_visits)
+
+# Restrict to hurricane season, 2005–2022
+dat[, year  := as.integer(format(date, "%Y"))]
+dat[, month := as.integer(format(date, "%m"))]
+dat <- dat[year %between% c(2005, 2022) & month %in% 5:11]
+
+# How many days have missing values for er_visits
+
+# Storm effect factor with "None" as ref
+dat[, effect := factor(effect, levels = c("None","Threat","Impact","Cleanup"))]
+
+# Censoring indicator per brms: "left" for censored obs, "none" otherwise
+dat[, cens_flag := ifelse(er_visits == 6L, "left", "none")]
+
+# Controls: weekday, month FE; trend as smooth; ZIP as varying intercept (random effect)
+# (Random intercepts approximate ZIP FE while keeping the model computationally feasible.)
+dow_levels <- c("Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
+dat[, dow := factor(weekdays(as.Date(date)), levels = dow_levels)]
+dat[, ym  := format(date, "%Y-%m")]
+dat[, t_years := as.numeric(date)/365.25]
+
+bf_er <- bf(
+  er_visits | cens(cens_flag) ~ 
+    effect + dow + factor(month) + s(t_years, k = 6) + (1 | zip),
+  family = poisson()
+)
+
+# Reasonable, weakly informative priors
+pri <- c(
+  set_prior("normal(0, 0.5)", class = "b"),       # population-level
+  set_prior("exponential(1)", class = "sd"),      # group-level std dev
+  set_prior("exponential(1)", class = "sds")      # smooth term
+)
+
+# Fit (uses Stan; uses cmdstanr backend)
+fit_cens <- brm(
+  bf_er, data = dat,
+  prior = pri,
+  backend = "cmdstanr", chains = 4, cores = 4, iter = 2000
+)
+
+summary(fit_cens)
+```
+
+This takes very long (~ 85 hours, 3.5 days) and the following warnings:
+1: Parts of the model have not converged (some Rhats are > 1.05). Be careful when analysing the results! We recommend running more iterations and/or setting stronger priors. 
+2: There were 2003 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+
+DO NOT INTERPRET THESE RESULTS
+
+### Model using logit and Poisson separately
+
+Instead use a two-part “threshold (≤6) + truncated count (>6)” approximation (stays in `fixest`). The process is modeled as:
+Part A (logit): probability the true count is ≤6 (we observe 6)
+Part B (Poisson on truncated support): conditional mean for counts >6
+Then combine for interpretation
+
+```{r}
+library(fixest)
 library(dplyr)
-library(stringr)
-library(ggplot2)
 
-# 1. Extract log-coefficients + CIs from m_pooled
-tt <- tidy(m_pooled, conf.int = TRUE)   # no exponentiation here
+d2 <- dat %>% mutate(
+  is_le6 = as.integer(er_visits == 6L)           # proxy for "true ≤ 6"
+)
 
-# 2. Keep only the storm-effect terms and exponentiate manually
-rr_df <- tt %>%
-  filter(str_detect(term, "^effect::")) %>%
-  mutate(
-    storm_phase = str_remove(term, "^effect::"),
-    storm_phase = factor(storm_phase,
-                         levels = c("Threat", "Impact", "Cleanup")),
-    RR      = exp(estimate),
-    RR_low  = exp(conf.low),
-    RR_high = exp(conf.high)
-  )
+# Part A: logistic model for being ≤ 6
+mA <- feglm(
+  is_le6 ~ i(effect, ref="None") | zip + ym + dow,
+  data = d2, family = binomial("logit"),
+  cluster = ~ zip + ym
+)
 
-# Quick sanity check
-rr_df[, c("term", "storm_phase", "estimate", "RR", "RR_low", "RR_high")]
+# Part B: Poisson on Y>6 (treat observed counts >6 as exact)
+d_gt6 <- filter(d2, er_visits > 6L)
+mB <- fepois(
+  er_visits ~ i(effect, ref="None") | zip + ym + dow,
+  data = d_gt6, cluster = ~ zip + ym
+)
 
-# 3. Forest plot: RRs on x-axis, phases on y-axis
-p_rr <- ggplot(rr_df, aes(y = storm_phase, x = RR)) +
-  geom_vline(xintercept = 1, linetype = "dashed", color = "grey50") +
-  geom_point(size = 3) +
-  geom_errorbarh(aes(xmin = RR_low, xmax = RR_high),
-                 height = 0.2, linewidth = 0.6) +
-  labs(
-    x = "Rate ratio (RR)",
-    y = "Storm phase",
-    title = "Statewide rate ratios by storm phase",
-    subtitle = "Threat, Impact, and Cleanup relative to None\nFixed-effects Poisson (ZIP, year–month, DOW FE)"
-  ) +
-  theme_minimal(base_size = 13) +
-  theme(
-    panel.grid.minor = element_blank(),
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    plot.subtitle = element_text(hjust = 0.5)
-  )
-
-p_rr
+summary(mA); summary(mB)
 ```
 
+Interpretation of the results from a two-part model for ER visits
 
-### Table 1: Coefficients
-```{r}
-library(broom)
-library(dplyr)
-library(stringr)
+Model 1: We fit:
+Model 1A (mA): logit model for whether ER visits are in the censored bin (coded as 6)
+Model 1B (mB): Poisson model for the number of ER visits given that visits > 6
+Both control for ZIP, month (ym), and day-of-week with fixed effects, and cluster SEs by ZIP and month
 
-tt <- tidy(m_pooled, conf.int = TRUE)
+Model 1A
+GLM estimation, family = binomial, Dep. Var.: is_le6
+Observations: 1,835,341
+Fixed-effects: zip: 673,  ym: 126,  dow: 7
+Standard-errors: Clustered (zip & ym) 
+                 Estimate Std. Error  z value  Pr(>|z|)    
+effect::Threat   0.431304   0.164050  2.62910 0.0085612 ** 
+effect::Impact   0.881900   0.380303  2.31894 0.0203983 *  
+effect::Cleanup -0.281038   0.243237 -1.15541 0.2479237    
+Log-Likelihood: -312,448.7   Adj. Pseudo R2: 0.291291
+           BIC:  636,536.5     Squared Cor.: 0.185756
+Model 1B
+Poisson estimation, Dep. Var.: er_visits
+Observations: 2,725,008
+Fixed-effects: zip: 928,  ym: 126,  dow: 7
+Standard-errors: Clustered (zip & ym) 
+                 Estimate Std. Error   z value   Pr(>|z|)    
+effect::Threat  -0.080044   0.021385 -3.743002 0.00018183 ***
+effect::Impact  -0.241847   0.075104 -3.220179 0.00128111 ** 
+effect::Cleanup  0.033312   0.039993  0.832946 0.40487508    
+Log-Likelihood: -8,509,566.8   Adj. Pseudo R2: 0.604975
+ BIC: 17,034,870.3     Squared Cor.: 0.880402
+ 
+Model 1A: Probability that ER visits are in the “≤6” bin
+Outcome:
+is_le6 = 1 if er_visits == 6 (i.e., the left-censored bin “true ≤ 6"),
+is_le6 = 0 if er_visits > 6
 
-rr_df <- tt %>%
-  filter(str_detect(term, "^effect::")) %>%
-  mutate(
-    phase = str_remove(term, "^effect::"),
-    RR      = exp(estimate),
-    RR_low  = exp(conf.low),
-    RR_high = exp(conf.high),
-    sig     = p.value < 0.05
-  ) %>%
-  transmute(
-    `Storm phase` = phase,
-    RR_CI = ifelse(
-      sig,
-      sprintf("\\textbf{%.2f (%.2f, %.2f)}", RR, RR_low, RR_high),
-      sprintf("%.2f (%.2f, %.2f)", RR, RR_low, RR_high)
-    ),
-    `p-value` = sprintf("%.3f", p.value)
-  )
-```
+Key coefficients (log-odds; exponentiated below as odds ratios):
+Threat: 0.4313 → OR ≈ 1.54
+Impact: 0.8819 → OR ≈ 2.42
+Cleanup: −0.2810 → OR ≈ 0.75 (not statistically significant)
 
-```{r}
-library(knitr)
-library(kableExtra)
+Interpretation (all relative to None days, holding ZIP, ym, and DOW constant):
+On Threat days, the odds that the ER count is in the censored bucket (≤6) are about 54% higher than on None days
+On Impact days, the odds of being in the censored bucket are about 2.4 times higher than on None days
+On Cleanup days, the odds are about 25% lower, but this is not statistically significant (p ≈ 0.25), so we can’t confidently claim a difference from None
 
-kable(
-  rr_df,
-  format = "latex",
-  booktabs = TRUE,
-  escape = FALSE,       # allow boldface in RR_CI column
-  align = c("l","c","c"),
-  col.names = c("Storm phase", "Rate ratio (95\\% CI)", "p-value")
-) %>%
-  kable_styling(
-    latex_options = c("hold_position"),
-    font_size = 9
-  ) %>%
-  add_header_above(
-    c(" " = 1, "Effect estimate" = 2),
-    bold = TRUE
-  ) %>%
-  footnote(
-    general = "Rate ratios from fixed-effects Poisson model of daily deaths. Reference category is None days. Fixed effects for ZIP, year–month, and day-of-week. Standard errors clustered by ZIP and year–month.",
-    general_title = "",
-    threeparttable = TRUE
-  )
-```
+In other words, Threat and Impact days are more likely to be “low-visit” days (in the censored sense) compared with normal (None) days, after accounting for location, season, and weekday
+
+Model 1B: Mean ER visits given > 6 visits
+Outcome:
+er_visits (count) but only on days where er_visits > 6. This is a Poisson FE model.
+Exponentiating the coefficients gives rate ratios (RRs):
+Threat: −0.0800 → RR ≈ 0.92
+Impact: −0.2418 → RR ≈ 0.79
+Cleanup: 0.0333 → RR ≈ 1.03 (not significant)
+
+Interpretation (again relative to None days, conditional on being > 6):
+On Threat days, among days with >6 visits, the mean ER count is about 7–8% lower than on None days (RR ≈ 0.92, p < 0.001)
+On Impact days, given >6 visits, the mean count is about 21–22% lower than on None days (RR ≈ 0.79, p ≈ 0.001)
+On Cleanup days, the mean is about 3% higher, but not statistically distinguishable from None (p ≈ 0.40)
+So, when the ER is “busy” ( > 6 visits), Threat and Impact days actually show fewer visits than comparable None days, controlling for ZIP, month, and DOW
+
+Putting both parts together
+Think of the ER visits distribution on a given day in two stages:
+Stage 1 – Are visits in the low bin (≤6) or above it?
+Threat and Impact days are more likely than None days to fall in the low (≤6) category.
+Cleanup days don’t differ clearly from None.
+Stage 2 – If visits are above 6, how large is the count?
+On Threat and Impact days with >6 visits, the average ER volume is lower than on comparable None days.
+Cleanup days again look similar to None
+
+Qualitatively:
+Threat & Impact:
+Higher chance of being in the censored/low bucket.
+Lower mean when above the threshold.
+
+Overall, these phases shift the ER visit distribution downward relative to None days, given the censoring structure.
+Cleanup:
+No strong evidence of a difference from None in either the probability of being ≤6 or the mean above 6.
+This is all conditional on our controls (ZIP FE, ym FE, DOW FE), so those patterns are net of geography, broad seasonality/trend, and weekday effects
+
+We can
+Convert these effects into an approximate overall change in mean ER visits by effect (combining both stages), or
+Compare these ER patterns to the death models to see how ER demand vs. mortality co-move across storm effect phases
 
 
-### Figure 3: Zip-level maps
 
-Prepare a clean ZIP-phase–RR dataset
-```{r}
-library(dplyr)
-library(sf)
-library(ggplot2)
-library(RColorBrewer)
-library(tidyr)
-
-# --- merge geometry ---
-zip_sf <- zctas_valid %>%
-  rename(zip = GEOID20)
-rr_map <- zip_sf %>%
-  left_join(rr_by_zip, by = "zip") %>%
-  mutate(
-    # Log-scale quantities
-    logRR  = log(RR),
-    logLCI = log(LCI),
-    logUCI = log(UCI),
-    logCIwidth = abs(logUCI - logLCI),
-    
-    # Mask: wide CI or missing
-    mask = ifelse(is.na(RR) | is.na(logRR) | logCIwidth > 0.7, TRUE, FALSE),
-
-    # Storm phase as factor with standard order
-    effect = factor(effect, levels = c("Threat", "Impact", "Cleanup"))
-  )
-```
-
-Create a diverging palette symmetric around logRR = 0

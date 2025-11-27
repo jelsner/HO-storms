@@ -5,7 +5,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-## Summary of the procedures used in TC modeling and merging of birth records (initially written by ChatGPT using my code below then edited by me)
+## Summary of the procedures used in TC modeling and merging of birth records
 
 We built a comprehensive spatial-temporal model to assess the effects of tropical cyclones (TCs) on birth outcomes, focusing on whether pregnancies in Florida were exposed to hurricanes during critical trimesters and preconception. Here's a summary of our key components and logic:
 
@@ -59,7 +59,7 @@ Keep only storms having USA_WIND >= 55 occurring between 1981 and 2022
 ```{r}
 Tracks2.sf <- Tracks.sf |>
   dplyr::filter(year >= 1981 & year <= 2022) |>
-  dplyr::filter(USA_WIND >= 55) |> # change to 34 for tropical storms and hurricanes
+  dplyr::filter(USA_WIND >= 34) |> # change to 34 for tropical storms and hurricanes
   dplyr::select(SID, SEASON, year, month, day, hour, min,
                 NAME, SUBBASIN, ISO_TIME,
                 USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
@@ -122,7 +122,7 @@ Swaths2.sf <- Swaths.sf |>
                    Wind = max(USA_WIND),
                    geometry = sf::st_union(geometry)) |>
   dplyr::mutate(Storm_Category = dplyr::case_when(
-    Wind >= 55 & Wind <= 63 ~ 0,
+    Wind >= 34 & Wind <= 63 ~ 0,
     Wind >= 64 & Wind <= 82 ~ 1,
     Wind >= 83 & Wind <= 95 ~ 2,
     Wind >= 96 & Wind <= 112 ~ 3,
@@ -517,16 +517,18 @@ Filter for births during 1986. NOT RUN
 
 ## Merge with death records
 
-File received from Jihoon on December 7, 2024 via email. From email:
-1) Whether impacted or not when a hurricane passes on the date of death? What was impacted? 2) Whether impacted or not during a warning on the date of death
-3) Whether impacted or not during a watch on the date of death. 4) Whether impacted or not during an advisory on the date of death
-5) (If available) Whether impacted or not during an evacuation order on the date of death
-
+File received from Jihoon on December 7, 2024
 ```{r}
 Deaths.df <- data.table::fread(file = "data/all_deaths_hurricane.csv")
 ```
 
 6.2 million deaths. Time period is 1981-1-1 until 2022-12-31. Only dates are given not times
+
+File received from Jihoon on November 27, 2025
+```{r}
+load("data/all_data.Rdata")
+```
+
 
 Create a simple feature data frame with point geometry from the original data frame
 ```{r}
