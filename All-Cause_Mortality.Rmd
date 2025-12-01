@@ -339,7 +339,7 @@ p_cleanup <- make_map(death_map_sf, "Cleanup", "Deaths on cleanup days")
 # ggsave("zcta_deaths_cleanup.png", p_cleanup, width = 7.2, height = 6, dpi = 300)
 ```
 
-Join deaths to a full calendar. The calendar is created in `HO-storms.Rmd` and is called `effect_calendar`
+Join deaths to a full calendar. The calendar is created in `deaths-storms.Rmd` and is called `effect_calendar`
 ```{r}
 dbz <- as.data.table(daily_by_zip)[ , .(
   zip   = as.character(zip),

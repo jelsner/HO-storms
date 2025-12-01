@@ -265,9 +265,10 @@ zde <- zde[ , .SD[which.max(rank)], by = .(zip, date)][ , .(zip, date, effect)]
 
 Build the full zip x date data frame & fill missing days with "None"
 ```{r}
-# Domain
+# Spatial domain
 all_zips  <- sort(unique(zcta_valid$GEOID20))
-all_dates <- as.IDate(seq(as.Date("1985-01-01"), as.Date("2022-12-31"), by = "day"))
+# Temporal domain (start with 1981-01-01 for TS)
+all_dates <- as.IDate(seq(as.Date("1981-01-01"), as.Date("2022-12-31"), by = "day"))
 
 # Full grid
 grid <- CJ(zip = as.character(all_zips), date = all_dates)
@@ -527,7 +528,10 @@ Deaths.df <- data.table::fread(file = "data/all_deaths_hurricane.csv")
 File received from Jihoon on November 27, 2025
 ```{r}
 load("data/all_data.Rdata")
+load("data/cardio_subset_all.Rdata")
 ```
+
+The two all deaths data sets do not line up by row ids, also one starts in 1981 the other in 1980.
 
 
 Create a simple feature data frame with point geometry from the original data frame
