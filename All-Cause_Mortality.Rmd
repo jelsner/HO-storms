@@ -12,28 +12,31 @@ Results. The model shows that compared with “None” days, statewide Threat da
 
 ## Analytics of deaths and storms
 
-Read the data table to a csv file
+Read the CSV as a data table and/or the gpkg file
 ```{r}
-Deaths.dt <- data.table::fread(here::here("data", "outputs", "All_Deaths_Storm_Effects.csv"))
+library(sf)
+library(data.table)
+
+# read CSV file
+Deaths.dt <- fread(here::here("data", "outputs", "Deaths", "All_Deaths_Storm_Effects.csv"))
 Deaths.df <- Deaths.dt |>
   as.data.frame()
-Deaths.sf <- sf::st_read(dsn = "data/outputs/Deaths", 
-                         layer = "All_Deaths_Storm_Effects")
-names(Deaths.sf)[1:5] <- names(Deaths.df)[1:5] # match column names with those in the csv
 
-# Remove rows before 1985 as the first storm since 1981 occurred in that year
+# read gpkg
+Deaths.sf <- st_read(here::here("data", "outputs", "Deaths", "All_Deaths_Storm_Effects.gpkg"),
+                     layer = "All_Deaths_Storm_Effects", 
+                     quiet = TRUE)
 
-library(dplyr)
-Deaths.df <- Deaths.df |>
-  filter(Death_Date >= as.Date("1985-01-01"))
-Deaths.sf <- Deaths.sf |>
-  filter(Death_Date >= as.Date("1985-01-01"))
-Deaths.dt <- Deaths.dt |>
-  filter(Death_Date >= as.Date("1985-01-01"))
+# read shapefile
+#Deaths.sf <- sf::st_read(dsn = "data/outputs/Deaths", 
+#                         layer = "All_Deaths_Storm_Effects")
+#names(Deaths.sf)[1:5] <- names(Deaths.df)[1:5] # match column names with those in the csv
 ```
 
 Compute statewide death rates
 ```{r}
+library(dplyr)
+
 #Deaths.df <- Deaths.df |>
 #  mutate(SH = Storm_Category > 0)
 
@@ -51,7 +54,7 @@ death_rates <- Deaths.df |>
 print(death_rates)
 ```
 
-This tells you, for example, that .333% of all deaths statewide occurred under an Impact storm condition.
+This tells you, for example, that .338% of all deaths statewide occurred under a storm threat condition
 
 ## Death rates per day
 
@@ -99,26 +102,24 @@ death_rates <- left_join(total_deaths, num_days, by = "Storm_Effect") |>
 print(death_rates)
 ```
 
-This tells us that in this sample the statewide daily death rate is somewhat higher on non-storm-effect days. But a lot is going on: time and spatial trends, seasonality, autocorrelation. We need a model that accounts for these things
+This tells us that in this sample the statewide daily death rate is somewhat higher on storm-effect days. But a lot is going on: time and spatial trends, seasonality, autocorrelation. We need a model that accounts for these things
 
-## Negative binomial generalized additive model (NOT USED)
+## Negative binomial generalized additive model
 
 Setup the data frame
 ```{r}
-library(lubridate)
-
 dat <- daily_deaths %>%
   transmute(
     date  = as.Date(Death_Date),
     y     = as.integer(deaths),
     effect = factor(Storm_Effect,
                     levels = c("None", "Threat", "Impact", "Cleanup")),
-    dow   = wday(date, label = TRUE, week_start = 1), # Mon..Sun
-    doy   = yday(date),                               # 1..366 (handles leap days too)
+    dow   = lubridate::wday(date, label = TRUE, week_start = 1), # Mon..Sun
+    doy   = lubridate::yday(date),                               # 1..366 (handles leap days too)
     tnum  = as.integer(date - min(date))              # days since start (well-scaled)
   ) %>%
   mutate(
-    # make sure 'dow' is UNordered and with desired reference level:
+    # make sure 'dow' is un-ordered and with desired reference level:
     dow = factor(as.character(dow),  # drop any ordered class
                  levels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun"))
   )
@@ -135,7 +136,7 @@ summary(m_glm)
 acf(residuals(m_glm))
 ```
 
-This looks good. Exponentiating the Threat effect term of .0283 yields 1.0287. This says that on Threat days the number of deaths is 2.9% higher than on non-effect days and it is marginally significant (p = .015)
+This looks good. Exponentiating the Threat effect term of .0243 yields 1.025. This says that on Threat days the number of deaths is 2.5% higher than on non-effect days and it is significant (p = .007)
 
 But there is large autocorrelation in the residuals. Let's try another model that includes autocorrelation
 
@@ -144,7 +145,7 @@ library(gratia)
 library(mgcv)
 
 # mark start of series (single series here)
-dat$ARstart <- c(TRUE, rep(FALSE, nrow(dat)-1))
+dat$ARstart <- c(TRUE, rep(FALSE, nrow(dat) - 1))
 
 # Cyclic smooth needs knots that wrap (0.5, 366.5) for stability
 knots_list <- list(doy = c(0.5, 366.5))
@@ -163,7 +164,7 @@ m_ar1 <- bam(
 summary(m_ar1)
 ```
 
-Effect days are no longer statistically significant. Autocorrelation inflates z-scores. Plain (quasi/NB) GLMs assume independent residuals. Daily mortality has strong autoregression (AR) structure; ignoring it underestimates SEs, making small effects look “significant.” Adding AR(1) (or equivalently, using time-stratified controls) raises SEs → p-values go up. Also there is collinearity with seasonality/trend. Storms cluster in certain seasons & years. Flexible smooths (or fine time strata) explain a lot of the same variance; the unique contribution of storm indicators shrinks.
+Effect days (Impact & Cleanup) are no longer statistically significant. Autocorrelation inflates z-scores. Plain (quasi/NB) GLMs assume independent residuals. Daily mortality has strong autoregression (AR) structure; ignoring it underestimates SEs, making small effects look “significant.” Adding AR(1) (or equivalently, using time-stratified controls) raises SEs → p-values go up. Also there is collinearity with seasonality/trend. Storms cluster in certain seasons & years. Flexible smooths (or fine time strata) explain a lot of the same variance; the unique contribution of storm indicators shrinks.
 
 Multiple testing/time-of-day confounding (more relevant at ZIP scale), but with many ZIPs, some will look “significant” by chance unless we account for dependence and control false detection rate.
 
@@ -171,7 +172,7 @@ Multiple testing/time-of-day confounding (more relevant at ZIP scale), but with 
 
 Setup the data (as a panel)
 
-Get Florida zips
+Get Florida zips. This chunk is not needed if the R environment is populated from `deaths-storms.Rmd`
 ```{r}
 library(tigris)
 library(sf)
@@ -209,18 +210,11 @@ deaths_with_zip <- st_join(
   left = TRUE
 )
 
-# Any points that didn't land in a polygon? (e.g., offshore or boundary issues)
+# Any points not in a polygon? (e.g., offshore or boundary issues)
 sum(is.na(deaths_with_zip$GEOID20))
-# returns 1915 (~.03%) when st_within or st_intersects. Could snap unmatched points to nearest polygon
+# returns 9753 (~.16%) when st_within or st_intersects. Could snap unmatched points to nearest polygon
 
-# Sanity: every point should match at most one ZCTA (ZCTAs are non-overlapping)
-dup_check <- deaths_with_zip |>
-  st_drop_geometry() |>
-  count(Death_ID) |>
-  filter(n > 1)
-dup_check # <0 rows> -> every point matches at most one ZCTA
-
-# Remove deaths that didn't land in a polygon
+# Remove deaths not inside a polygon
 deaths_with_zip <- deaths_with_zip |> 
   filter(!is.na(GEOID20))
 ```
@@ -334,9 +328,9 @@ p_cleanup <- make_map(death_map_sf, "Cleanup", "Deaths on cleanup days")
 
 # Print or save
 # p_threat; p_impact; p_cleanup
-# ggsave("zcta_deaths_threat.png",  p_threat,  width = 7.2, height = 6, dpi = 300)
-# ggsave("zcta_deaths_impact.png",  p_impact,  width = 7.2, height = 6, dpi = 300)
-# ggsave("zcta_deaths_cleanup.png", p_cleanup, width = 7.2, height = 6, dpi = 300)
+ggsave("figs/zcta_deaths_threat.png",  p_threat,  width = 7.2, height = 6, dpi = 300)
+ggsave("figs/zcta_deaths_impact.png",  p_impact,  width = 7.2, height = 6, dpi = 300)
+ggsave("figs/zcta_deaths_cleanup.png", p_cleanup, width = 7.2, height = 6, dpi = 300)
 ```
 
 Join deaths to a full calendar. The calendar is created in `deaths-storms.Rmd` and is called `effect_calendar`
@@ -354,9 +348,9 @@ zip_day[is.na(deaths), deaths := 0L]  # fill missing counts with 0
 zip_day[, .(zeros = sum(deaths == 0L), rows = .N), by = effect][order(effect)]
 ```
 
-Then we fit a Poisson with stratum fixed effects. This is equivalent to conditioning on the stratum totals and largely removes serial confounding. Use robust (clustered) SEs by stratum to protect against residual correlation within a stratum
+Next we fit a Poisson with stratum fixed effects. This is equivalent to conditioning on the stratum totals and largely removes serial confounding. Use robust (clustered) SEs by stratum to protect against residual correlation within a stratum
 
-Add strata variables
+Add strata variables. Note here we include only months during the hurricane season (May-November). We can't do this with a time-series model
 ```{r}
 dat <- zip_day %>%
   filter(month(date) %in% 5:11) %>%  # hurricane season only
@@ -378,7 +372,8 @@ library(fixest)
 m_pooled <- fepois(
   deaths ~ i(effect, ref = "None") | zip + ym + dow,
   data    = dat,
-  cluster = ~ zip + ym   # two-way clustered SEs (ZIP & month)
+  cluster = ~ zip + ym,   # two-way clustered SEs (ZIP & month)
+  notes = TRUE
 )
 
 summary(m_pooled)
@@ -406,20 +401,20 @@ Year-month fixed effects (| ym) → controls for statewide shocks and seasonalit
 Day-of-week fixed effects (| dow) → controls for weekly pattern
 So the effect::… coefficients are within-ZIP log rate ratios vs “None”, after removing month and weekday patterns. Exponentiate them to get rate ratios (RR). Convert the estimates to RRs (95% CI)
 
-Threat: β = 0.07994 (SE 0.02950), p = 0.0067
-RR = 1.083 (95% CI 1.022–1.148) → ~8.3% higher deaths vs None, adjusted for ZIP / YM / DOW.
-Impact: β = 0.06389 (SE 0.03286), p = 0.0518
-RR = 1.066 (95% CI 1.000–1.137) → ~6.6% higher; borderline at 0.052.
-Cleanup: β = 0.07333 (SE 0.03045), p = 0.0160
-RR = 1.076 (95% CI 1.014–1.142) → ~7.6% higher.
-(RR = exp(β); CI = exp(β ± 1.96·SE).)
+Threat: β = 0.042035 (SE 0.018982), p = 0.0268
+RR = 1.043 → ~4.3% higher deaths vs None, adjusted for ZIP / YM / DOW
+Impact: β = 0.030880 (SE 0.013403), p = 0.0212
+RR = 1.031 → ~3.1% higher deaths vs None, adjusted for ZIP / YM / DOW
+Cleanup: β = 0.042110 (SE 0.016436), p = 0.0104
+RR = 1.043 → ~4.3% higher
+RR = exp(β); CI = exp(β ± 1.96·SE)
 
-NOTE: 44/0/0 fixed-effects (357,808 observations) removed because of only 0 outcomes or singletons.
-You have 3 FE groups (zip / ym / dow). The 44/0/0 means 44 ZIP levels were dropped (0 YM, 0 DOW) because, within those ZIPs, the data contributed no identifying variation (e.g., all days had zero deaths or only singleton cells after stratification). The corresponding 357,808 rows were removed from estimation. That’s expected behavior: those ZIPs can’t help identify contrasts after the FE are applied.
+NOTE: 44/0/0 fixed-effects (395,472 observations) removed because of only 0 outcomes or singletons.
+We have 3 FE groups (zip / ym / dow). The 44/0/0 means 44 ZIP levels were dropped (0 YM, 0 DOW) because, within those ZIPs, the data contributed no identifying variation (e.g., all days had zero deaths or only singleton cells after stratification). The corresponding 395,472 rows were removed from estimation. That’s expected behavior: those ZIPs can’t help identify contrasts after the FE are applied.
 
-Log-likelihood and BIC are for the Poisson FE fit. “Adj. Pseudo R²: 0.195” and “Squared Cor.: 0.241” indicate reasonable explanatory power given this is daily death counts with strong FE.
+Log-likelihood and BIC are for the Poisson FE fit. “Adj. Pseudo R²: 0.200” and “Squared Cor.: 0.240” indicate reasonable explanatory power given this is daily death counts with strong FE.
 
-Compared with “None” days, statewide Threat days are associated with an ~8% increase in daily deaths (95% CI ~2%–15%), Cleanup days with ~8%, and Impact days with ~7% (borderline statistical evidence).
+Compared with “None” days, statewide Threat days are associated with an ~4.3% increase in daily deaths (95% CI (.5%–8.2%), Cleanup days with ~3.1%, and Impact days with ~4.3%
 
 Try negative binomial fixed effects as a sensitivity
 ```{r}
@@ -432,9 +427,9 @@ m_pooled2 <- fenegbin(
 summary(m_pooled2)
 ```
 
-Results are essentially the same
+Results are essentially the same as those from the Poisson model
 
-Note: When including weaker tropical storms 34-55 kt, the effect sizes are about 1/2 the effect sizes of including only storms at 55 kt or stronger.
+Note: When excluding weaker tropical storms 34-55 kt, the effect sizes are about twice as large 
 
 ## Time stratified Poisson fixed effect model per zip code area
 
@@ -448,7 +443,7 @@ cands <- dat[
     ),
   by = zip
 ][has_none & has_tic & pos_y, zip]
-length(cands) # returns 999
+length(cands) # returns 1000
 
 # Optionally require a minimum number of storm-effect days
 min_effect_days <- 5L
@@ -456,7 +451,7 @@ cands2 <- dat[
   , .(n_tic = sum(effect != "None")),
   by = zip
 ][n_tic >= min_effect_days, zip]
-length(cands2) # returns 993
+length(cands2) # returns 1036
 ```
 
 Per-zip poisson fixed effect (stratify by ym + dow)
@@ -472,7 +467,8 @@ fit_one <- function(df) {
     fepois(
       deaths ~ i(effect, ref = "None") | ym + dow,
       data    = df,
-      cluster = ~ ym
+      cluster = ~ ym,
+      notes = FALSE
     ),
     error = function(e) NULL
   )
@@ -533,11 +529,8 @@ rr_chk %>%
   select(zip, effect, RR, LCI, UCI, p, days_e, deaths_e, days_none, deaths_none)
 ```
 
-Empirical Bayes shrinkage before mapping
+Empirical Bayes shrinkage before mapping. Pooled fixed-effects Poisson to get a prior mean per effect (log scale). This was done above and saved as `m_pooled` pooled <- fixest::fepois(deaths ~ i(effect, "None") | zip + ym + dow, data = dat, cluster = ~ zip + ym)
 ```{r}
-# Pooled FE Poisson to get a prior mean per effect (log scale)
-# This was done above and saved as `m_pooled`
-#pooled <- fixest::fepois(deaths ~ i(effect, "None") | zip + ym + dow, data = dat, cluster = ~ zip + ym)
 pooled_eff <- broom::tidy(m_pooled, conf.int = FALSE) %>%
   filter(grepl("^effect::", term)) %>%
   transmute(effect = sub("^effect::","",term), mu0 = estimate)   # log-RR prior
@@ -549,8 +542,7 @@ log_rr <- rr_by_zip %>%
     se_log  = (log(UCI) - log(LCI)) / (2*1.96)
   ) %>% filter(is.finite(logRR), se_log > 0)
 
-# Shrink: posterior mean = (logRR / se^2 + mu0 / tau^2) / (1/se^2 + 1/tau^2)
-#    Use a single tau per effect (between-ZIP SD). Estimate tau via robust SD.
+# Shrink: posterior mean = (logRR / se^2 + mu0 / tau^2) / (1/se^2 + 1/tau^2). Use a single tau per effect (between-ZIP SD). Estimate tau via robust SD.
 tau_by_eff <- log_rr %>% group_by(effect) %>%
   summarise(tau = stats::mad(logRR, constant = 1), .groups = "drop")
 
@@ -565,71 +557,71 @@ rr_shrunk <- log_rr %>%
   ) %>%
   select(zip, effect, RR_shr)
 
-# for story map (Threat only)
+# for story map
 rr_wide <- rr_shrunk %>%
-  filter(effect == "Threat") %>%
+  filter(effect == "Impact") %>%
   mutate(GEOID20 = zip,
-         Threat = RR_shr) %>%
-  select(GEOID20, Threat)
+         Effect = RR_shr) %>%
+  select(GEOID20, Effect)
 
 rr_map_sf <- zcta_poly %>%
   left_join(rr_wide, by = "GEOID20") %>%
-  select(GEOID20, Threat, geometry)
+  select(GEOID20, Effect, geometry)
 ```
 
 Map the Threat
 ```{r}
-effect_to_map = "Threat"
-# Bin RRs: [0,1), [1,2), [2,4), [4,∞)
+# 1) Define bins with a divergence at 1
 rr_map_sf <- rr_map_sf %>%
   mutate(
-    rr_bin = cut(
-      Threat,
-      breaks = c(0, 1, 2, 4, Inf),  # last break is Inf
-      labels = c("0–1", "1–2", "2–4", ">4"),
-      right  = TRUE,                   # (a, b] so last bin is (8, Inf]
-      include.lowest = TRUE
-    ),
-    # lock the level order to match the palette keys
-    rr_bin = fct_relevel(rr_bin, "0–1", "1–2", "2–4", ">4")
+    Effect_bin = cut(
+      Effect,
+      breaks = c(0, 1, 1.2, 1.5, 2.5),
+      labels = c("0–1", "1–1.2", "1.2–1.5", "1.5–2.5"),
+      include.lowest = TRUE,
+      right = FALSE  # interval [a, b)
+    )
   )
 
-# for story map
-saveRDS(rr_map_sf, "data/outputs/Results/zcta_results.rds")
-
-# Define a discrete palette (colorblind-friendly)
-pal <- c(
-  "0–1" = "#fbb4b9",  # light
-  "1–2" = "#9ecae1",
-  "2–4" = "#6baed6",
-  ">4"  = "#08519c"
+custom_cols <- c(
+  "0–1"       = "#4575b4",  # blue
+  "1–1.2"     = "#fbb4b9",  # light pink
+  "1.2–1.5"   = "#f768a1",  # medium pink
+  "1.5–2.5"   = "#dd1c77"   # red
 )
 
-# Plot
+# 2.1) Plot with custom colors
 ggplot(rr_map_sf) +
-  geom_sf(aes(fill = rr_bin), color = NA) +
+  geom_sf(aes(fill = Effect_bin), color = NA) +
   scale_fill_manual(
-    values   = pal,
-    limits = levels(rr_map_sf$rr_bin),
-    drop     = FALSE,
+    values = custom_cols,
+    drop   = FALSE,
     na.value = "grey90",
-    name     = paste0("RR vs None (", effect_to_map, ")")
-  ) +
-  labs(
-    title = paste("Per-ZIP Rate Ratios on", effect_to_map, "days"),
-    subtitle = "Bins: 0–1, 1–2, 2–4, >4",
-    caption = "RRs from per-ZIP time-stratified Poisson fixed-effect"
+    name = "Threat RR"
   ) +
   theme_minimal() +
   theme(
     legend.position = "right",
-    panel.grid.major = element_line(color = "white"),
-    axis.title = element_blank()
+    legend.title = element_text(size = 10),
+    legend.text  = element_text(size = 9)
   )
 
-# Sanity check
-table(rr_map_sf$rr_bin, useNA = "ifany")
-sum(is.infinite(rr_map_sf$RR_shr))
+# 2.2) Plot with a discrete diverging palette (RdBu)
+ggplot(rr_map_sf) +
+  geom_sf(aes(fill = Effect_bin), color = NA) +
+  scale_fill_brewer(
+    palette   = "RdBu",   # diverging
+    direction = -1,       # blues < 1, reds > 1
+    drop      = FALSE,
+    na.value  = "grey90",
+    name      = "Impact RR"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    legend.title    = element_text(size = 10),
+    legend.text     = element_text(size = 9)
+  )
 ```
 
 Save per zip model results for story-map (Threat only)
@@ -645,8 +637,8 @@ saveRDS(rr_shrunk_threat_only, "data/outputs/Results/zcta_results.rds")
 library(spdep)
 
 # Prep: keep only rows with RR, keep polygons ---------------------------
-g <- Moran_sf %>%
-  filter(!is.na(RR)) %>%
+g <- rr_map_sf %>%
+  filter(!is.na(Effect)) %>%
   st_make_valid()
 
 # Neighbors & weights (Queen) -------------------------------------------
@@ -654,7 +646,7 @@ g <- Moran_sf %>%
 nb <- spdep::poly2nb(g, queen = TRUE)
 lw <- spdep::nb2listw(nb, style = "W", zero.policy = TRUE)  # allow islands
 
-RR_vec <- as.numeric(log(g$RR))  # logs and make simple vector
+RR_vec <- as.numeric(log(g$Effect))  # logs and make simple vector
 
 # Local Moran's I with permutations -------------------------------------
 # 999 permutations; two-sided test; handle islands
@@ -668,21 +660,21 @@ lm <- spdep::localmoran_perm(
 lm <- as.data.frame(lm)
 names(lm) <- c("Ii","E.Ii","Var.Ii","Z.Ii","p.value")
 
-# Multiple-testing correction (FDR)
+# Multiple-testing correction (fdr: false discovery rate)
 lm$p.adj <- p.adjust(lm$p.value, method = "fdr")
 
 # Spatial lag of RR (for quadrant classification)
-lagRR <- spdep::lag.listw(lw, g$RR, zero.policy = TRUE)
+lagRR <- spdep::lag.listw(lw, g$Effect, zero.policy = TRUE)
 
 # Cluster classification -------------------------------------------------
-alpha <- 0.25
-mx <- mean(g$RR, na.rm = TRUE)
+alpha <- 0.35
+mx <- mean(g$Effect, na.rm = TRUE)
 
 cluster <- dplyr::case_when(
-  g$RR >= mx & lagRR >= mx & lm$Ii > 0 & lm$p.value < alpha ~ "High-High",
-  g$RR <= mx & lagRR <= mx & lm$Ii > 0 & lm$p.value < alpha ~ "Low-Low",
-  g$RR >= mx & lagRR <= mx & lm$Ii < 0 & lm$p.value < alpha ~ "High-Low",
-  g$RR <= mx & lagRR >= mx & lm$Ii < 0 & lm$p.value < alpha ~ "Low-High",
+  g$Effect >= mx & lagRR >= mx & lm$Ii > 0 & lm$p.value < alpha ~ "High-High",
+  g$Effect <= mx & lagRR <= mx & lm$Ii > 0 & lm$p.value < alpha ~ "Low-Low",
+  g$Effect >= mx & lagRR <= mx & lm$Ii < 0 & lm$p.value < alpha ~ "High-Low",
+  g$Effect <= mx & lagRR >= mx & lm$Ii < 0 & lm$p.value < alpha ~ "Low-High",
   TRUE ~ "Not Significant"
 )
 
@@ -700,7 +692,7 @@ g_locI <- g %>%
   )
 
 # Join back to the full set (keeps rows where RR was NA) ----------------
-Moran_out <- Moran_sf %>%
+Moran_out <- rr_map_sf %>%
   left_join(
     g_locI %>%
       st_drop_geometry() %>%
@@ -743,10 +735,12 @@ pal <- c("High-High"="#e53e3e","Low-Low"="#2b6cb0",
          "High-Low" ="#f59e0b","Low-High"="#10b981",
          "Not Significant"="#d9d9d9","No data"="#cccccc")
 
-ggplot(Moran_out) +
+clusters_impact <- ggplot(Moran_out) +
   geom_sf(aes(fill = cluster), color = NA) +
   scale_fill_manual(values = pal, drop = FALSE) +
   theme_void() + labs(fill = "Local Moran clusters")
+
+ggsave("figs/clusters_impact.png",  clusters_impact,  width = 7.2, height = 6, dpi = 300)
 ```
 
 Save per zip local Moran's results for story-map (Threat only)
@@ -970,8 +964,8 @@ p_rr <- ggplot(rr_df, aes(y = storm_phase, x = RR)) +
                  height = 0.2, linewidth = 0.6) +
   labs(
     x = "Rate ratio (RR)",
-    y = "Storm phase",
-    title = "Statewide rate ratios by storm phase",
+    y = "Storm effect",
+    title = "Statewide rate ratios by storm effect",
     subtitle = "Threat, Impact, and Cleanup relative to None\nFixed-effects Poisson (ZIP, year–month, DOW FE)"
   ) +
   theme_minimal(base_size = 13) +
@@ -982,8 +976,8 @@ p_rr <- ggplot(rr_df, aes(y = storm_phase, x = RR)) +
   )
 
 p_rr
+ggsave("figs/state_rr_by_effect.png", p_rr,  width = 7.2, height = 6, dpi = 300)
 ```
-
 
 ### Table 1: Coefficients
 ```{r}

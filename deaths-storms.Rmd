@@ -14,6 +14,9 @@ https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stew
 https://www.ncei.noaa.gov/sites/default/files/2021-07/IBTrACS_v04_column_documentation.pdf
 
 ```{r}
+library(sf)
+library(dplyr)
+
 L <- "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/IBTrACS.NA.list.v04r00.lines.zip"
   
 if(!"IBTrACS.NA.list.v04r00.lines.zip" %in% list.files(here::here("data"))) {
@@ -24,52 +27,51 @@ unzip(here::here("data", "IBTrACS.NA.list.v04r00.lines.zip"),
       exdir = here::here("data"))
 }
 
-Tracks.sf <- sf::st_read(dsn = here::here("data"), 
-                         layer = "IBTrACS.NA.list.v04r00.lines") |>
-  sf::st_transform(crs = 32616)
+Tracks.sf <- st_read(dsn = here::here("data"), 
+                     layer = "IBTrACS.NA.list.v04r00.lines") |>
+  st_transform(crs = 32616)
 ```
 
 Geometry type is LINESTRING. Wind speed is in units of knots (nautical mile per hour)
 
 Keep only storms having USA_WIND >= 34 occurring between 1981 and 2022
 ```{r}
-Tracks2.sf <- Tracks.sf |>
-  dplyr::filter(year >= 1981 & year <= 2022) |>
-  dplyr::filter(USA_WIND >= 34) |> # change to 34 for tropical storms and hurricanes
-  dplyr::select(SID, SEASON, year, month, day, hour, min,
-                NAME, SUBBASIN, ISO_TIME,
-                USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
+Tracks.sf <- Tracks.sf |>
+  filter(year >= 1981 & year <= 2022) |>
+  filter(USA_WIND >= 34) |> # tropical storms and hurricanes
+  select(SID, SEASON, year, month, day, hour, min,
+         NAME, SUBBASIN, ISO_TIME, USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
 ```
 
 Average radius to maximum wind 1981-2022. Values of USA_RMW (radius to maximum winds) and USA_EYE (eye diameter) are in nautical miles. ROCI: Radius of outer closed isobar. To convert to kilometers multiply by 1.852
 ```{r}
-Tracks2.sf |>
-  sf::st_drop_geometry() |>
-#  dplyr::group_by(USA_PRES) |>
-  dplyr::summarize(avgRMW = mean(USA_RMW, na.rm = TRUE) * 1.852,
+Tracks.sf |>
+  st_drop_geometry() |>
+#  group_by(USA_PRES) |>
+  summarize(avgRMW = mean(USA_RMW, na.rm = TRUE) * 1.852,
                    avgEYE = mean(USA_EYE, na.rm = TRUE) * 1.852,
                    avgROCI = mean(USA_ROCI, na.rm = TRUE) * 1.852)
 ```
 
 Fill in missing RMW values. Start with pedigree, then use minimum pressure, and finish again with pedigree
 ```{r}
-Tracks2.sf <- Tracks2.sf |>
-  dplyr::group_by(SID) |>  # pedigree
-  dplyr::mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+Tracks.sf <- Tracks.sf |>
+  group_by(SID) |>  # pedigree
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
 
-Tracks2.sf <- Tracks2.sf |>
-  dplyr::group_by(USA_PRES) |> # minimum pressure
-  dplyr::mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+Tracks.sf <- Tracks.sf |>
+  group_by(USA_PRES) |> # minimum pressure
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
 
-Tracks2.sf <- Tracks2.sf |>
-  dplyr::group_by(SID) |> # pedigree
-  dplyr::mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+Tracks.sf <- Tracks.sf |>
+  group_by(SID) |> # pedigree
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
 ```
 
 Add a buffer to the tracks to make segmented wind swaths
 ```{r}
-Swaths.sf <- Tracks2.sf |>
-  sf::st_buffer(dist = Tracks2.sf$USA_RMW * 1852) # 1852 converts to meters
+Swaths.sf <- Tracks.sf |>
+  st_buffer(dist = Tracks.sf$USA_RMW * 1852) # 1852 converts to meters
 ```
 
 Wind swaths that cross Florida. `USAboundaries` package no longer maintained on CRAN
@@ -79,24 +81,24 @@ Wind swaths that cross Florida. `USAboundaries` package no longer maintained on 
 #install.packages("USAboundariesData", repos = "https://ropensci.r-universe.dev", type = "source")
 
 Boundaries.sf <- USAboundaries::us_states(resolution = "low", states = "FL") |> 
-  sf::st_transform(crs = 32616)
+  st_transform(crs = 32616)
 
 X <- Swaths.sf |>
-  sf::st_intersects(Boundaries.sf, sparse = FALSE) #Does the swath intersect the state border?
+  st_intersects(Boundaries.sf, sparse = FALSE) #Does the swath intersect the state border?
 Swaths.sf <- Swaths.sf[X, ]
 Swaths.sf <- Swaths.sf |>
-  dplyr::mutate(Date = lubridate::as_date(ISO_TIME)) #Add a date column
+  mutate(Date = lubridate::as_date(ISO_TIME)) #Add a date column
 ```
 
 Extract the boundaries of storm impacts by storm ID. Dissolve the overlap borders of the individual swaths by storm to create a single storm swath. Add the storm category (Saffir-Simpson) based on wind speed
 ```{r}
-Swaths2.sf <- Swaths.sf |>
-  dplyr::group_by(SID) |>
-  dplyr::summarize(Date0 = dplyr::first(Date),
-                   NAME = dplyr::first(NAME),
-                   Wind = max(USA_WIND),
-                   geometry = sf::st_union(geometry)) |>
-  dplyr::mutate(Storm_Category = dplyr::case_when(
+Swaths.sf <- Swaths.sf |>
+  group_by(SID) |>
+  summarize(Date0 = first(Date),
+            NAME = first(NAME),
+            Wind = max(USA_WIND),
+            geometry = st_union(geometry)) |>
+  mutate(Storm_Category = case_when(
     Wind >= 34 & Wind <= 63 ~ 0,
     Wind >= 64 & Wind <= 82 ~ 1,
     Wind >= 83 & Wind <= 95 ~ 2,
@@ -109,66 +111,73 @@ Swaths2.sf <- Swaths.sf |>
 Map and output for story map
 ```{r}
 library(tmap)
-tmap::tm_shape(Swaths2.sf) +
+library(lubridate)
+
+tm_shape(Swaths.sf) +
   tm_borders("Storm_Category") +
   tm_shape(Boundaries.sf) +
-  tmap::tm_borders()
+  tm_borders()
 
-hurricanes <- Swaths2.sf |>
-  dplyr::filter(NAME %in% c("ANDREW", "CHARLEY", "IAN")) |>
-  sf::st_transform(crs = 4326) |>
-  dplyr::mutate(year = lubridate::year(Date0))
+hurricane_examples <- Swaths.sf |>
+  filter(NAME %in% c("ANDREW", "CHARLEY", "IAN")) |>
+  st_transform(crs = 4326) |>
+  mutate(year = year(Date0))
 
-sf::st_write(hurricanes, "data/hurricanes.gpkg", layer = "hurricanes", delete_layer = TRUE) # move this to the story map app project
+st_write(hurricane_examples, 
+         dsn = "data/hurricanes.gpkg", 
+         layer = "hurricanes", 
+         delete_layer = TRUE) # move this file to the story map app project
 ```
 
-Each storm in `Swaths2.sf` is represented by a unique polygon (or multipolygon) with an impact date
+Each storm in `Swaths.sf` is represented by a unique polygon (or multipolygon) with an impact date
 
 What to do with storms having multiple landfalls (e.g., Peninsula then Panhandle)? In those cases the geometry will be MULTIPOLYGON. The problem is that the date of second landfall maybe different from the first (e.g., a day or two later). This likely is not a problem for Louisiana and Texas.
 
 Check to see which storms these are
 ```{r}
-x <- sf::st_geometry_type(Swaths2.sf$geometry) == "MULTIPOLYGON"
-Swaths2.sf$NAME[x]
+X <- st_geometry_type(Swaths.sf$geometry) == "MULTIPOLYGON"
+Swaths.sf$NAME[X]
 ```
 
 The situations are different for each storm so it is not clear what to do. One approach is to simply remove these storms from further consideration. Here we keep them essentially ignoring the second landfall
 ```{r}
-#Swaths2.sf <- Swaths2.sf[!x,]
+#Swaths.sf <- Swaths.sf[!x,]
 ```
 [1] "GEORGES" "BARRY"   "IRMA"    "SALLY"   "ETA" 
 
 Transform the geometry to a geographic CRS (4326) and unionize the swaths
 ```{r}
-Swaths2.sf <- Swaths2.sf |>
-    sf::st_transform(crs = 4326)
-union_Swaths2.sfg <- Swaths2.sf |>
-  sf::st_union()
+Swaths.sf <- Swaths.sf |>
+    st_transform(crs = 4326)
+union_Swaths2.sfg <- Swaths.sf |>
+  st_union()
 ```
 
-Expand `Swaths2.sf` by adding rows based on the increment value of the attribute `Date0`. Dates prior to the impact date are threat dates and those after the impact date are cleanup dates. Here we used one day prior and one day after impact
+Expand `Swaths.sf` by adding rows based on the increment value of the attribute `Date0`. Dates prior to the impact date are threat dates and those after the impact date are cleanup dates. Here we used one day prior and one day after impact
 ```{r}
+library(tidyr)
+
 deltaT <- 1   # One day increment
 n_new <- 1    # Number of new rows to create for each feature (row) times 2
 
-TIC.sf <- Swaths2.sf |>
-    dplyr::rowwise() |>
-    dplyr::mutate(new_features = list(tidyr::tibble(
-                  Date = Date0 + (-n_new:n_new) * deltaT))) |>
-    tidyr::unnest(new_features) |>
-    dplyr::ungroup() |>
-    dplyr::select(Date, Storm_Name = NAME, Storm_Category)
+TIC.sf <- Swaths.sf |>
+    rowwise() |>
+    mutate(new_features = list(tidyr::tibble(
+           Date = Date0 + (-n_new:n_new) * deltaT))) |>
+    unnest(new_features) |>
+    ungroup() |>
+    select(Date, Storm_Name = NAME, Storm_Category)
 
 TIC <- rep(rep(c("Threat", "Impact", "Cleanup"), times = c(n_new, 1, n_new)), 
-           times = nrow(Swaths2.sf))
+           times = nrow(Swaths.sf))
 TIC.sf$Storm_Effect <- TIC
 ```
 
 Add month and year indicators change name of the geometry column (this is needed when merging with the death locations)
 ```{r}
 TIC.sf <- TIC.sf |>
-  dplyr::mutate(Month = lubridate::month(Date),
-                Year = lubridate::year(Date))
+  mutate(Month = month(Date),
+         Year = year(Date))
 storm_months <- unique(TIC.sf$Month)
 storm_year_range <- range(TIC.sf$Year)
 
@@ -203,8 +212,6 @@ This is needed by the `All-Cause_Mortality.Rmd` scripts where models are fit to 
 Get Florida zips
 ```{r}
 library(tigris)
-library(sf)
-library(dplyr)
 options(tigris_use_cache = TRUE)
 
 # Get national ZCTAs and subset to those intersecting Florida
@@ -217,13 +224,14 @@ zctas_fl <- st_make_valid(zctas_fl) # in case of invalid geometries
 ```
 Retrieving data for the year 2024
 
-Aligns coordinate reference systems and clean geometries
+Align coordinate reference systems and clean geometries
 ```{r}
 library(data.table)
 
 # Align CRS: bring TIC polygons to zips CRS
 tic_aligned  <- st_transform(TIC.sf,  st_crs(zctas_fl))
-zcta_valid   <- st_make_valid(zctas_fl) |> dplyr::select(GEOID20, geometry)
+zcta_valid   <- st_make_valid(zctas_fl) |> 
+  select(GEOID20, geometry)
 
 # (Optional) keep s2 on for geographic CRSs (default TRUE)
 sf_use_s2(TRUE)
@@ -232,7 +240,8 @@ sf_use_s2(TRUE)
 Spatial join: which zips intersect each TIC polygon (by date & effect)
 ```{r}
 # Keep only the columns we need from TIC
-tic_keep <- tic_aligned |> select(Date, Storm_Effect, geometry)
+tic_keep <- tic_aligned |> 
+  select(Date, Storm_Effect, geom)
 
 # Point-in-polygon for polygons: we want polygon–polygon overlaps (intersects)
 zcta_date_effect_sf <- st_join(
@@ -269,7 +278,7 @@ Build the full zip x date data frame & fill missing days with "None"
 ```{r}
 # Spatial domain
 all_zips  <- sort(unique(zcta_valid$GEOID20))
-# Temporal domain (start with 1981-01-01 for TS & 1985-01-01 for 55+)
+# Temporal domain (start with 1981-01-01 for 34+ & 1985-01-01 for 55+)
 all_dates <- as.IDate(seq(as.Date("1981-01-01"), as.Date("2022-12-31"), by = "day"))
 
 # Full grid
@@ -301,7 +310,7 @@ File received from Jihoon on December 7, 2024
 #Deaths.df <- data.table::fread(file = "data/all_deaths_hurricane.csv")
 ```
 
-Time period is 1981-1-1 until 2022-12-31. Only dates are given not times
+Note death IDs are unique! Time period is 1981-1-1 until 2022-12-31. Only dates are given not times
 
 Files received from Jihoon on November 27, 2025
 ```{r}
@@ -309,21 +318,23 @@ load("data/all_data.Rdata")
 #load("data/cardio_subset_all.Rdata")
 
 Deaths.df <- all_data %>%
-  dplyr::mutate(Date = lubridate::as_date(DATE_OF_DEATH)) %>%
-  dplyr::filter(Date >= as.Date("1981-01-01")) %>%
-  dplyr::select(ID, Date, final_lon, final_lat)
+  mutate(Date = as_date(DATE_OF_DEATH)) %>%
+  filter(Date >= as.Date("1981-01-01")) %>%
+  select(ID, Date, final_lon, final_lat)
 ```
+
+Note death IDs are NOT unique!
 
 Create a simple feature data frame with point geometry from the original data frame
 ```{r}
 Deaths.sf <- Deaths.df |>
-#  dplyr::mutate(Date = lubridate::as_date(DATE_OF_DEATH)) |>
-  sf::st_as_sf(coords = c("final_lon", "final_lat"),
-               crs = 4326) |>
-  dplyr::select(Death_ID = ID, Death_Date = Date)
+#  mutate(Date = lubridate::as_date(DATE_OF_DEATH)) |>
+  st_as_sf(coords = c("final_lon", "final_lat"),
+           crs = 4326) |>
+  select(Death_ID = ID, Death_Date = Date)
 ```
 
-Filter deaths temporally by date of death and spatially by storm effect zones. It took 2.35 hours on my Apple M4
+Filter deaths temporally by date of death and spatially by storm effect zones. It took 2.42 hours on my Apple M4
 ```{r}
 start_time <- Sys.time()
 
@@ -344,24 +355,24 @@ for (i in seq(1, num_obs, by = chunk_size)) {
   chunk.sf <- Deaths.sf[chunk_indices, ]
 
 deaths_storm_filtered <- chunk.sf |>
-  dplyr::rowwise() |>
-  dplyr::mutate(
+  rowwise() |>
+  mutate(
     matched_storms = list(
       TIC.sf |>
-        dplyr::filter(Date == Death_Date))) |>
-  tidyr::unnest(matched_storms, keep_empty = TRUE)
+        filter(Date == Death_Date))) |>
+  unnest(matched_storms, keep_empty = TRUE)
 
 # Perform spatial join to check if death location falls within the storm effect zones
-deaths_with_impacts <- sf::st_join(deaths_storm_filtered, TIC.sf, join = sf::st_within)
+deaths_with_impacts <- st_join(deaths_storm_filtered, TIC.sf, join = st_within)
 
 # Keep only records where a death was inside a storm effect zone
 deaths_with_impacts <- deaths_with_impacts |>
-  dplyr::filter(!is.na(Storm_Name.x)) |>
-  dplyr::select(Death_ID, Death_Date,
-                Storm_Name = Storm_Name.x, 
-                Storm_Category = Storm_Category.x,
-                Storm_Effect = Storm_Effect.x, geometry) |>
-  dplyr::distinct()
+  filter(!is.na(Storm_Name.x)) |>
+  select(Death_ID, Death_Date,
+            Storm_Name = Storm_Name.x, 
+            Storm_Category = Storm_Category.x,
+            Storm_Effect = Storm_Effect.x, geometry) |>
+  distinct()
 
 results_list[[chunk_index]] <- deaths_with_impacts
 
@@ -372,13 +383,9 @@ deaths_with_impacts <- do.call(rbind, results_list) #row bind the chunks
 Sys.time() - start_time
 ```
 
-Collapse `deaths_with_impacts` to one row per death, keeping max category. For example, TS Bonnie and Cat 4 Charlie on 2004-08-13 was Cleanup on Bonnie and Impact on Charlie.
+Collapse `deaths_with_impacts` to one row per death, keeping the death occurring with the highest category storm irrespective of effect. For example, TS Bonnie and Cat 4 Charlie on 2004-08-13 was Cleanup on Bonnie and Impact on Charlie.
 
 ```{r}
-library(dplyr)
-library(sf)
-library(tidyr)  # for replace_na()
-
 impacts_max_cat <- deaths_with_impacts %>%
   st_drop_geometry() %>%
   group_by(Death_ID, Death_Date) %>%
