@@ -312,12 +312,12 @@ File received from Jihoon on December 7, 2024
 
 Note death IDs are unique! Time period is 1981-1-1 until 2022-12-31. Only dates are given not times
 
-Files received from Jihoon on November 27, 2025
+Files received from Jihoon on November 27, 2025. We run these files sequentially, merging with storms and fitting models separately for each subset
 ```{r}
-load("data/all_data.Rdata")
-#load("data/cardio_subset_all.Rdata")
-
-Deaths.df <- all_data %>%
+#load("data/all_data.Rdata")
+load("data/cardio_subset_all.Rdata")
+#Deaths.df <- all_data %>%
+Deaths.df <- cardio_subset_all %>%
   mutate(Date = as_date(DATE_OF_DEATH)) %>%
   filter(Date >= as.Date("1981-01-01")) %>%
   select(ID, Date, final_lon, final_lat)
@@ -334,7 +334,7 @@ Deaths.sf <- Deaths.df |>
   select(Death_ID = ID, Death_Date = Date)
 ```
 
-Filter deaths temporally by date of death and spatially by storm effect zones. It took 2.42 hours on my Apple M4
+Filter deaths temporally by date of death and spatially by storm effect zones. It took 2.42 hours on my Apple M4 for all deaths (1981-2022)
 ```{r}
 start_time <- Sys.time()
 
@@ -409,15 +409,15 @@ deaths_all_effects <- Deaths.sf %>%
 Write to a CSV file
 ```{r}
 st_drop_geometry(deaths_all_effects) %>%
-  readr::write_csv("data/outputs/Deaths/All_Deaths_Storm_Effects.csv")
+  readr::write_csv("data/outputs/Deaths/Cardio_Deaths_Storm_Effects.csv")
 ```
 
 Write to GeoPackage
 ```{r}
 st_write(
   deaths_all_effects,              # full sf object with long names
-  dsn = "data/outputs/Deaths/All_Deaths_Storm_Effects.gpkg",
-  layer = "All_Deaths_Storm_Effects",
+  dsn = "data/outputs/Deaths/Cardio_Deaths_Storm_Effects.gpkg",
+  layer = "Cardio_Deaths_Storm_Effects",
   delete_dsn = TRUE
 )
 ```

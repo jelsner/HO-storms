@@ -18,13 +18,13 @@ library(sf)
 library(data.table)
 
 # read CSV file
-Deaths.dt <- fread(here::here("data", "outputs", "Deaths", "All_Deaths_Storm_Effects.csv"))
+Deaths.dt <- fread(here::here("data", "outputs", "Deaths", "Cardio_Deaths_Storm_Effects.csv"))
 Deaths.df <- Deaths.dt |>
   as.data.frame()
 
 # read gpkg
-Deaths.sf <- st_read(here::here("data", "outputs", "Deaths", "All_Deaths_Storm_Effects.gpkg"),
-                     layer = "All_Deaths_Storm_Effects", 
+Deaths.sf <- st_read(here::here("data", "outputs", "Deaths", "Cardio_Deaths_Storm_Effects.gpkg"),
+                     layer = "Cardio_Deaths_Storm_Effects", 
                      quiet = TRUE)
 
 # read shapefile
@@ -175,47 +175,50 @@ Setup the data (as a panel)
 Get Florida zips. This chunk is not needed if the R environment is populated from `deaths-storms.Rmd`
 ```{r}
 library(tigris)
-library(sf)
 options(tigris_use_cache = TRUE)
 
-# Get national ZCTAs and subset to those intersecting Florida
-zctas_all <- zctas(cb = TRUE, starts_with = NULL, year = 2020)
-florida <- states(cb = TRUE) %>% filter(STUSPS == "FL")
+# 1) National ZCTAs + Florida in same CRS
+zctas_all <- zctas(cb = TRUE, year = 2020)
+florida   <- states(cb = TRUE, year = 2020) %>%
+  filter(STUSPS == "FL") %>%
+  st_transform(st_crs(zctas_all))
 
-# Filter ZCTAs that intersect Florida
-zctas_fl <- st_intersection(zctas_all, st_transform(florida, st_crs(zctas_all)))
-zctas_fl <- st_make_valid(zctas_fl) # in case of invalid geometries
+# 2) Keep only ZCTAs whose *centroid* lies within Florida
+zctas_cent <- st_centroid(zctas_all)
+
+inside_fl  <- st_within(zctas_cent, florida, sparse = FALSE)[, 1]
+
+zctas_fl <- zctas_all[inside_fl, ] %>%
+  select(GEOID20, geometry)
+
+# Sanity checks
+nrow(zctas_fl)             # should be 1044
+sum(st_is_empty(zctas_fl)) # should be 0
+table(st_geometry_type(zctas_fl))
+
 ```
 
 Spatial join deaths to zips
 ```{r}
-# Inspect CRS
-st_crs(zctas_fl)   # NAD83 (likely EPSG:4269)
-st_crs(Deaths.sf)  # WGS84 (EPSG:4326)
-
-# Harmonize CRS (transform points to the polygons' CRS)
+# Transform deaths into ZCTA CRS
 Deaths_aligned <- st_transform(Deaths.sf, st_crs(zctas_fl))
-
-# Make polygons valid (fix self-intersections, rings, etc.)
-zctas_valid <- st_make_valid(zctas_fl) %>% dplyr::select(GEOID20, geometry)
 
 sf_use_s2(TRUE)
 
-# Point-in-polygon join: add GEOID20 from polygon to each point
-#    st_within() = strictly inside (excludes points exactly on boundary)
+# Spatial join: add GEOID20 to each death
 deaths_with_zip <- st_join(
   Deaths_aligned,
-  zctas_valid,
-  join = st_intersects,   # st_intersects includes boundary points
-  left = TRUE
+  zctas_fl,
+  join    = st_intersects,  # includes boundary points
+  left    = TRUE,
+  largest = TRUE            # ensure at most one ZCTA per death
 )
 
-# Any points not in a polygon? (e.g., offshore or boundary issues)
+# How many deaths didn't land in any ZCTA?
 sum(is.na(deaths_with_zip$GEOID20))
-# returns 9753 (~.16%) when st_within or st_intersects. Could snap unmatched points to nearest polygon
 
-# Remove deaths not inside a polygon
-deaths_with_zip <- deaths_with_zip |> 
+# Remove deaths not inside a polygon (if desired)
+deaths_with_zip <- deaths_with_zip %>%
   filter(!is.na(GEOID20))
 ```
 
@@ -274,15 +277,17 @@ death_counts_wide <- deaths_with_zip %>%
     values_fill = 0
   )
 
-zcta_poly <- zctas_fl %>%
-  mutate(GEOID20 = as.character(GEOID20)) %>%
-  { if (is.na(sf::st_crs(.)$epsg) || sf::st_crs(.)$epsg != 4326) sf::st_transform(., 4326) else . } %>%
-  sf::st_make_valid()
+zcta_poly <- zctas_fl
+
+#zcta_poly <- zctas_fl %>%
+#  mutate(GEOID20 = as.character(GEOID20)) %>%
+#  { if (is.na(sf::st_crs(.)$epsg) || sf::st_crs(.)$epsg != 4326) sf::st_transform(., 4326) else . } %>%
+#  sf::st_make_valid()
 
 # keep polygonal features only and cast to MULTIPOLYGON
-zcta_poly <- zcta_poly[sf::st_geometry_type(zcta_poly) %in% c("POLYGON","MULTIPOLYGON"), , drop = FALSE]
-zcta_poly <- zcta_poly[!sf::st_is_empty(zcta_poly), , drop = FALSE]
-zcta_poly <- suppressWarnings(sf::st_cast(zcta_poly, "MULTIPOLYGON", warn = FALSE))
+#zcta_poly <- zcta_poly[sf::st_geometry_type(zcta_poly) %in% c("POLYGON","MULTIPOLYGON"), , drop = FALSE]
+#zcta_poly <- zcta_poly[!sf::st_is_empty(zcta_poly), , drop = FALSE]
+#zcta_poly <- suppressWarnings(sf::st_cast(zcta_poly, "MULTIPOLYGON", warn = FALSE))
 
 # left join counts (preserves polygon geometry)
 death_map_sf <- zcta_poly %>%
@@ -303,7 +308,8 @@ Make maps
 library(ggplot2)
 library(RColorBrewer)
 
-bins <- c(0, 5, 10, 20, 40, 70, 100)
+#bins <- c(0, 5, 10, 20, 40, 70, 100)
+bins <- c(0, 1, 2, 4, 8, 16, 32)
 pal  <- brewer.pal(length(bins) - 1, "YlOrRd")
 
 make_map <- function(data_sf, col, title = col) {
@@ -393,13 +399,15 @@ rr_tbl <- tidy(m_pooled, conf.int = TRUE) %>%                # returns log-scale
 rr_tbl
 ```
 
-We fit a fixed-effects Poisson with: ZIP fixed effects (| zip) → controls for all time-invariant differences across ZIPs (population size, baseline mortality, socio-demographics, etc.), Year-month fixed effects (| ym) → controls for statewide shocks and seasonality at the month level (flu waves, hurricanes seasons, COVID waves, etc.). Day-of-week fixed effects (| dow) → controls for weekly pattern. So the effect:: coefficients are within-ZIP log rate ratios vs “None”, after removing month and weekday patterns. Exponentiate them to get rate ratios (RR).
+For all deaths the coefficients on the fixed effects are
+Standard-errors: Clustered (zip & ym) 
+                Estimate Std. Error z value Pr(>|z|)    
+effect::Threat  0.042035   0.018982 2.21448 0.026796 *  
+effect::Impact  0.030880   0.013403 2.30398 0.021224 *  
+effect::Cleanup 0.042110   0.016436 2.56205 0.010406 *  
 
-What the coefficients mean: 
-We fit a fixed-effects Poisson with: ZIP fixed effects (| zip) → controls for all time-invariant differences across ZIPs (population size, baseline mortality, socio-demographics, etc.)
-Year-month fixed effects (| ym) → controls for statewide shocks and seasonality at the month level (flu waves, hurricanes seasons, COVID waves, etc.)
-Day-of-week fixed effects (| dow) → controls for weekly pattern
-So the effect::… coefficients are within-ZIP log rate ratios vs “None”, after removing month and weekday patterns. Exponentiate them to get rate ratios (RR). Convert the estimates to RRs (95% CI)
+What the coefficients mean. We fit a fixed-effects Poisson with: ZIP fixed effects (| zip) → controls for all time-invariant differences across ZIPs (population size, baseline mortality, socio-demographics, etc.)
+Year-month fixed effects (| ym) → controls for statewide shocks and seasonality at the month level (flu waves, hurricanes seasons, COVID waves, etc.). Day-of-week fixed effects (| dow) → controls for weekly pattern. So the effect::… coefficients are within-ZIP log rate ratios vs “None”, after removing month and weekday patterns. Exponentiate them to get rate ratios (RR). Convert the estimates to RRs (95% CI)
 
 Threat: β = 0.042035 (SE 0.018982), p = 0.0268
 RR = 1.043 → ~4.3% higher deaths vs None, adjusted for ZIP / YM / DOW
@@ -415,6 +423,15 @@ We have 3 FE groups (zip / ym / dow). The 44/0/0 means 44 ZIP levels were droppe
 Log-likelihood and BIC are for the Poisson FE fit. “Adj. Pseudo R²: 0.200” and “Squared Cor.: 0.240” indicate reasonable explanatory power given this is daily death counts with strong FE.
 
 Compared with “None” days, statewide Threat days are associated with an ~4.3% increase in daily deaths (95% CI (.5%–8.2%), Cleanup days with ~3.1%, and Impact days with ~4.3%
+
+Note: for cardio deaths the coefficients on the fixed effects are
+Standard-errors: Clustered (zip & ym) 
+                Estimate Std. Error  z value Pr(>|z|)    
+effect::Threat  0.006818   0.052360 0.130214 0.896397    
+effect::Impact  0.100527   0.059740 1.682755 0.092423 .  
+effect::Cleanup 0.109005   0.049295 2.211266 0.027017 *
+Log-Likelihood: -1,015,235.5   Adj. Pseudo R2: 0.123767
+           BIC:  2,050,574.1     Squared Cor.: 0.046053
 
 Try negative binomial fixed effects as a sensitivity
 ```{r}
@@ -557,9 +574,9 @@ rr_shrunk <- log_rr %>%
   ) %>%
   select(zip, effect, RR_shr)
 
-# for story map
+# for story map choose the effect
 rr_wide <- rr_shrunk %>%
-  filter(effect == "Impact") %>%
+  filter(effect == "Cleanup") %>%
   mutate(GEOID20 = zip,
          Effect = RR_shr) %>%
   select(GEOID20, Effect)
