@@ -138,12 +138,12 @@ Check to see which storms these are
 X <- st_geometry_type(Swaths.sf$geometry) == "MULTIPOLYGON"
 Swaths.sf$NAME[X]
 ```
+[1] "GEORGES" "BARRY"   "IRMA"    "SALLY"   "ETA" 
 
 The situations are different for each storm so it is not clear what to do. One approach is to simply remove these storms from further consideration. Here we keep them essentially ignoring the second landfall
 ```{r}
 #Swaths.sf <- Swaths.sf[!x,]
 ```
-[1] "GEORGES" "BARRY"   "IRMA"    "SALLY"   "ETA" 
 
 Transform the geometry to a geographic CRS (4326) and unionize the swaths
 ```{r}
@@ -214,45 +214,41 @@ Get Florida zips
 library(tigris)
 options(tigris_use_cache = TRUE)
 
-# Get national ZCTAs and subset to those intersecting Florida
-zctas_all <- zctas(cb = TRUE, starts_with = NULL, year = 2020)
-florida <- states(cb = TRUE) %>% filter(STUSPS == "FL")
+# Get Florida zips
+zctas_fl <- zctas(cb = FALSE, year = 2010, state = "FL") %>%
+  select(GEOID = ZCTA5CE10, geometry)
 
-# Filter ZCTAs that intersect Florida
-zctas_fl <- st_intersection(zctas_all, st_transform(florida, st_crs(zctas_all)))
-zctas_fl <- st_make_valid(zctas_fl) # in case of invalid geometries
+# Get Florida counties
+counties_fl <- counties(cb = TRUE, year = 2020, state = "FL") %>%
+  select(GEOID = GEOID, geometry)
 ```
-Retrieving data for the year 2024
 
-Align coordinate reference systems and clean geometries
+Align coordinate reference systems
 ```{r}
-library(data.table)
-
 # Align CRS: bring TIC polygons to zips CRS
 tic_aligned  <- st_transform(TIC.sf,  st_crs(zctas_fl))
-zcta_valid   <- st_make_valid(zctas_fl) |> 
-  select(GEOID20, geometry)
 
-# (Optional) keep s2 on for geographic CRSs (default TRUE)
+# Keep s2 on for geographic CRSs (default TRUE)
 sf_use_s2(TRUE)
 ```
 
 Spatial join: which zips intersect each TIC polygon (by date & effect)
 ```{r}
+library(data.table)
 # Keep only the columns we need from TIC
 tic_keep <- tic_aligned |> 
   select(Date, Storm_Effect, geom)
 
 # Point-in-polygon for polygons: we want polygon–polygon overlaps (intersects)
 zcta_date_effect_sf <- st_join(
-  zcta_valid, tic_keep,
+  zctas_fl, tic_keep,
   join = st_intersects,
   left = FALSE   # keep only zips that intersect a TIC polygon on that date
 )
 
 # Drop geometry for the calendar
 zcta_date_effect <- as.data.table(st_drop_geometry(zcta_date_effect_sf))
-setnames(zcta_date_effect, c("GEOID20","Date","Storm_Effect"),
+setnames(zcta_date_effect, c("GEOID","Date","Storm_Effect"),
          c("zip","date","effect"))
 
 # Normalize types
@@ -277,7 +273,7 @@ zde <- zde[ , .SD[which.max(rank)], by = .(zip, date)][ , .(zip, date, effect)]
 Build the full zip x date data frame & fill missing days with "None"
 ```{r}
 # Spatial domain
-all_zips  <- sort(unique(zcta_valid$GEOID20))
+all_zips  <- sort(unique(zctas_fl$GEOID))
 # Temporal domain (start with 1981-01-01 for 34+ & 1985-01-01 for 55+)
 all_dates <- as.IDate(seq(as.Date("1981-01-01"), as.Date("2022-12-31"), by = "day"))
 
@@ -310,7 +306,7 @@ File received from Jihoon on December 7, 2024
 #Deaths.df <- data.table::fread(file = "data/all_deaths_hurricane.csv")
 ```
 
-Note death IDs are unique! Time period is 1981-1-1 until 2022-12-31. Only dates are given not times
+Note: IDs are unique. Time period is 1981-1-1 until 2022-12-31. Only dates are given not times
 
 Files received from Jihoon on November 27, 2025. We run these files sequentially, merging with storms and fitting models separately for each subset
 ```{r}
@@ -323,18 +319,17 @@ Deaths.df <- cardio_subset_all %>%
   select(ID, Date, final_lon, final_lat)
 ```
 
-Note death IDs are NOT unique!
+Note: IDs are NOT unique!
 
-Create a simple feature data frame with point geometry from the original data frame
+Create a simple feature data frame with point geometry
 ```{r}
 Deaths.sf <- Deaths.df |>
-#  mutate(Date = lubridate::as_date(DATE_OF_DEATH)) |>
   st_as_sf(coords = c("final_lon", "final_lat"),
            crs = 4326) |>
   select(Death_ID = ID, Death_Date = Date)
 ```
 
-Filter deaths temporally by date of death and spatially by storm effect zones. It took 2.42 hours on my Apple M4 for all deaths (1981-2022)
+Filter deaths temporally by date of death and spatially by storm effect zones. It took 2.42 hours on my Apple M4 using all deaths (1981-2022)
 ```{r}
 start_time <- Sys.time()
 

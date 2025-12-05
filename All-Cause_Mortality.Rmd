@@ -67,7 +67,6 @@ range(range$Death_Date)
 
 # Group deaths by date and storm effect
 daily_deaths <- Deaths.df |>
-#  group_by(Death_Date, Storm_Effect, SH) |>
   group_by(Death_Date, Storm_Effect) |>
   summarise(deaths = n(), .groups = "drop")
 ```
@@ -102,7 +101,7 @@ death_rates <- left_join(total_deaths, num_days, by = "Storm_Effect") |>
 print(death_rates)
 ```
 
-This tells us that in this sample the statewide daily death rate is somewhat higher on storm-effect days. But a lot is going on: time and spatial trends, seasonality, autocorrelation. We need a model that accounts for these things
+This tells us that in this sample the statewide daily death rate is somewhat higher on storm-effect days (all-cause deaths). But a lot is going on: time and spatial trends, seasonality, autocorrelation. We need a model that accounts for these things
 
 ## Negative binomial generalized additive model
 
@@ -177,49 +176,44 @@ Get Florida zips. This chunk is not needed if the R environment is populated fro
 library(tigris)
 options(tigris_use_cache = TRUE)
 
-# 1) National ZCTAs + Florida in same CRS
-zctas_all <- zctas(cb = TRUE, year = 2020)
-florida   <- states(cb = TRUE, year = 2020) %>%
-  filter(STUSPS == "FL") %>%
-  st_transform(st_crs(zctas_all))
-
-# 2) Keep only ZCTAs whose *centroid* lies within Florida
-zctas_cent <- st_centroid(zctas_all)
-
-inside_fl  <- st_within(zctas_cent, florida, sparse = FALSE)[, 1]
-
-zctas_fl <- zctas_all[inside_fl, ] %>%
-  select(GEOID20, geometry)
-
-# Sanity checks
-nrow(zctas_fl)             # should be 1044
-sum(st_is_empty(zctas_fl)) # should be 0
-table(st_geometry_type(zctas_fl))
-
+# Florida zips
+zctas_fl <- zctas(cb = FALSE, year = 2010, state = "FL") %>%
+  select(GEOID = ZCTA5CE10, geometry)
 ```
 
 Spatial join deaths to zips
 ```{r}
-# Transform deaths into ZCTA CRS
-Deaths_aligned <- st_transform(Deaths.sf, st_crs(zctas_fl))
+# Inspect CRS
+st_crs(zctas_fl)   # NAD83 (EPSG:4269)
+st_crs(Deaths.sf)  # WGS84 (EPSG:4326)
 
-sf_use_s2(TRUE)
+# work in a projected CRS for sane distances
+target_crs <- 5070  # NAD83 / Conus Albers, or anything projected
 
-# Spatial join: add GEOID20 to each death
+zctas_fl_proj    <- st_transform(zctas_fl, target_crs)
+Deaths_proj      <- st_transform(Deaths.sf, target_crs)
+sf_use_s2(FALSE)
+
+begin <- Sys.time()
+# Spatial join: add GEOID to each death
 deaths_with_zip <- st_join(
-  Deaths_aligned,
-  zctas_fl,
+  Deaths_proj,
+  zctas_fl_proj,         
   join    = st_intersects,  # includes boundary points
   left    = TRUE,
   largest = TRUE            # ensure at most one ZCTA per death
 )
+Sys.time() - begin
+
+deaths_with_zip <- st_transform(deaths_with_zip, 4326)
+zctas_fl <- st_transform(zctas_fl, 4269)
 
 # How many deaths didn't land in any ZCTA?
-sum(is.na(deaths_with_zip$GEOID20))
+sum(is.na(deaths_with_zip$GEOID))
 
 # Remove deaths not inside a polygon (if desired)
 deaths_with_zip <- deaths_with_zip %>%
-  filter(!is.na(GEOID20))
+  filter(!is.na(GEOID))
 ```
 
 List death dates & storm names by zip and storm effect
@@ -231,7 +225,7 @@ df <- deaths_with_zip %>%
 
 # A compact tibble with a list-column of Death_Dates
 dates_by_effect_df <- df %>%
-  group_by(GEOID20, Storm_Effect) %>%
+  group_by(GEOID, Storm_Effect) %>%
   summarise(
     Death_Dates = list(sort(unique(Death_Date))),   # the actual unique dates (could be more than 1 death)
     Storm_Names = list(unique(Storm_Name)),         # storm names
@@ -239,10 +233,10 @@ dates_by_effect_df <- df %>%
     n_dates     = length(Death_Dates[[1]]),          # unique dates
     .groups = "drop"
   ) %>%
-  arrange(GEOID20, Storm_Effect)
+  arrange(GEOID, Storm_Effect)
 
 dates_by_effect_df
-length(unique(dates_by_effect_df$GEOID20))
+length(unique(dates_by_effect_df$GEOID))
 ```
 
 Daily death counts by zip
@@ -250,7 +244,7 @@ Daily death counts by zip
 daily_by_zip <- deaths_with_zip %>%
   st_drop_geometry() %>%
   transmute(
-    zip    = as.character(GEOID20),
+    zip    = as.character(GEOID),
     date   = as.Date(Death_Date),
     effect = as.character(Storm_Effect)
   ) %>%
@@ -270,34 +264,22 @@ library(tidyr)
 death_counts_wide <- deaths_with_zip %>%
   sf::st_drop_geometry() %>%  
   filter(Storm_Effect %in% c("Threat","Impact","Cleanup")) %>%
-  count(GEOID20, Storm_Effect, name = "deaths") %>%
+  count(GEOID, Storm_Effect, name = "deaths") %>%
   tidyr::pivot_wider(
     names_from  = Storm_Effect,
     values_from = deaths,
     values_fill = 0
   )
 
-zcta_poly <- zctas_fl
-
-#zcta_poly <- zctas_fl %>%
-#  mutate(GEOID20 = as.character(GEOID20)) %>%
-#  { if (is.na(sf::st_crs(.)$epsg) || sf::st_crs(.)$epsg != 4326) sf::st_transform(., 4326) else . } %>%
-#  sf::st_make_valid()
-
-# keep polygonal features only and cast to MULTIPOLYGON
-#zcta_poly <- zcta_poly[sf::st_geometry_type(zcta_poly) %in% c("POLYGON","MULTIPOLYGON"), , drop = FALSE]
-#zcta_poly <- zcta_poly[!sf::st_is_empty(zcta_poly), , drop = FALSE]
-#zcta_poly <- suppressWarnings(sf::st_cast(zcta_poly, "MULTIPOLYGON", warn = FALSE))
-
 # left join counts (preserves polygon geometry)
-death_map_sf <- zcta_poly %>%
-  left_join(death_counts_wide, by = "GEOID20") %>%
+death_map_sf <- zctas_fl %>%
+  left_join(death_counts_wide, by = "GEOID") %>%
   mutate(
     Threat = replace_na(Threat, 0L),
     Impact = replace_na(Impact, 0L),
     Cleanup = replace_na(Cleanup, 0L)
   ) %>%
-  select(GEOID20, Threat, Impact, Cleanup, geometry)
+  select(GEOID, Threat, Impact, Cleanup, geometry)
 
 # for story map
 #saveRDS(death_map_sf, "data/outputs/Results/zcta_death_counts.rds")
@@ -427,11 +409,13 @@ Compared with “None” days, statewide Threat days are associated with an ~4.3
 Note: for cardio deaths the coefficients on the fixed effects are
 Standard-errors: Clustered (zip & ym) 
                 Estimate Std. Error  z value Pr(>|z|)    
-effect::Threat  0.006818   0.052360 0.130214 0.896397    
-effect::Impact  0.100527   0.059740 1.682755 0.092423 .  
-effect::Cleanup 0.109005   0.049295 2.211266 0.027017 *
-Log-Likelihood: -1,015,235.5   Adj. Pseudo R2: 0.123767
-           BIC:  2,050,574.1     Squared Cor.: 0.046053
+effect::Threat  0.004268   0.053075 0.080409  0.93591    
+effect::Impact  0.098254   0.061101 1.608043  0.10783    
+effect::Cleanup 0.109236   0.048695 2.243261  0.02488 *  
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+Log-Likelihood: -1,015,338.1   Adj. Pseudo R2: 0.122662
+           BIC:  2,050,675.5     Squared Cor.: 0.045869
 
 Try negative binomial fixed effects as a sensitivity
 ```{r}
@@ -449,6 +433,8 @@ Results are essentially the same as those from the Poisson model
 Note: When excluding weaker tropical storms 34-55 kt, the effect sizes are about twice as large 
 
 ## Time stratified Poisson fixed effect model per zip code area
+
+This might not work for subset data (e.g., cardio deaths only) since the number of deaths per zip day is too small (mostly zeroes)
 
 Choose candidate zips worth modeling
 ```{r}
