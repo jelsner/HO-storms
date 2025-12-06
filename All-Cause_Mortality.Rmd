@@ -12,19 +12,19 @@ Results. The model shows that compared with “None” days, statewide Threat da
 
 ## Analytics of deaths and storms
 
-Read the CSV as a data table and/or the gpkg file
+Read the CSV as a data table and/or the gpkg file. These file were exported from `deaths-storms.Rmd`
 ```{r}
 library(sf)
 library(data.table)
 
 # read CSV file
-Deaths.dt <- fread(here::here("data", "outputs", "Deaths", "Cardio_Deaths_Storm_Effects.csv"))
+Deaths.dt <- fread(here::here("data", "outputs", "Deaths", "All_Deaths_Storm_Effects_55+.csv"))
 Deaths.df <- Deaths.dt |>
   as.data.frame()
 
 # read gpkg
-Deaths.sf <- st_read(here::here("data", "outputs", "Deaths", "Cardio_Deaths_Storm_Effects.gpkg"),
-                     layer = "Cardio_Deaths_Storm_Effects", 
+Deaths.sf <- st_read(here::here("data", "outputs", "Deaths", "All_Deaths_Storm_Effects_55+.gpkg"),
+                     layer = "All_Deaths_Storm_Effects_55+", 
                      quiet = TRUE)
 
 # read shapefile
@@ -37,9 +37,6 @@ Compute statewide death rates
 ```{r}
 library(dplyr)
 
-#Deaths.df <- Deaths.df |>
-#  mutate(SH = Storm_Category > 0)
-
 total_deaths <- nrow(Deaths.df)
 exposed_total <- Deaths.dt[Storm_Effect %in% c("Cleanup", "Impact", "Threat"), .N]
 
@@ -47,7 +44,6 @@ exposed_total <- Deaths.dt[Storm_Effect %in% c("Cleanup", "Impact", "Threat"), .
 death_rates <- Deaths.df |>
   filter(Storm_Effect %in% c("Cleanup", "Impact", "Threat")) |>
   group_by(Storm_Effect) |>
-#  group_by(Storm_Effect, SH) |>
   summarise(Deaths = n(), .groups = "drop") |>
   mutate(Death_Rate = Deaths / exposed_total)
 
@@ -101,7 +97,7 @@ death_rates <- left_join(total_deaths, num_days, by = "Storm_Effect") |>
 print(death_rates)
 ```
 
-This tells us that in this sample the statewide daily death rate is somewhat higher on storm-effect days (all-cause deaths). But a lot is going on: time and spatial trends, seasonality, autocorrelation. We need a model that accounts for these things
+This tells us that in this sample the statewide daily death rate is somewhat lower on storm-effect days (all-cause deaths). But a lot is going on: time and spatial trends, seasonality, autocorrelation. We need a model that accounts for these things
 
 ## Negative binomial generalized additive model
 
@@ -205,6 +201,8 @@ deaths_with_zip <- st_join(
 )
 Sys.time() - begin
 
+# 1.07 hrs all deaths 55+ storms
+
 deaths_with_zip <- st_transform(deaths_with_zip, 4326)
 zctas_fl <- st_transform(zctas_fl, 4269)
 
@@ -290,8 +288,8 @@ Make maps
 library(ggplot2)
 library(RColorBrewer)
 
-#bins <- c(0, 5, 10, 20, 40, 70, 100)
-bins <- c(0, 1, 2, 4, 8, 16, 32)
+bins <- c(0, 5, 10, 20, 40, 70, 100)
+#bins <- c(0, 1, 2, 4, 8, 16, 32)
 pal  <- brewer.pal(length(bins) - 1, "YlOrRd")
 
 make_map <- function(data_sf, col, title = col) {
@@ -381,7 +379,7 @@ rr_tbl <- tidy(m_pooled, conf.int = TRUE) %>%                # returns log-scale
 rr_tbl
 ```
 
-For all deaths the coefficients on the fixed effects are
+For all deaths and 34+ storms the coefficients on the fixed effects are
 Standard-errors: Clustered (zip & ym) 
                 Estimate Std. Error z value Pr(>|z|)    
 effect::Threat  0.042035   0.018982 2.21448 0.026796 *  
@@ -406,7 +404,23 @@ Log-likelihood and BIC are for the Poisson FE fit. “Adj. Pseudo R²: 0.200” 
 
 Compared with “None” days, statewide Threat days are associated with an ~4.3% increase in daily deaths (95% CI (.5%–8.2%), Cleanup days with ~3.1%, and Impact days with ~4.3%
 
-Note: for cardio deaths the coefficients on the fixed effects are
+Note: for all deaths and 55+ storms the coefficients on the fixed effects are larger
+Standard-errors: Clustered (zip & ym) 
+                Estimate Std. Error z value Pr(>|z|)    
+effect::Threat  0.076102   0.030525 2.49316 0.012661 *  
+effect::Impact  0.064373   0.032892 1.95707 0.050339 .  
+effect::Cleanup 0.077044   0.030092 2.56027 0.010459 *  
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+Log-Likelihood: -5,684,297.6   Adj. Pseudo R2: 0.186984
+           BIC: 11,388,488.4     Squared Cor.: 0.236403
+
+.076/.042 = 1.7x larger
+.064/.031 = 2.1x larger
+.077/.042 = 1.8x larger
+When excluding weaker tropical storms 34-55 kt, the effect sizes are about twice as large
+
+Note: for cardio deaths and 34+ storms the coefficients on the fixed effects are
 Standard-errors: Clustered (zip & ym) 
                 Estimate Std. Error  z value Pr(>|z|)    
 effect::Threat  0.004268   0.053075 0.080409  0.93591    
@@ -429,8 +443,6 @@ summary(m_pooled2)
 ```
 
 Results are essentially the same as those from the Poisson model
-
-Note: When excluding weaker tropical storms 34-55 kt, the effect sizes are about twice as large 
 
 ## Time stratified Poisson fixed effect model per zip code area
 
