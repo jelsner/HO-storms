@@ -1,15 +1,19 @@
 ---
-title: "Modeling ER visits relative to storm effects"
+title: "Daily ER visits relative to storm effects"
 output: html_document
 editor_options:
   chunk_output_type: console
 ---
 
-## Create a storm effects model
+## Create an empirical storm effects model
 
 ```{r}
 library(sf)
 library(dplyr)
+
+storm_intensity <- 34 # all tropical storms and hurricanes
+begin_year <- 2004
+end_year <- 2022
 
 L <- "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/IBTrACS.NA.list.v04r00.lines.zip"
   
@@ -26,8 +30,8 @@ Tracks.sf <- st_read(dsn = here::here("data"),
   st_transform(crs = 32616)
 
 Tracks.sf <- Tracks.sf |>
-  filter(year >= 2004 & year <= 2022) |>
-  filter(USA_WIND >= 34) |> # tropical storms and hurricanes
+  filter(year >= begin_year & year <= end_year) |>
+  filter(USA_WIND >= storm_intensity) |>
   select(SID, SEASON, year, month, day, hour, min,
          NAME, SUBBASIN, ISO_TIME, USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
 
@@ -92,12 +96,13 @@ union_Swaths2.sfg <- Swaths.sf |>
   st_union()
 ```
 
-Expand `Swaths.sf` by adding rows based on the increment value of the attribute `Date0`. Dates prior to the impact date are threat dates and those after the impact date are cleanup dates. Here we used one day prior and one day after impact
+Expand `Swaths.sf` by adding rows based on the increment value of the attribute `Date0`. Dates prior to the impact date are threat dates and those after the impact date are cleanup dates
 ```{r}
 library(tidyr)
+library(lubridate)
 
 deltaT <- 1   # One day increment
-n_new <- 14    # Number of new rows to create for each feature (row) times 2
+n_new <- 7    # Number of days before & after impact
 
 TIC.sf <- Swaths.sf |>
     rowwise() |>
@@ -124,6 +129,7 @@ st_geometry(TIC.sf) <- "geom"
 ## Build a zip x date effect calendar
 
 ```{r}
+library(data.table)
 library(tigris)
 options(tigris_use_cache = TRUE)
 
@@ -197,8 +203,6 @@ ER_visits.df <- ER_visits.dt |>
 
 Clean the data
 ```{r}
-library(data.table)
-
 setDT(ER_visits.df)
 
 # Pad ZipCode to 5 chars; drop non-sensical codes (0/NA/too short/too big)
@@ -234,33 +238,28 @@ merged[, dow := lubridate::wday(date, label = TRUE, abbr = TRUE)]
 
 # Add year-month (IDate stored as "YYYY-MM-01" for convenience)
 merged[, year_month := as.IDate(floor_date(date, unit = "month"))]
-
 ```
 
 ## Model using logit and Poisson separately
 
-Instead use a two-part “threshold (≤6) + truncated count (>6)” approximation (stays in `fixest`). The process is modeled as:
-Part A (logit): probability the true count is ≤6 (we observe 6)
-Part B (Poisson on truncated support): conditional mean for counts >6
-Then combine for interpretation
+A two-part “threshold (≤6) + truncated count (>6)” approximation (stays in `fixest`). The process is modeled as: Part A (logit): probability the true count is ≤6 (we observe 6) and part B (Poisson on truncated support): conditional mean for counts >6
 
 ```{r}
 library(fixest)
-library(dplyr)
 
-d2 <- merged %>% mutate(
-  is_le6 = as.integer(er_visits == 6L)           # proxy for "true ≤ 6"
-)
+dat <- merged %>% mutate(
+  is_le6 = as.integer(er_visits == 6L)) %>% # proxy for "true ≤ 6"
+  filter(month(date) %in% 5:11)  # hurricane season only
 
 # Part A: logistic model for being ≤ 6
 mA <- feglm(
   is_le6 ~ i(effect, ref="None") | zip + year_month + dow,
-  data = d2, family = binomial("logit"),
+  data = dat, family = binomial("logit"),
   cluster = ~ zip + year_month
 )
 
 # Part B: Poisson on Y>6 (treat observed counts >6 as exact)
-d_gt6 <- filter(d2, er_visits > 6L)
+d_gt6 <- filter(dat, er_visits > 6L)
 mB <- fepois(
   er_visits ~ i(effect, ref="None") | zip + year_month + dow,
   data = d_gt6, cluster = ~ zip + year_month
@@ -270,17 +269,48 @@ summary(mA); summary(mB)
 ```
 
 Binomial model:
+GLM estimation, family = binomial, Dep. Var.: is_le6
+Observations: 2,588,544
+Fixed-effects: zip: 672,  year_month: 126,  dow: 7
+Standard-errors: Clustered (zip & year_month) 
+                 Estimate Std. Error   z value   Pr(>|z|)    
+effect::Cleanup  0.007657   0.027531  0.278111 7.8093e-01    
+effect::Threat  -0.004921   0.030158 -0.163164 8.7039e-01    
+effect::Impact   0.194508   0.047288  4.113296 3.9005e-05 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+Log-Likelihood: -406,796.1   Adj. Pseudo R2: 0.150202
+           BIC:  825,494.1     Squared Cor.: 0.052679
+
+Interpretation
 Cleanup and Threat days: No meaningful evidence that these periods change the probability of low ER visits.
 Impact days (landfall): A positive and significant log-odds means ER visit counts are more likely to fall in the ≤6 range. In other words, ER utilization tends to drop during direct storm impact
 
 This makes sense: Many people stay home. Clinics/hospitals reduce service hours. Travel becomes difficult.
-This model focuses on the lower tail of demand — and here, Impact days show a clear reduction
+This model focuses on the lower tail of demand and here, Impact days show a clear reduction
 
-Poisson model:
-Cleanup days: No real change in ER volume. Threat days (pre-impact conditions): ER visits increase slightly (+1–2%). People may seek care before the storm hits (filling prescriptions, addressing minor issues early).
+Poisson model
+Poisson estimation, Dep. Var.: er_visits
+Observations: 2,722,224
+Fixed-effects: zip: 912,  year_month: 126,  dow: 7
+Standard-errors: Clustered (zip & year_month) 
+                 Estimate Std. Error  z value  Pr(>|z|)    
+effect::Cleanup  0.023700   0.008545  2.77347 0.0055461 ** 
+effect::Threat   0.018231   0.008404  2.16917 0.0300695 *  
+effect::Impact  -0.085411   0.026034 -3.28079 0.0010352 ** 
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+Log-Likelihood: -8,500,999.7   Adj. Pseudo R2: 0.604913
+           BIC: 17,017,498.0     Squared Cor.: 0.880416
+
+
+Interpretation
+Cleanup days: Shows a small but significant +2–3% ER increase. This makes intuitive sense as delayed care resumes injuries from debris removal reconnecting the healthcare system after outages. Threat days (pre-impact conditions): ER visits increase (+1–2%). People may seek care before the storm hits (filling prescriptions, addressing minor issues early)
 Impact days: ER visits drop sharply (≈ –8%). This lines up perfectly with the binomial model’s finding: ER demand suppresses during the storm’s immediate impact
 
-Jointly the models show storm Impact periods suppress ER utilization — likely due to mobility constraints, closures, and shelter-in-place behavior. Pre-storm Threat periods slightly elevate ER visits, consistent with precautionary care. Cleanup periods show little to no deviation, perhaps because they mix delayed care (upward) with infrastructure disruptions (downward). This is exactly the kind of pattern you’d expect in a population with both anticipatory behavior and acute disruption around major storms
+Jointly the models show storm Impact periods suppress ER utilization — likely due to mobility constraints, closures, and shelter-in-place behavior. Pre-storm Threat periods elevate ER visits, consistent with precautionary care. Cleanup periods also show elevated ER visits as expected with resuming delayed care, debris removal injuries and reconnecting with heathcare system after outages. This is exactly the kind of pattern you’d expect in a population with both anticipatory behavior and acute disruption around major storms
+
+During hurricane season in Florida, patients ramp up ER usage slightly the week before storms (Threat). On the direct storm impact day, ER demand collapses (Impact). After storms, ER visits rebound and exceed normal levels (Cleanup). This is a classic displacement–disruption pattern. Pre-storm increase → mid-storm suppression → post-storm rebound. The fixed effects ensure this is not confounded by ZIP characteristics, seasonal cycles, or weekly patterns
 
 * Compare results with a subset of the stronger storms 55+
 * Use longer and shorter times (number of days) before (Threat) and after (Cleanup)
