@@ -194,8 +194,9 @@ effect_calendar[, table(effect)]
 
 ## Merge storms with death records
 
-Files received from Jihoon on November 27, 2025. We run these files sequentially, merging with storms and fitting models separately for each subset. Since attributes (age, sex, etc) are at the individual level and we are modeling daily counts we can't use these as simple covariates. Use 1985-01-01 for 55+ storms
+Files received from Jihoon on November 27, 2025. We run these files sequentially, merging with storms and fitting models separately for each subset. Since attributes (age, sex, etc) are at the individual level and we are modeling daily counts we can't use these as simple covariates. Use 1985-01-01 for 55+ storms. ~ 2 minutes
 ```{r}
+start_time <- Sys.time()
 load("data/all_data.Rdata")
 #load("data/cardio_subset_all.Rdata")
 #cardio_code <- unique(cardio_subset_all$ICD_CODE)
@@ -210,20 +211,20 @@ Deaths.df <- all_data %>%
 Deaths.sf <- Deaths.df %>%
   st_as_sf(coords = c("final_lon", "final_lat"), crs = 4326)
 rm(all_data, Deaths.df)
+Sys.time() - start_time
 ```
 
 Note: IDs are not unique
 
-Filter deaths by date of death and storm effect zones. It took 6.5 hours on my Apple M4 using all deaths (1981-2022), >= 34 kt storms, and +/- 7 days on either side of impact day
+Filter deaths by date of death and storm effect zones. It took 2.3 hours on my Apple M4 using all deaths (1981-2022), >= 34 kt storms, and +/- 1 day on either side of impact day 6.7 hr +/- 7 days
 ```{r}
+start_time <- Sys.time()
 # work in a projected CRS for sane distances
 target_crs <- 5070  # NAD83 / Conus Albers, or anything projected
 
 TIC_proj    <- st_transform(TIC.sf, target_crs)
 Deaths_proj      <- st_transform(Deaths.sf, target_crs)
 sf_use_s2(FALSE)
-
-start_time <- Sys.time()
 
 num_obs <- nrow(Deaths_proj)
 chunk_size <- 50000
@@ -297,13 +298,13 @@ Export (optional)
 ```{r}
 # To CSV
 st_drop_geometry(deaths_all_effects) %>%
-  readr::write_csv("data/outputs/Deaths/All_Deaths_Storm_Effects_34kt_7day.csv")
+  readr::write_csv("data/outputs/Deaths/All_Deaths_Storm_Effects_34kt_1day.csv")
 
 # To GeoPackage
 st_write(
   deaths_all_effects,              # full sf object with long names
-  dsn = "data/outputs/Deaths/All_Deaths_Storm_Effects_34kt_7day.gpkg",
-  layer = "All_Deaths_Storm_Effects_34kt_7day",
+  dsn = "data/outputs/Deaths/All_Deaths_Storm_Effects_34kt_1day.gpkg",
+  layer = "All_Deaths_Storm_Effects_34kt_1day",
   delete_dsn = TRUE
 )
 ```
@@ -395,10 +396,10 @@ Sys.time() - begin
 deaths_with_zip <- st_transform(deaths_with_zip, 4326)
 zctas_fl <- st_transform(zctas_fl, 4269)
 
-# How many deaths didn't land in any ZCTA?
+# How many deaths didn't land in any zip code area?
 sum(is.na(deaths_with_zip$zip))
 
-# Remove deaths not inside a polygon (if desired)
+# Remove deaths not inside a zip code (if desired)
 deaths_with_zip <- deaths_with_zip %>%
   filter(!is.na(GEOID))
 ```
@@ -624,7 +625,7 @@ Standard-errors: Clustered (zip & ym)
 effect::Threat  0.076102   0.030525 2.49316 0.012661 *  
 effect::Impact  0.064373   0.032892 1.95707 0.050339 .  
 effect::Cleanup 0.077044   0.030092 2.56027 0.010459 *  
----
+
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 Log-Likelihood: -5,684,297.6   Adj. Pseudo R2: 0.186984
            BIC: 11,388,488.4     Squared Cor.: 0.236403
@@ -640,7 +641,7 @@ Standard-errors: Clustered (zip & ym)
 effect::Threat  0.004268   0.053075 0.080409  0.93591    
 effect::Impact  0.098254   0.061101 1.608043  0.10783    
 effect::Cleanup 0.109236   0.048695 2.243261  0.02488 *  
----
+
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 Log-Likelihood: -1,015,338.1   Adj. Pseudo R2: 0.122662
            BIC:  2,050,675.5     Squared Cor.: 0.045869
