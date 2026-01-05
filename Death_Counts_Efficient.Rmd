@@ -25,6 +25,7 @@ library(dplyr)
 library(data.table)
 library(lubridate)
 library(tidyr)
+library(lwgeom)
 
 storm_intensity <- 34 # all tropical storms and hurricanes
 begin_year <- 1981
@@ -69,8 +70,39 @@ Tracks_dt[, USA_RMW := fifelse(is.na(USA_RMW), rmw_pres_mean, USA_RMW)]
 # Update back
 Tracks.sf$USA_RMW <- Tracks_dt$USA_RMW
 
+
 # Buffer to make wind swaths (meters)
-Swaths.sf <- st_buffer(Tracks.sf, dist = Tracks.sf$USA_RMW * 1852)
+
+# 1) Ensure geometry is valid and non-empty
+Tracks.sf <- Tracks.sf |> 
+  mutate(.empty = st_is_empty(geometry)) |>
+  filter(!.empty) |>
+  select(-.empty)
+
+# Fix any invalid geometries
+Tracks.sf <- st_make_valid(Tracks.sf)
+
+# 2) Build a clean distance vector in meters
+# - coerce to numeric
+# - replace remaining NA with a fallback (e.g., median RMW)
+# - guard against non-positive values with a minimum
+rmw_km <- suppressWarnings(as.numeric(Tracks.sf$USA_RMW)) * 1.852  # convert to km if you prefer
+# Or stay in nautical miles and convert later
+
+# Fallbacks
+fallback_rmw_nm <- median(Tracks.sf$USA_RMW, na.rm = TRUE)          # in nautical miles
+fallback_rmw_nm <- ifelse(is.finite(fallback_rmw_nm), fallback_rmw_nm, 20)  # use 20 nm if all NA
+
+rmw_nm_clean <- Tracks.sf$USA_RMW
+rmw_nm_clean[!is.finite(rmw_nm_clean)] <- fallback_rmw_nm
+rmw_nm_clean <- pmax(rmw_nm_clean, 1)   # minimum radius 1 nm to avoid zeros/negatives
+
+buf_m <- rmw_nm_clean * 1852            # meters
+
+# 3) Perform the buffer
+# CRS is 32616 (meters), so planar buffering is appropriate
+sf_use_s2(FALSE)  # GEOS planarity for buffer
+Swaths.sf <- st_buffer(Tracks.sf, dist = buf_m)
 
 # Florida boundary and spatially indexed filter
 Boundaries.sf <- USAboundaries::us_states(resolution = "low", states = "FL") |>
@@ -80,7 +112,6 @@ Swaths.sf <- Swaths.sf |>
   mutate(Date = lubridate::as_date(ISO_TIME))
 
 # Dissolve per-storm swaths (union) only once in projected CRS; then back to 4326
-sf_use_s2(FALSE)
 Swaths_valid <- st_make_valid(Swaths.sf)
 Swaths_proj  <- st_transform(Swaths_valid, 5070)  # NAD83 / Conus Albers
 Swaths_union <- Swaths_proj |>
@@ -114,9 +145,14 @@ exp_dates[, Storm_Effect := fifelse(Date == Date0, "Impact",
 
 # Reattach geometry
 Swaths_geom <- Swaths_union |>
-  select(SID, geometry)
-TIC.sf <- left_join(exp_dates, st_drop_geometry(Swaths_geom), by = "SID") |>
-  st_as_sf(crs = 4326)
+  dplyr::select(SID, geometry)
+
+# Make the sf object the LHS, so geometry survives the join
+TIC.sf <- Swaths_geom |>
+  dplyr::left_join(exp_dates, by = "SID")
+
+# TIC.sf is already sf (no need to call st_as_sf)
+sf::st_crs(TIC.sf)  # should be EPSG:4326
 
 # Add month/year indicators and standard geometry name
 TIC.sf <- TIC.sf |>
@@ -124,8 +160,6 @@ TIC.sf <- TIC.sf |>
          Year = year(Date))
 st_geometry(TIC.sf) <- "geom"
 ```
-
----
 
 ## Build a ZIP × Date effect calendar (optimized)
 
@@ -184,8 +218,6 @@ effect_calendar[, effect := factor(effect, levels = c("None","Cleanup","Threat",
 stopifnot(effect_calendar[, .N, by = .(zip, date)][, all(N == 1)])
 ```
 
----
-
 ## Merge storms with death records (optimized)
 
 ```{r}
@@ -208,6 +240,7 @@ Sys.time() - start_time
 ### Filter deaths by date of death and storm effect zones (batched by date)
 
 ```{r}
+start_time <- Sys.time()
 # Work in a projected CRS
 target_crs <- 5070  # NAD83 / Conus Albers
 sf_use_s2(FALSE)
@@ -247,6 +280,7 @@ for (i in seq_along(dates)) {
 }
 
 deaths_with_impacts <- do.call(rbind, results_list)
+Sys.time() - start_time
 ```
 
 ### Collapse to one row per death (max storm category)
@@ -282,14 +316,9 @@ st_write(
 )
 ```
 
----
-
 ## Analytics of deaths and storms
 
 ```{r}
-library(dplyr)
-library(data.table)
-
 Deaths.sf <- deaths_all_effects 
 Deaths.df <- Deaths.sf %>% st_drop_geometry()
 Deaths.dt <- as.data.table(Deaths.df)
@@ -324,8 +353,6 @@ death_rates <- left_join(total_deaths, num_days, by = "Storm_Effect") |>
 
 death_rates
 ```
-
----
 
 ## Add zip codes to each death (optimized)
 
@@ -366,14 +393,12 @@ deaths_with_zip <- st_transform(deaths_with_zip, 4326)
 zctas_fl <- st_transform(zctas_fl_proj, 4269)
 
 # Remove deaths outside any zip if desired
-# deaths_with_zip <- deaths_with_zip %>% filter(!is.na(zip))
+deaths_with_zip <- deaths_with_zip %>% filter(!is.na(zip))
 ```
 
 ### Maps: death totals by ZIP & effect
 
 ```{r}
-library(tidyr)
-
 death_counts_wide <- deaths_with_zip %>%
   sf::st_drop_geometry() %>%  
   filter(Storm_Effect %in% c("Threat","Impact","Cleanup")) %>%
@@ -446,8 +471,6 @@ dates_by_effect_df <- df %>%
 length(unique(dates_by_effect_df$zip))
 ```
 
----
-
 ## Daily counts by ZIP & join to effect calendar
 
 ```{r}
@@ -476,8 +499,6 @@ setkey(dbz, zip, date)
 zip_day <- dbz[effect_calendar, on = .(zip, date)]
 zip_day[is.na(deaths), deaths := 0L]
 ```
-
----
 
 ## Poisson model with stratum fixed effects (statewide)
 
@@ -519,6 +540,22 @@ rr_tbl <- tidy(m_pooled, conf.int = TRUE) %>%
 rr_tbl
 ```
 
+NOTE: 7/0/0 fixed-effects (26,964 observations) removed because of only 0 outcomes or singletons.
+
+Poisson estimation, Dep. Var.: deaths
+Observations: 3,759,634
+Fixed-effects: zip: 976,  ym: 126,  dow: 7
+Standard-errors: Clustered (zip & ym) 
+                 Estimate Std. Error   z value Pr(>|z|) 
+effect::Threat   0.028643   0.019480  1.470418  0.14145 
+effect::Impact  -0.012052   0.016384 -0.735592  0.46198 
+effect::Cleanup  0.002312   0.016010  0.144408  0.88518 
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+Log-Likelihood: -3,028,436.4   Adj. Pseudo R2: 0.170046
+           BIC:  6,073,678.0     Squared Cor.: 0.242331
+
+
 ### Negative binomial FE (sensitivity)
 
 ```{r}
@@ -529,8 +566,6 @@ m_pooled2 <- fenegbin(
 )
 summary(m_pooled2)
 ```
-
----
 
 ## Time-stratified Poisson fixed-effect model per ZIP (optional)
 
@@ -618,8 +653,6 @@ rr_shrunk_threat_only <- rr_shrunk %>%
   filter(effect == "Threat")
 saveRDS(rr_shrunk_threat_only, "data/outputs/Results/zcta_results.rds")
 ```
-
----
 
 ## Hot spot analysis
 
