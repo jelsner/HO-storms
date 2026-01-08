@@ -118,8 +118,8 @@ TIC.sf$Storm_Effect <- TIC
 
 # Add month and year indicators change name of the geometry column (this is needed for spatial merges)
 TIC.sf <- TIC.sf |>
-  mutate(Month = month(Date),
-         Year = year(Date))
+  mutate(Month = lubridate::month(Date),
+         Year = lubridate::year(Date))
 storm_months <- unique(TIC.sf$Month)
 storm_year_range <- range(TIC.sf$Year)
 
@@ -198,8 +198,8 @@ Files received from Jihoon on November 27, 2025. We run these files sequentially
 ```{r}
 start_time <- Sys.time()
 load("data/all_data.Rdata")
-#load("data/cardio_subset_all.Rdata")
-#cardio_code <- unique(cardio_subset_all$ICD_CODE)
+load("data/cardio_subset_all.Rdata")
+cardio_code <- unique(cardio_subset_all$ICD_CODE)
 
 Deaths.df <- all_data %>%
   mutate(Date = as_date(DATE_OF_DEATH)) %>%
@@ -401,13 +401,11 @@ sum(is.na(deaths_with_zip$zip))
 
 # Remove deaths not inside a zip code (if desired)
 deaths_with_zip <- deaths_with_zip %>%
-  filter(!is.na(GEOID))
+  filter(!is.na(zip))
 ```
 
 Make maps. Compute death totals by zip by effect with the effect as separate columns (wide format), then join to zip polygons, then make choropleth maps
 ```{r}
-library(tidyr)
-
 death_counts_wide <- deaths_with_zip %>%
   sf::st_drop_geometry() %>%  
   filter(Storm_Effect %in% c("Threat","Impact","Cleanup")) %>%
@@ -436,7 +434,7 @@ death_map_sf <- zctas_fl %>%
 library(ggplot2)
 library(RColorBrewer)
 
-bins <- c(0, 5, 10, 20, 40, 70, 100)
+bins <- c(0, 5, 10, 25, 50, 100, 200)
 #bins <- c(0, 1, 2, 4, 8, 16, 32)
 pal  <- brewer.pal(length(bins) - 1, "YlOrRd")
 
@@ -456,7 +454,7 @@ make_map <- function(data_sf, col, title = col) {
     theme(plot.title = element_text(face = "bold", hjust = 0.5))
 }
 
-p_impact <- make_map(death_map_sf, "Impact",  "Deaths on impact days")
+p_impact <- make_map(death_map_sf, "Threat",  "Deaths on threat days")
 p_impact
 
 ggsave("figs/zcta_deaths_impact.png",  p_impact,  width = 7.2, height = 6, dpi = 300)
@@ -498,16 +496,16 @@ daily_by_zip <- deaths_with_zip %>%
     date   = as.Date(Death_Date),
     effect = as.character(Storm_Effect),
     age = as.integer(age),
+    white = white,
     sex = sex,
     cc = cardio_code
   ) %>%
-#  filter(sex == "M") %>%
-#  filter(age >= 65) %>%
-  filter(cc %in% cardio_code) %>%
+#  filter(cc %in% cardio_code) %>%
+#  filter(age > 65) %>%
+#  filter(sex == "F") %>%
+#  filter(white == "N") %>%
   group_by(zip, date, effect) %>%
   summarise(deaths = n(),
-#            avg_age = mean(age, na.rm = TRUE),
-#            pct_male = mean(sex == "M"),
             .groups = "drop")
 
 # Sanity check
@@ -534,6 +532,12 @@ zip_day[is.na(deaths), deaths := 0L]  # fill missing counts with 0
 #zip_day[, avg_age := ifelse(is.na(avg_age), mean(avg_age, na.rm = TRUE), avg_age), by = zip]
 ```
 
+Export (optional)
+```{r}
+readr::write_csv(zip_day,
+                 "data/outputs/Deaths/zip_day_34kt_1day.csv")
+```
+
 ## Poisson model with stratum fixed effects
 
 Next we fit a Poisson with stratum fixed effects. This is equivalent to conditioning on the stratum totals and largely removes serial confounding. Use robust (clustered) SEs by stratum to protect against residual correlation within a stratum
@@ -541,13 +545,11 @@ Next we fit a Poisson with stratum fixed effects. This is equivalent to conditio
 Add strata variables. Note here we include only months during the hurricane season (May-November). We can't do this with a time-series model
 ```{r}
 dat <- zip_day %>%
-  filter(month(date) %in% 5:11) %>%  # hurricane season only
+  filter(lubridate::month(date) %in% 5:11) %>%  # hurricane season only
   transmute(
     zip    = as.character(zip),
     date   = as.IDate(date),
     deaths = as.integer(deaths),
-#    avg_age = avg_age,
-#    pct_male = pct_male,
     effect = factor(effect, levels = c("None","Threat","Impact","Cleanup")),
     dow     = factor(strftime(date, "%u"), levels = as.character(1:7),
                        labels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")),
@@ -568,17 +570,6 @@ m_pooled <- fepois(
 
 summary(m_pooled)
 
-m_int <- fepois(
-  deaths ~ i(effect, ref = "None") +
-           pct_male +
-           i(effect, pct_male, ref = "None") |
-           zip + ym + dow,
-  data = dat,
-  cluster = ~ zip + ym
-)
-
-summary(m_int)
-
 # Rate ratios (RR) with CIs
 library(broom)
 
@@ -592,6 +583,247 @@ rr_tbl <- tidy(m_pooled, conf.int = TRUE) %>%                # returns log-scale
     p      = p.value
   )
 rr_tbl
+```
+
+Extract ZIP fixed effects from the model
+```{r}
+# Extract fixed effects
+fe <- fixef(m_pooled)
+
+# ZIP fixed effects as a data.table
+zip_fe <- data.table(
+  zip = names(fe$zip),
+  fe_zip = as.numeric(fe$zip)
+)
+# convert to rate ratios
+zip_fe[, rr_zip := exp(fe_zip)]
+
+zip_map <- zctas_fl %>%
+  mutate(zip = as.character(zip)) %>%
+  left_join(zip_fe, by = "zip")
+
+library(ggplot2)
+
+ggplot(zip_map) +
+  geom_sf(aes(fill = fe_zip), color = NA) +
+  scale_fill_gradient2(
+    low = "blue",
+    mid = "white",
+    high = "red",
+    midpoint = 0,
+    name = "ZIP fixed effect\n(log scale)"
+  ) +
+  labs(
+    title = "ZIP-Level Fixed Effects from Poisson Mortality Model",
+    subtitle = "Baseline mortality differences after adjusting for storm effects, month, and day-of-week"
+  ) +
+  theme_minimal()
+
+ggplot(zip_map) +
+  geom_sf(aes(fill = rr_zip), color = NA) +
+  scale_fill_viridis_c(
+    option = "plasma",
+    name = "Baseline mortality RR",
+    trans = "log"
+  ) +
+  labs(
+    title = "ZIP-Level Baseline Mortality Risk",
+    subtitle = "Rate ratios from ZIP fixed effects (Poisson model)"
+  ) +
+  theme_minimal()
+```
+
+Notes: These are log-scale effects, They are mean-centered (sum ≈ 0)
+
+## zip level Threat effects
+
+Instead of one giant interaction model, we fit one small model per ZIP. This yields a ZIP-specific Threat coefficient (log rate ratio vs None), controlling for month and day-of-week within that ZIP. It’s the “Threat slope by ZIP” we want, without exploding memory.
+
+Prepare data
+```{r}
+library(data.table)
+library(fixest)
+
+setDT(dat)
+
+# Make sure effect is character (fixest will handle factors too)
+dat[, effect := as.character(effect)]
+dat[, ym := as.factor(ym)]
+dat[, dow := as.factor(dow)]
+```
+
+Function to fit one ZIP and extract Threat effect
+```{r}
+fit_one_zip <- function(dz){
+
+  # Basic requirements
+  if (nrow(dz) < 10) return(NULL)
+  if (all(dz$deaths == 0L)) return(NULL)              # no outcome variation
+  if (!("Threat" %in% dz$effect)) return(NULL)
+  if (!("None" %in% dz$effect)) return(NULL)
+
+  # Need some variation in effect across rows
+  if (length(unique(dz$effect)) < 2) return(NULL)
+
+  # Try fitting; if fixest can't estimate, skip ZIP
+  m <- tryCatch(
+    fepois(deaths ~ i(effect, ref = "None") | ym + dow, data = dz),
+    error = function(e) NULL
+  )
+  if (is.null(m)) return(NULL)
+
+  # Extract Threat coefficient + SE if present
+  cf <- coef(m)
+  if (!("effect::Threat" %in% names(cf))) return(NULL)
+
+  vc <- tryCatch(vcov(m), error = function(e) NULL)
+  if (is.null(vc)) return(NULL)
+
+  se <- sqrt(vc["effect::Threat", "effect::Threat"])
+
+  data.table(
+    zip  = dz$zip[1],
+    beta = unname(cf["effect::Threat"]),
+    se   = as.numeric(se)
+  )
+}
+```
+
+Run across all zips
+```{r}
+start <- Sys.time()
+fixest::setFixest_notes(FALSE)
+# Split dat by zip
+zip_list <- split(dat, by = "zip", keep.by = TRUE)
+
+zip_raw <- rbindlist(lapply(zip_list, fit_one_zip), fill = TRUE)
+Sys.time() - start
+```
+
+Estimate between zip variances
+```{r}
+beta_state <- as.numeric(coef(m_pooled)["effect::Threat"])
+
+zip_raw[, v := se^2]
+zip_raw[, u := (beta - beta_state)^2]
+
+tau2 <- max(0, mean(zip_raw$u - zip_raw$v, na.rm = TRUE))
+tau2
+```
+
+Note: tau2 = 0 means there is no detectable ZIP-level heterogeneity in the Threat effect, given the identification strategy
+
+Instead we can map which ZIPs contribute the largest absolute increase in expected deaths on Threat days (“excess deaths”)
+
+This uses our actual dat rows (same ym/dow mix) and predicts expected deaths twice per row: once with effect="None" and once with effect="Threat".
+
+```{r}
+library(data.table)
+library(fixest)
+
+setDT(dat)
+
+# Make sure effect is character/factor with the right levels
+dat[, effect := factor(effect, levels = c("None","Threat","Impact","Cleanup"))]
+
+# Create two copies with different counterfactual effects
+dat_none   <- copy(dat)[, effect := factor("None",   levels = levels(dat$effect))]
+dat_threat <- copy(dat)[, effect := factor("Threat", levels = levels(dat$effect))]
+
+# Predicted expected deaths (includes zip/ym/dow fixed effects automatically)
+mu_none   <- predict(m_pooled, newdata = dat_none,   type = "response")
+mu_threat <- predict(m_pooled, newdata = dat_threat, type = "response")
+
+# Add predictions back (no need to store both huge copies)
+dat[, `:=`(mu_none = mu_none, mu_threat = mu_threat)]
+dat[, mu_excess_threat := mu_threat - mu_none]   # absolute excess on Threat vs None
+
+# Aggregate to zip level
+zip_threat_contrib <- dat[, .(
+  mean_mu_none   = mean(mu_none, na.rm = TRUE),
+  mean_mu_threat = mean(mu_threat, na.rm = TRUE),
+  mean_excess    = mean(mu_excess_threat, na.rm = TRUE),
+  sum_excess     = sum(mu_excess_threat, na.rm = TRUE)   # total excess over all days in dat
+), by = zip]
+```
+
+Map
+```{r}
+zip_map <- zctas_fl |>
+  mutate(zip = as.character(zip)) |>
+  left_join(zip_threat_contrib, by = "zip")
+
+ggplot(zip_map) +
+  geom_sf(aes(fill = mean_excess), color = NA) +
+  scale_fill_viridis_c(name = "Mean excess\ndeaths/day") +
+  labs(
+    title = "Where Threat days add the most expected deaths",
+    subtitle = "Computed from pooled Poisson model: E[deaths|Threat] - E[deaths|None]"
+  ) +
+  theme_minimal()
+
+ggplot(zip_map) +
+  geom_sf(aes(fill = sum_excess), color = NA) +
+  scale_fill_viridis_c(name = "Total excess\ndeaths") +
+  labs(
+    title = "Total expected Threat-related excess deaths by ZIP",
+    subtitle = "Sum over all days in the analysis sample"
+  ) +
+  theme_minimal()
+
+# sanity checks
+beta_threat <- as.numeric(coef(m_pooled)["effect::Threat"])
+exp(beta_threat)  # statewide Threat RR, same for every zip in this model
+```
+
+
+
+
+Map results
+```{r}
+zip_threat_map <- zctas_fl |>
+  mutate(zip = as.character(zip)) |>
+  left_join(zip_threat, by = "zip")
+
+ggplot(zip_threat_map) +
+  geom_sf(aes(fill = threat_beta), color = NA) +
+  scale_fill_gradient2(midpoint = 0, low = "blue", mid = "white", high = "red",
+                       name = "Threat effect\n(log RR)") +
+  labs(title = "ZIP-level Threat effect on daily deaths",
+       subtitle = "Within-ZIP Poisson: deaths ~ effect | year-month + day-of-week") +
+  theme_minimal()
+
+ggplot(zip_threat_map) +
+  geom_sf(aes(fill = threat_RR), color = NA) +
+  scale_fill_viridis_c(trans = "log", name = "Threat RR") +
+  labs(title = "ZIP-level Threat rate ratio (vs None)") +
+  theme_minimal()
+
+```
+
+
+
+
+
+
+
+OLDER STUFF
+------------
+
+## Refit the model with ZIP × Threat interactions (NOT RUN--TOO BIG)
+
+We need to explicitly allow the Threat effect to vary by ZIP. The cleanest way is to interact effect with zip only for Threat, while keeping your fixed effects
+
+```{r}
+start <- Sys.time()
+m_threat_zip <- fepois(
+  deaths ~ i(effect, ref = "None") +
+           i(zip, effect == "Threat") |
+           zip + ym + dow,
+  data    = dat,
+  cluster = ~ zip + ym
+)
+Sys.time() - start
 ```
 
 For all deaths and 34+ storms the coefficients on the fixed effects are
