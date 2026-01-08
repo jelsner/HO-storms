@@ -776,9 +776,6 @@ beta_threat <- as.numeric(coef(m_pooled)["effect::Threat"])
 exp(beta_threat)  # statewide Threat RR, same for every zip in this model
 ```
 
-
-
-
 Map results
 ```{r}
 zip_threat_map <- zctas_fl |>
