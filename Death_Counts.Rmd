@@ -12,7 +12,7 @@ library(sf)
 library(dplyr)
 
 storm_intensity <- 34 # all tropical storms and hurricanes
-begin_year <- 1981
+begin_year <- 1981 # 55+ winds
 end_year <- 2022
 
 L <- "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/IBTrACS.NA.list.v04r00.lines.zip"
@@ -133,9 +133,17 @@ library(data.table)
 library(tigris)
 options(tigris_use_cache = TRUE)
 
-# Florida zips
-zctas_fl <- zctas(cb = FALSE, year = 2010, state = "FL") %>%
-  select(zip = ZCTA5CE10, geometry)
+# Florida zips. National ZCTAs (2020 vintage is often best for modern work)
+zcta_us <- zctas(cb = TRUE, year = 2020) %>%
+  select(zip = ZCTA5CE20, geometry)
+
+fl <- states(cb = TRUE, year = 2020) %>%
+  filter(STUSPS == "FL") %>%
+  st_transform(st_crs(zcta_us))
+
+# Keep ZCTAs that intersect Florida
+zctas_fl <- st_join(zcta_us, fl, join = st_intersects, left = FALSE) %>%
+  select(zip, geometry)
 
 #Align coordinate reference systems
 tic_aligned  <- st_transform(TIC.sf,  st_crs(zctas_fl))
@@ -203,7 +211,7 @@ cardio_code <- unique(cardio_subset_all$ICD_CODE)
 
 Deaths.df <- all_data %>%
   mutate(Date = as_date(DATE_OF_DEATH)) %>%
-  filter(Date >= as.Date("1981-01-01")) %>%
+  filter(Date >= as.Date("1981-01-01")) %>% # 1985 for 55+
   select(Death_ID = ID, Death_Date = Date, final_lon, final_lat, 
          age = COMPUTED_AGE, white = RACE_WHITE, sex = SEX, 
          marital_code = MARITAL_CODE, cardio_code = ICD_CODE, army = ARMY_YESNO)
@@ -217,6 +225,7 @@ Sys.time() - start_time
 Note: IDs are not unique
 
 Filter deaths by date of death and storm effect zones. It took 2.3 hours on my Apple M4 using all deaths (1981-2022), >= 34 kt storms, and +/- 1 day on either side of impact day 6.7 hr +/- 7 days
+All deaths (1985-2022), >=55 kt storms, and +/- 1 day 1.7 hr
 ```{r}
 start_time <- Sys.time()
 # work in a projected CRS for sane distances
@@ -273,7 +282,7 @@ deaths_with_impacts <- do.call(rbind, results_list) #row bind the chunks
 Sys.time() - start_time
 ```
 
-Collapse `deaths_with_impacts` to one row per death, keeping the death occurring with the highest category storm irrespective of effect. For example, TS Bonnie and Cat 4 Charlie on 2004-08-13 was Cleanup on Bonnie and Impact on Charlie
+Collapse `deaths_with_impacts` to one row per death, keeping the death occurring with the highest category storm irrespective of effect. For example, TS Bonnie and Cat 4 Charlie on 2004-08-13 was Cleanup on Bonnie and Impact on Charlie. Not needed for 55+ winds
 ```{r}
 impacts_max_cat <- deaths_with_impacts %>%
   st_drop_geometry() %>%
@@ -361,7 +370,7 @@ death_rates <- left_join(total_deaths, num_days, by = "Storm_Effect") |>
 print(death_rates)
 ```
 
-This tells us that in this sample the statewide daily death rate is somewhat higher on storm-effect days (all-cause deaths). But a lot is going on: time and spatial trends, seasonality, autocorrelation. We need a model that accounts for these things
+This tells us that in this sample the statewide daily death rate is somewhat higher on storm-effect days (all-cause deaths, 34+ kt winds). But a lot is going on: time and spatial trends, seasonality, autocorrelation. We need a model that accounts for these things
 
 ## Add zip codes to each death
 
@@ -369,10 +378,6 @@ Setup the data (as a panel)
 
 Spatial join deaths to zips
 ```{r}
-# Inspect CRS
-st_crs(zctas_fl)   # NAD83 (EPSG:4269)
-st_crs(Deaths.sf)  # WGS84 (EPSG:4326)
-
 # work in a projected CRS for sane distances
 target_crs <- 5070  # NAD83 / Conus Albers, or anything projected
 
@@ -391,7 +396,7 @@ deaths_with_zip <- st_join(
 )
 Sys.time() - begin
 
-# 1.07 hrs all deaths 55+ storms
+# 1.1 hrs all deaths 55+ storms
 
 deaths_with_zip <- st_transform(deaths_with_zip, 4326)
 zctas_fl <- st_transform(zctas_fl, 4269)
@@ -402,6 +407,11 @@ sum(is.na(deaths_with_zip$zip))
 # Remove deaths not inside a zip code (if desired)
 deaths_with_zip <- deaths_with_zip %>%
   filter(!is.na(zip))
+```
+
+Save
+```{r}
+saveRDS(deaths_with_zip, "data/outputs/Results/deaths_with_zip_34kt.rds")
 ```
 
 Make maps. Compute death totals by zip by effect with the effect as separate columns (wide format), then join to zip polygons, then make choropleth maps
@@ -454,8 +464,8 @@ make_map <- function(data_sf, col, title = col) {
     theme(plot.title = element_text(face = "bold", hjust = 0.5))
 }
 
-p_impact <- make_map(death_map_sf, "Threat",  "Deaths on threat days")
-p_impact
+p_threat <- make_map(death_map_sf, "Threat",  "Deaths on threat days")
+p_threat
 
 ggsave("figs/zcta_deaths_impact.png",  p_impact,  width = 7.2, height = 6, dpi = 300)
 ```
@@ -487,7 +497,7 @@ length(unique(dates_by_effect_df$zip))
 
 Here is where we can subset by age, sex, race, cardio
 
-Daily death counts by zip. I don't think it makes much sense to use daily average age or daily percent male
+Daily death counts by zip. It doesn't make much sense to use daily average age or daily percent male
 ```{r}
 daily_by_zip <- deaths_with_zip %>%
   st_drop_geometry() %>%
@@ -501,7 +511,7 @@ daily_by_zip <- deaths_with_zip %>%
     cc = cardio_code
   ) %>%
 #  filter(cc %in% cardio_code) %>%
-#  filter(age > 65) %>%
+#  filter(age >= 60) %>%
 #  filter(sex == "F") %>%
 #  filter(white == "N") %>%
   group_by(zip, date, effect) %>%
@@ -542,7 +552,7 @@ readr::write_csv(zip_day,
 
 Next we fit a Poisson with stratum fixed effects. This is equivalent to conditioning on the stratum totals and largely removes serial confounding. Use robust (clustered) SEs by stratum to protect against residual correlation within a stratum
 
-Add strata variables. Note here we include only months during the hurricane season (May-November). We can't do this with a time-series model
+Add strata variables. Note here we include only months during the hurricane season (May-November)
 ```{r}
 dat <- zip_day %>%
   filter(lubridate::month(date) %in% 5:11) %>%  # hurricane season only
@@ -587,22 +597,17 @@ rr_tbl
 
 Extract ZIP fixed effects from the model
 ```{r}
-# Extract fixed effects
 fe <- fixef(m_pooled)
-
-# ZIP fixed effects as a data.table
 zip_fe <- data.table(
   zip = names(fe$zip),
   fe_zip = as.numeric(fe$zip)
 )
-# convert to rate ratios
+
 zip_fe[, rr_zip := exp(fe_zip)]
 
 zip_map <- zctas_fl %>%
   mutate(zip = as.character(zip)) %>%
   left_join(zip_fe, by = "zip")
-
-library(ggplot2)
 
 ggplot(zip_map) +
   geom_sf(aes(fill = fe_zip), color = NA) +
@@ -618,6 +623,24 @@ ggplot(zip_map) +
     subtitle = "Baseline mortality differences after adjusting for storm effects, month, and day-of-week"
   ) +
   theme_minimal()
+
+zip_map_plot <- zip_map %>%
+  mutate(rr_gt1 = ifelse(rr_zip > 1, rr_zip, NA_real_))
+
+ggplot(zip_map_plot) +
+  geom_sf(aes(fill = rr_gt1), color = NA) +
+  scale_fill_viridis_c(
+    option = "plasma",
+    name   = "Baseline mortality RR (>1)",
+    trans  = "log",
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "ZIPs with Elevated Baseline Mortality Risk",
+    subtitle = "Only ZIPs with RR > 1 shown (others masked)"
+  ) +
+  theme_minimal()
+
 
 ggplot(zip_map) +
   geom_sf(aes(fill = rr_zip), color = NA) +
@@ -689,7 +712,7 @@ fit_one_zip <- function(dz){
 }
 ```
 
-Run across all zips
+Run across all zips ~ 30 sec
 ```{r}
 start <- Sys.time()
 fixest::setFixest_notes(FALSE)
@@ -775,32 +798,6 @@ ggplot(zip_map) +
 beta_threat <- as.numeric(coef(m_pooled)["effect::Threat"])
 exp(beta_threat)  # statewide Threat RR, same for every zip in this model
 ```
-
-Map results
-```{r}
-zip_threat_map <- zctas_fl |>
-  mutate(zip = as.character(zip)) |>
-  left_join(zip_threat, by = "zip")
-
-ggplot(zip_threat_map) +
-  geom_sf(aes(fill = threat_beta), color = NA) +
-  scale_fill_gradient2(midpoint = 0, low = "blue", mid = "white", high = "red",
-                       name = "Threat effect\n(log RR)") +
-  labs(title = "ZIP-level Threat effect on daily deaths",
-       subtitle = "Within-ZIP Poisson: deaths ~ effect | year-month + day-of-week") +
-  theme_minimal()
-
-ggplot(zip_threat_map) +
-  geom_sf(aes(fill = threat_RR), color = NA) +
-  scale_fill_viridis_c(trans = "log", name = "Threat RR") +
-  labs(title = "ZIP-level Threat rate ratio (vs None)") +
-  theme_minimal()
-
-```
-
-
-
-
 
 
 
