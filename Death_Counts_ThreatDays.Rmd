@@ -1,0 +1,808 @@
+---
+title: "Daily death counts prior to storm impacts"
+output: html_document
+editor_options:
+  chunk_output_type: console
+---
+
+## Create an empirical storm threat model
+
+```{r}
+library(sf)
+library(dplyr)
+
+storm_intensity <- 55 # all tropical storms and hurricanes
+begin_year <- 1985 # 1985 for 55+ winds
+end_year <- 2022
+begin_date <- paste0(begin_year, "-01-01")
+end_date <- paste0(end_year, "-12-31")
+
+L <- "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/IBTrACS.NA.list.v04r00.lines.zip"
+  
+if(!"IBTrACS.NA.list.v04r00.lines.zip" %in% list.files(here::here("data"))) {
+download.file(url = L,
+              destfile = here::here("data",
+                                    "IBTrACS.NA.list.v04r00.lines.zip"))
+unzip(here::here("data", "IBTrACS.NA.list.v04r00.lines.zip"),
+      exdir = here::here("data"))
+}
+
+Tracks.sf <- st_read(dsn = here::here("data"), 
+                     layer = "IBTrACS.NA.list.v04r00.lines") |>
+  st_transform(crs = 32616)
+
+Tracks.sf <- Tracks.sf |>
+  filter(year >= begin_year & year <= end_year) |>
+  filter(USA_WIND >= storm_intensity) |>
+  select(SID, SEASON, year, month, day, hour, min,
+         NAME, SUBBASIN, ISO_TIME, USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
+
+Tracks.sf |>
+  st_drop_geometry() |>
+  summarize(avgRMW = mean(USA_RMW, na.rm = TRUE) * 1.852,
+                   avgEYE = mean(USA_EYE, na.rm = TRUE) * 1.852,
+                   avgROCI = mean(USA_ROCI, na.rm = TRUE) * 1.852)
+
+# Fill in missing RMW values. Start with pedigree, then use minimum pressure, and finish again with pedigree
+Tracks.sf <- Tracks.sf |>
+  group_by(SID) |>  # pedigree
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+Tracks.sf <- Tracks.sf |>
+  group_by(USA_PRES) |> # minimum pressure
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+Tracks.sf <- Tracks.sf |>
+  group_by(SID) |> # pedigree
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+#Add a buffer to the tracks to make segmented wind swaths
+Swaths.sf <- Tracks.sf |>
+  st_buffer(dist = Tracks.sf$USA_RMW * 1852) # 1852 converts to meters
+
+# Wind swaths that cross Florida. `USAboundaries` package no longer maintained on CRAN
+#devtools::install_github("ropensci/USAboundariesData")
+#devtools::install_github("ropensci/USAboundaries", force = TRUE)
+#install.packages("USAboundariesData", repos = "https://ropensci.r-universe.dev", type = "source")
+Boundaries.sf <- USAboundaries::us_states(resolution = "low", states = "FL") |> 
+  st_transform(crs = 32616)
+
+X <- Swaths.sf |>
+  st_intersects(Boundaries.sf, sparse = FALSE) #Does the swath intersect the state border?
+Swaths.sf <- Swaths.sf[X, ]
+Swaths.sf <- Swaths.sf |>
+  mutate(Date = lubridate::as_date(ISO_TIME)) #Add a date column
+
+# Extract the boundaries of storm impacts by storm ID. Dissolve the overlap borders of the individual swaths by storm to create a single storm swath. Add the storm category (Saffir-Simpson) based on wind speed
+Swaths.sf <- Swaths.sf |>
+  group_by(SID) |>
+  summarize(Date0 = first(Date),
+            NAME = first(NAME),
+            Wind = max(USA_WIND),
+            geometry = st_union(geometry)) |>
+  mutate(Storm_Category = case_when(
+    Wind >= 34 & Wind <= 63 ~ 0,
+    Wind >= 64 & Wind <= 82 ~ 1,
+    Wind >= 83 & Wind <= 95 ~ 2,
+    Wind >= 96 & Wind <= 112 ~ 3,
+    Wind >= 113 & Wind <= 136 ~ 4,
+    Wind >= 137 ~ 5
+  ))
+
+# Transform the geometry to a geographic CRS (4326) and unionize the swaths
+sf_use_s2(TRUE)
+
+Swaths.sf <- Swaths.sf |>
+    st_transform(crs = 4326)
+union_Swaths2.sfg <- Swaths.sf |>
+  st_union()
+```
+
+## Expand `Swaths.sf` by adding rows based on the increment value of the attribute `Date0`
+
+```{r}
+library(tidyr)
+library(lubridate)
+
+max_lag  <- 10   # days before impact
+max_lead <- 10   # days after impact
+
+TIC.sf <- Swaths.sf %>%
+  rowwise() %>%
+  mutate(event_days = list(
+    tibble(
+      Date     = Date0 + (-max_lag:max_lead),
+      rel_day  = -max_lag:max_lead
+    )
+  )) %>%
+  unnest(event_days) %>%
+  ungroup() %>%
+  select(
+    Date,
+    rel_day,
+    Storm_Name = NAME,
+    Storm_Category
+  )
+
+# Create event-time factors
+TIC.sf <- TIC.sf %>%
+  mutate(
+    rel_day_f = factor(rel_day)
+  )
+
+# Add month and year indicators change name of the geometry column (this is needed for spatial merges)
+TIC.sf <- TIC.sf |>
+  mutate(Month = lubridate::month(Date),
+         Year = lubridate::year(Date))
+storm_months <- unique(TIC.sf$Month)
+storm_year_range <- range(TIC.sf$Year)
+
+st_geometry(TIC.sf) <- "geom"
+```
+
+## Build a zip x date relative day calendar
+
+~ 25 sec
+```{r}
+library(data.table)
+library(tigris)
+library(sf)
+library(dplyr)
+
+options(tigris_use_cache = TRUE)
+
+# --- ZCTAs for Florida (2020) ---
+zcta_us <- zctas(cb = TRUE, year = 2020) %>%
+  select(zip = ZCTA5CE20, geometry)
+
+fl <- states(cb = TRUE, year = 2020) %>%
+  filter(STUSPS == "FL") %>%
+  st_transform(st_crs(zcta_us))
+
+zctas_fl <- st_join(zcta_us, fl, join = st_intersects, left = FALSE) %>%
+  select(zip, geometry)
+
+# --- Align CRS ---
+tic_aligned <- st_transform(TIC.sf, st_crs(zctas_fl))
+
+# --- Keep only what we need from TIC: Date + rel_day (or rel_day_f) + geometry ---
+# Prefer storing numeric rel_day and constructing rel_day_f later.
+tic_keep <- tic_aligned %>%
+  select(Date, rel_day, geom)
+
+# --- Spatial join: which zips intersect a TIC polygon on that date ---
+zcta_date_rel_sf <- st_join(
+  zctas_fl,
+  tic_keep,
+  join = st_intersects,
+  left = FALSE
+)
+
+# --- Drop geometry and convert to data.table ---
+zcta_date_rel <- as.data.table(st_drop_geometry(zcta_date_rel_sf))
+setnames(zcta_date_rel, c("zip", "Date", "rel_day"), c("zip", "date", "rel_day"))
+
+# --- Normalize types ---
+zcta_date_rel[, `:=`(
+  zip     = as.character(zip),
+  date    = as.IDate(date),
+  rel_day = as.integer(rel_day)
+)]
+
+# --- Resolve multiple hits per ZIP–date ---
+# Rule: choose rel_day closest to 0 (impact). Tie-break: prefer negative (pre-impact).
+zcta_date_rel <- zcta_date_rel[
+  , .SD[order(abs(rel_day), rel_day)][1],
+  by = .(zip, date)
+]
+
+# --- Build full ZIP × date grid (choose your desired universe) ---
+all_zips <- sort(unique(zctas_fl$zip))
+all_dates <- as.IDate(seq(as.Date(begin_date), as.Date(end_date), by = "day"))
+grid <- CJ(zip = as.character(all_zips), date = all_dates)
+
+# --- Left-join observed rel_day onto full grid ---
+rel_calendar <- zcta_date_rel[grid, on = .(zip, date)]
+
+# --- Construct rel_day_f (factor) with "None" for non-storm days ---
+min_lag  <- -10L
+max_lead <-  10L
+
+rel_levels <- c(
+  "None",
+  as.character(min_lag:max_lead)
+)
+
+rel_calendar[, rel_day_f := fifelse(is.na(rel_day), "None", as.character(rel_day))]
+rel_calendar[, rel_day_f := factor(rel_day_f, levels = rel_levels)]
+
+# --- Sanity checks ---
+stopifnot(rel_calendar[, .N, by = .(zip, date)][, all(N == 1)])
+rel_calendar[, table(rel_day_f)]
+```
+
+## Merge storms with death records
+
+Files received from Jihoon on November 27, 2025 
+
+~ 2 minutes
+```{r}
+start_time <- Sys.time()
+load("data/all_data.Rdata")
+
+Deaths.df <- all_data %>%
+  mutate(Date = as_date(DATE_OF_DEATH)) %>%
+  filter(Date >= as.Date(begin_date)) %>% 
+  select(Death_ID = ID, Death_Date = Date, final_lon, final_lat, 
+         age = COMPUTED_AGE, white = RACE_WHITE, sex = SEX, 
+         marital_code = MARITAL_CODE, cardio_code = ICD_CODE, army = ARMY_YESNO)
+
+Deaths.sf <- Deaths.df %>%
+  st_as_sf(coords = c("final_lon", "final_lat"), crs = 4326)
+rm(all_data, Deaths.df)
+Sys.time() - start_time
+```
+
+## Filter deaths by date of death and storm effect zones
+
+~ 10 minutes
+```{r}
+library(sf)
+library(dplyr)
+
+start_time <- Sys.time()
+
+target_crs <- 5070
+sf_use_s2(FALSE)
+
+# IMPORTANT: set window here
+min_lag  <- -10L
+max_lead <-  10L
+
+TIC_proj    <- st_transform(TIC.sf,    target_crs)
+Deaths_proj <- st_transform(Deaths.sf, target_crs)
+
+num_obs <- nrow(Deaths_proj)
+chunk_size <- 50000
+num_chunks <- ceiling(num_obs / chunk_size)
+print(paste("Number of chunks to process", num_chunks))
+
+results_list <- vector("list", num_chunks)
+
+for (i in seq(1, num_obs, by = chunk_size)) {
+  chunk_index <- (i - 1) / chunk_size + 1
+  chunk_indices <- i:min(i + chunk_size - 1, num_obs)
+
+  print(paste("Processing chunk", chunk_index))
+
+  chunk.sf <- Deaths_proj[chunk_indices, ]
+
+  chunk_dates <- unique(chunk.sf$Death_Date)
+  TIC_chunk <- TIC_proj %>% filter(Date %in% chunk_dates)
+
+  if (nrow(TIC_chunk) == 0) {
+    results_list[[chunk_index]] <- NULL
+    gc()
+    next
+  }
+
+  deaths_joined <- st_join(chunk.sf, TIC_chunk, join = st_within, left = FALSE) %>%
+    filter(Date == Death_Date) %>%                 # enforce same-day
+    mutate(rel_day = as.integer(rel_day)) %>%
+    filter(rel_day >= min_lag, rel_day <= max_lead)
+
+  if (nrow(deaths_joined) == 0) {
+    results_list[[chunk_index]] <- NULL
+    gc()
+    next
+  }
+
+  deaths_with_impacts <- deaths_joined %>%
+    group_by(Death_ID, Death_Date) %>%
+    arrange(abs(rel_day), rel_day) %>%             # tie-break toward pre-impact
+    slice(1) %>%
+    ungroup() %>%
+    transmute(
+      Death_ID, Death_Date,
+      Storm_Name, Storm_Category,
+      rel_day,
+      rel_day_f = factor(as.character(rel_day), levels = as.character(min_lag:max_lead)),
+      age, white, sex, marital_code, cardio_code, army,
+      geometry
+    ) %>%
+    distinct()
+
+  results_list[[chunk_index]] <- deaths_with_impacts
+  gc()
+}
+
+deaths_with_impacts <- do.call(rbind, results_list)
+Sys.time() - start_time
+```
+
+## Combine with all deaths
+
+```{r}
+impacts_keep <- deaths_with_impacts %>%
+  st_drop_geometry() %>%
+  select(Death_ID, Death_Date, Storm_Name, Storm_Category, rel_day, rel_day_f)
+
+deaths_all_effects <- Deaths.sf %>%
+  left_join(impacts_keep, by = c("Death_ID", "Death_Date")) %>%
+  mutate(
+    rel_day_f = replace_na(as.character(rel_day_f), "None"),
+    rel_day_f = factor(rel_day_f, levels = c("None", as.character(min_lag:max_lead))),
+    rel_day   = if_else(rel_day_f == "None", NA_integer_, as.integer(rel_day))
+  )
+```
+
+Export (optional)
+```{r}
+# To CSV
+st_drop_geometry(deaths_all_effects) %>%
+  readr::write_csv("data/outputs/Deaths/All_Deaths_55kt.csv")
+
+# To GeoPackage
+st_write(
+  deaths_all_effects,              # full sf object with long names
+  dsn = "data/outputs/Deaths/All_Deaths_55kt.gpkg",
+  layer = "All_Deaths_Threat_55kt",
+  delete_dsn = TRUE
+)
+```
+
+## Analytics of deaths and storms
+
+Compute statewide death rates
+```{r}
+# Inputs:
+# - deaths_all_effects: all deaths with rel_day_f already attached ("None", "-7"... "+3")
+# - TIC.sf: storm swath polygons expanded with Date and rel_day (event window -7:+3)
+
+# -----------------------------
+# 1) Death totals by rel_day_f
+# -----------------------------
+Deaths.df <- deaths_all_effects %>% st_drop_geometry()
+
+total_deaths <- Deaths.df %>%
+  mutate(rel_day_f = as.character(rel_day_f)) %>%
+  group_by(rel_day_f) %>%
+  summarise(total_deaths = n(), .groups = "drop")
+
+# -----------------------------------------
+# 2) Statewide calendar: one rel_day per day
+# -----------------------------------------
+# Collapse TIC.sf to one rel_day per Date using:
+#  - min abs(rel_day)
+#  - tie-break toward negative rel_day (pre-impact)
+state_calendar <- TIC.sf %>%
+  st_drop_geometry() %>%
+  transmute(Date = as.Date(Date), rel_day = as.integer(rel_day)) %>%
+  filter(rel_day >= min_lag, rel_day <= max_lead) %>%
+  group_by(Date) %>%
+  arrange(abs(rel_day), rel_day) %>%   # pre-impact wins ties
+  slice(1) %>%
+  ungroup() %>%
+  transmute(
+    date = Date,
+    rel_day_f = as.character(rel_day)
+  )
+
+# Full calendar over the study period (use deaths date range as the master range)
+all_dates <- tibble(
+  date = seq(min(Deaths.df$Death_Date, na.rm = TRUE),
+             max(Deaths.df$Death_Date, na.rm = TRUE),
+             by = "day")
+)
+
+state_calendar_full <- all_dates %>%
+  left_join(state_calendar, by = "date") %>%
+  mutate(rel_day_f = replace_na(rel_day_f, "None"))
+
+# Count calendar-days in each rel_day_f category
+num_days <- state_calendar_full %>%
+  count(rel_day_f, name = "num_days")
+
+# 3) Calendar-day death rates by rel_day
+
+death_rates <- total_deaths %>%
+  full_join(num_days, by = "rel_day_f") %>%
+  mutate(
+    total_deaths = replace_na(total_deaths, 0L),
+    daily_death_rate = total_deaths / num_days
+  ) %>%
+  mutate(rel_day_f = factor(rel_day_f, levels = c("None", as.character(min_lag:max_lead)))) %>%
+  arrange(rel_day_f)
+
+print(death_rates)
+```
+
+## Add zip codes to each death
+
+Spatial join deaths to zips
+~ 1.3 hours
+```{r}
+begin <- Sys.time()
+
+target_crs <- 5070
+sf_use_s2(FALSE)
+
+zctas_fl_proj <- st_transform(zctas_fl, target_crs)
+
+Deaths_proj <- st_transform(deaths_all_effects, target_crs)
+
+deaths_with_zip <- st_join(
+  Deaths_proj,
+  zctas_fl_proj,
+  join    = st_intersects,
+  left    = TRUE,
+  largest = TRUE
+)
+
+deaths_with_zip <- st_transform(deaths_with_zip, 4326)
+
+# How many didn't land in any ZCTA?
+sum(is.na(deaths_with_zip$zip))
+
+# Drop if desired
+deaths_with_zip <- deaths_with_zip %>%
+  filter(!is.na(zip))
+
+Sys.time() - begin
+```
+
+Save
+```{r}
+saveRDS(deaths_with_zip, "data/outputs/Results/deaths_with_zip_55kt.rds")
+```
+
+## Panel-ready daily counts
+
+One row per zip-date
+~ 20 sec
+```{r}
+begin <- Sys.time()
+# 1) deaths per ZIP–date (no rel_day_f here)
+daily_deaths <- deaths_with_zip %>%
+  st_drop_geometry() %>%
+  transmute(
+    zip   = as.character(zip),
+    date  = as.IDate(Death_Date),
+    age   = as.integer(age),
+    white = white,
+    sex   = sex,
+    cc    = cardio_code
+  ) %>%
+  # optional filters:
+  # filter(cc %in% cardio_code) %>%
+  # filter(age >= 60) %>%
+  # filter(sex == "F") %>%
+  # filter(white == "N") %>%
+  group_by(zip, date) %>%
+  summarise(deaths = n(), .groups = "drop")
+
+# 2) Join to ZIP×date exposure calendar (must have unique zip-date rel_day_f)
+#    Assuming your calendar is named rel_calendar with columns: zip, date, rel_day_f
+dat <- as.data.table(daily_deaths)
+cal <- as.data.table(rel_calendar)
+
+# Ensure consistent types
+dat[, `:=`(zip = as.character(zip), date = as.IDate(date))]
+cal[, `:=`(zip = as.character(zip), date = as.IDate(date))]
+
+# Left join calendar -> deaths (keeps all ZIP-days in calendar)
+panel <- dat[cal, on = .(zip, date)]
+
+# Fill no-death days with 0
+panel[is.na(deaths), deaths := 0L]
+
+# 3) Ensure rel_day_f factor levels are correct
+panel[, rel_day_f := factor(as.character(rel_day_f), levels = c("None", as.character(min_lag:max_lead)))]
+
+# Sanity check: exactly one row per ZIP–date
+stopifnot(panel[, .N, by = .(zip, date)][, all(N == 1)])
+
+Sys.time() - begin
+```
+
+Export (optional)
+```{r}
+readr::write_csv(panel, "data/outputs/Deaths/daily_panel_55kt.csv")
+
+panel_34kt <- readr::read_csv("data/outputs/Deaths/daily_panel_34kt.csv")
+panel_55kt <- readr::read_csv("data/outputs/Deaths/daily_panel_55kt.csv")
+```
+
+## Poisson model with stratum fixed effects
+
+Next we fit a Poisson with stratum fixed effects. This is equivalent to conditioning on the stratum totals and largely removes serial confounding. Use robust (clustered) SEs by stratum to protect against residual correlation within a stratum
+
+Add strata variables. Include only months during the hurricane season (May-November)
+```{r}
+library(fixest)
+library(broom)
+
+begin <- Sys.time()
+# zip_day must already have one row per zip-date:
+# columns: zip, date, deaths, rel_day_f  (rel_day_f in {"None","-7",...,"3"})
+
+dat <- panel %>%
+  filter(lubridate::month(as.Date(date)) %in% 5:11) %>%  # hurricane season only
+  transmute(
+    zip      = as.character(zip),
+    date     = as.IDate(date),
+    deaths   = as.integer(deaths),
+    rel_day_f = factor(as.character(rel_day_f), levels = c("None", as.character(min_lag:max_lead))),
+    dow      = factor(strftime(as.Date(date), "%u"),
+                      levels = as.character(1:7),
+                      labels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")),
+    ym       = format(as.Date(date), "%Y-%m")
+  )
+
+m_event <- fepois(
+  deaths ~ i(rel_day_f, ref = "None") | zip + ym + dow,
+  data    = dat,
+  cluster = ~ zip + ym,
+  notes   = FALSE
+)
+
+summary(m_event)
+
+rr_tbl <- tidy(m_event, conf.int = TRUE) %>%
+  filter(grepl("^rel_day_f::", term)) %>%
+  transmute(
+    rel_day = sub("^rel_day_f::", "", term),
+    RR      = exp(estimate),
+    LCI     = exp(conf.low),
+    UCI     = exp(conf.high),
+    p       = p.value
+  ) %>%
+  mutate(rel_day = factor(rel_day, levels = as.character(-10:10))) %>%  
+  arrange(rel_day)
+
+rr_tbl
+
+Sys.time() - begin
+```
+
+## Plot results
+```{r}
+library(dplyr)
+library(broom)
+library(ggplot2)
+
+plot_rr_event <- function(model, prefix = "rel_day_f::") {
+
+  rr_df <- tidy(model, conf.int = TRUE) %>%
+    # keep only lag/lead terms
+    filter(startsWith(term, prefix)) %>%
+    mutate(
+      rel_day = as.integer(sub(prefix, "", term)),
+      RR  = exp(estimate),
+      LCI = exp(conf.low),
+      UCI = exp(conf.high)
+    ) %>%
+    arrange(rel_day)
+
+  ggplot(rr_df, aes(x = rel_day, y = RR)) +
+    geom_hline(yintercept = 1, linetype = "dashed") +
+    geom_ribbon(aes(ymin = LCI, ymax = UCI), fill = "grey80", alpha = 0.7) +
+    geom_line(linewidth = 0.9) +
+    geom_point(size = 2) +
+    scale_x_continuous(breaks = sort(unique(rr_df$rel_day))) +
+    labs(
+      x = "Days relative to impact (lag/lead)",
+      y = "Rate ratio (RR)",
+      title = "RR by lag/lead day with 95% CI"
+    ) +
+    theme_minimal()
+}
+
+# run it
+plot_rr_event(m_event)
+```
+
+
+Extract ZIP fixed effects from the model
+```{r}
+fe <- fixef(m_pooled)
+zip_fe <- data.table(
+  zip = names(fe$zip),
+  fe_zip = as.numeric(fe$zip)
+)
+
+zip_fe[, rr_zip := exp(fe_zip)]
+
+zip_map <- zctas_fl %>%
+  mutate(zip = as.character(zip)) %>%
+  left_join(zip_fe, by = "zip")
+
+ggplot(zip_map) +
+  geom_sf(aes(fill = fe_zip), color = NA) +
+  scale_fill_gradient2(
+    low = "blue",
+    mid = "white",
+    high = "red",
+    midpoint = 0,
+    name = "ZIP fixed effect\n(log scale)"
+  ) +
+  labs(
+    title = "ZIP-Level Fixed Effects from Poisson Mortality Model",
+    subtitle = "Baseline mortality differences after adjusting for storm effects, month, and day-of-week"
+  ) +
+  theme_minimal()
+
+zip_map_plot <- zip_map %>%
+  mutate(rr_gt1 = ifelse(rr_zip > 1, rr_zip, NA_real_))
+
+ggplot(zip_map_plot) +
+  geom_sf(aes(fill = rr_gt1), color = NA) +
+  scale_fill_viridis_c(
+    option = "plasma",
+    name   = "Baseline mortality RR (>1)",
+    trans  = "log",
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "ZIPs with Elevated Baseline Mortality Risk",
+    subtitle = "Only ZIPs with RR > 1 shown (others masked)"
+  ) +
+  theme_minimal()
+
+
+ggplot(zip_map) +
+  geom_sf(aes(fill = rr_zip), color = NA) +
+  scale_fill_viridis_c(
+    option = "plasma",
+    name = "Baseline mortality RR",
+    trans = "log"
+  ) +
+  labs(
+    title = "ZIP-Level Baseline Mortality Risk",
+    subtitle = "Rate ratios from ZIP fixed effects (Poisson model)"
+  ) +
+  theme_minimal()
+```
+
+Notes: These are log-scale effects, They are mean-centered (sum ≈ 0)
+
+## zip level Threat effects
+
+Instead of one giant interaction model, we fit one small model per ZIP. This yields a ZIP-specific Threat coefficient (log rate ratio vs None), controlling for month and day-of-week within that ZIP. It’s the “Threat slope by ZIP” we want, without exploding memory.
+
+Prepare data
+```{r}
+library(data.table)
+library(fixest)
+
+setDT(dat)
+
+# Make sure effect is character (fixest will handle factors too)
+dat[, effect := as.character(effect)]
+dat[, ym := as.factor(ym)]
+dat[, dow := as.factor(dow)]
+```
+
+Function to fit one ZIP and extract Threat effect
+```{r}
+fit_one_zip <- function(dz){
+
+  # Basic requirements
+  if (nrow(dz) < 10) return(NULL)
+  if (all(dz$deaths == 0L)) return(NULL)              # no outcome variation
+  if (!("Threat" %in% dz$effect)) return(NULL)
+  if (!("None" %in% dz$effect)) return(NULL)
+
+  # Need some variation in effect across rows
+  if (length(unique(dz$effect)) < 2) return(NULL)
+
+  # Try fitting; if fixest can't estimate, skip ZIP
+  m <- tryCatch(
+    fepois(deaths ~ i(effect, ref = "None") | ym + dow, data = dz),
+    error = function(e) NULL
+  )
+  if (is.null(m)) return(NULL)
+
+  # Extract Threat coefficient + SE if present
+  cf <- coef(m)
+  if (!("effect::Threat" %in% names(cf))) return(NULL)
+
+  vc <- tryCatch(vcov(m), error = function(e) NULL)
+  if (is.null(vc)) return(NULL)
+
+  se <- sqrt(vc["effect::Threat", "effect::Threat"])
+
+  data.table(
+    zip  = dz$zip[1],
+    beta = unname(cf["effect::Threat"]),
+    se   = as.numeric(se)
+  )
+}
+```
+
+Run across all zips ~ 30 sec
+```{r}
+start <- Sys.time()
+fixest::setFixest_notes(FALSE)
+# Split dat by zip
+zip_list <- split(dat, by = "zip", keep.by = TRUE)
+
+zip_raw <- rbindlist(lapply(zip_list, fit_one_zip), fill = TRUE)
+Sys.time() - start
+```
+
+Estimate between zip variances
+```{r}
+beta_state <- as.numeric(coef(m_pooled)["effect::Threat"])
+
+zip_raw[, v := se^2]
+zip_raw[, u := (beta - beta_state)^2]
+
+tau2 <- max(0, mean(zip_raw$u - zip_raw$v, na.rm = TRUE))
+tau2
+```
+
+Note: tau2 = 0 means there is no detectable ZIP-level heterogeneity in the Threat effect, given the identification strategy
+
+Instead we can map which ZIPs contribute the largest absolute increase in expected deaths on Threat days (“excess deaths”)
+
+This uses our actual dat rows (same ym/dow mix) and predicts expected deaths twice per row: once with effect="None" and once with effect="Threat".
+
+```{r}
+library(data.table)
+library(fixest)
+
+setDT(dat)
+
+# Make sure effect is character/factor with the right levels
+dat[, effect := factor(effect, levels = c("None","Threat","Impact","Cleanup"))]
+
+# Create two copies with different counterfactual effects
+dat_none   <- copy(dat)[, effect := factor("None",   levels = levels(dat$effect))]
+dat_threat <- copy(dat)[, effect := factor("Threat", levels = levels(dat$effect))]
+
+# Predicted expected deaths (includes zip/ym/dow fixed effects automatically)
+mu_none   <- predict(m_pooled, newdata = dat_none,   type = "response")
+mu_threat <- predict(m_pooled, newdata = dat_threat, type = "response")
+
+# Add predictions back (no need to store both huge copies)
+dat[, `:=`(mu_none = mu_none, mu_threat = mu_threat)]
+dat[, mu_excess_threat := mu_threat - mu_none]   # absolute excess on Threat vs None
+
+# Aggregate to zip level
+zip_threat_contrib <- dat[, .(
+  mean_mu_none   = mean(mu_none, na.rm = TRUE),
+  mean_mu_threat = mean(mu_threat, na.rm = TRUE),
+  mean_excess    = mean(mu_excess_threat, na.rm = TRUE),
+  sum_excess     = sum(mu_excess_threat, na.rm = TRUE)   # total excess over all days in dat
+), by = zip]
+```
+
+Map
+```{r}
+zip_map <- zctas_fl |>
+  mutate(zip = as.character(zip)) |>
+  left_join(zip_threat_contrib, by = "zip")
+
+ggplot(zip_map) +
+  geom_sf(aes(fill = mean_excess), color = NA) +
+  scale_fill_viridis_c(name = "Mean excess\ndeaths/day") +
+  labs(
+    title = "Where Threat days add the most expected deaths",
+    subtitle = "Computed from pooled Poisson model: E[deaths|Threat] - E[deaths|None]"
+  ) +
+  theme_minimal()
+
+ggplot(zip_map) +
+  geom_sf(aes(fill = sum_excess), color = NA) +
+  scale_fill_viridis_c(name = "Total excess\ndeaths") +
+  labs(
+    title = "Total expected Threat-related excess deaths by ZIP",
+    subtitle = "Sum over all days in the analysis sample"
+  ) +
+  theme_minimal()
+
+# sanity checks
+beta_threat <- as.numeric(coef(m_pooled)["effect::Threat"])
+exp(beta_threat)  # statewide Threat RR, same for every zip in this model
+```

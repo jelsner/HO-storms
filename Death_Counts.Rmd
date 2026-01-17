@@ -14,6 +14,8 @@ library(dplyr)
 storm_intensity <- 34 # all tropical storms and hurricanes
 begin_year <- 1981 # 55+ winds
 end_year <- 2022
+begin_date <- paste0(begin_year, "-01-01")
+end_date <- paste0(end_year, "-12-31")
 
 L <- "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/IBTrACS.NA.list.v04r00.lines.zip"
   
@@ -182,8 +184,8 @@ zde <- sev[zcta_date_effect, on = "effect"]
 zde <- zde[ , .SD[which.max(rank)], by = .(zip, date)][ , .(zip, date, effect)]
 
 # Build the full zip x date data frame & fill missing days with "None"
-all_zips  <- sort(unique(zde$zip))
-all_dates <- as.IDate(seq(as.Date("2004-12-31"), as.Date("2022-12-31"), by = "day"))
+all_zips  <- sort(unique(zctas_fl$zip))
+all_dates <- as.IDate(seq(as.Date(start_date), as.Date(end_date), by = "day"))
 grid <- CJ(zip = as.character(all_zips), date = all_dates)
 
 # Left-join the observed effects; fill NA → "None"
@@ -211,7 +213,7 @@ cardio_code <- unique(cardio_subset_all$ICD_CODE)
 
 Deaths.df <- all_data %>%
   mutate(Date = as_date(DATE_OF_DEATH)) %>%
-  filter(Date >= as.Date("1981-01-01")) %>% # 1985 for 55+
+  filter(Date >= as.Date(begin_date)) %>% 
   select(Death_ID = ID, Death_Date = Date, final_lon, final_lat, 
          age = COMPUTED_AGE, white = RACE_WHITE, sex = SEX, 
          marital_code = MARITAL_CODE, cardio_code = ICD_CODE, army = ARMY_YESNO)
@@ -544,8 +546,9 @@ zip_day[is.na(deaths), deaths := 0L]  # fill missing counts with 0
 
 Export (optional)
 ```{r}
-readr::write_csv(zip_day,
-                 "data/outputs/Deaths/zip_day_34kt_1day.csv")
+readr::write_csv(zip_day, "data/outputs/Deaths/zip_day_34kt_1day.csv")
+
+zip_day <- readr::read_csv("data/outputs/Deaths/zip_day_55kt_1day.csv")
 ```
 
 ## Poisson model with stratum fixed effects
