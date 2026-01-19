@@ -11,7 +11,7 @@ editor_options:
 library(sf)
 library(dplyr)
 
-storm_intensity <- 34 # all tropical storms and hurricanes
+storm_intensity <- 55 # all tropical storms and hurricanes
 begin_year <- 2004
 end_year <- 2022
 
@@ -102,7 +102,7 @@ library(tidyr)
 library(lubridate)
 
 deltaT <- 1   # One day increment
-n_new <- 7    # Number of days before & after impact
+n_new <- 3    # Number of days before & after impact
 
 TIC.sf <- Swaths.sf |>
     rowwise() |>
@@ -133,9 +133,16 @@ library(data.table)
 library(tigris)
 options(tigris_use_cache = TRUE)
 
-# Florida zips
-zctas_fl <- zctas(cb = FALSE, year = 2010, state = "FL") %>%
-  select(zip = ZCTA5CE10, geometry)
+# --- ZCTAs for Florida (2020) ---
+zcta_us <- zctas(cb = TRUE, year = 2020) %>%
+  select(zip = ZCTA5CE20, geometry)
+
+fl <- states(cb = TRUE, year = 2020) %>%
+  filter(STUSPS == "FL") %>%
+  st_transform(st_crs(zcta_us))
+
+zctas_fl <- st_join(zcta_us, fl, join = st_intersects, left = FALSE) %>%
+  select(zip, geometry)
 
 #Align coordinate reference systems
 tic_aligned  <- st_transform(TIC.sf,  st_crs(zctas_fl))
@@ -201,7 +208,7 @@ ER_visits.df <- ER_visits.dt |>
   as.data.frame()
 ```
 
-Clean the data
+Clean and merge
 ```{r}
 setDT(ER_visits.df)
 
@@ -313,4 +320,28 @@ Jointly the models show storm Impact periods suppress ER utilization — likely 
 During hurricane season in Florida, patients ramp up ER usage slightly the week before storms (Threat). On the direct storm impact day, ER demand collapses (Impact). After storms, ER visits rebound and exceed normal levels (Cleanup). This is a classic displacement–disruption pattern. Pre-storm increase → mid-storm suppression → post-storm rebound. The fixed effects ensure this is not confounded by ZIP characteristics, seasonal cycles, or weekly patterns
 
 * Compare results with a subset of the stronger storms 55+
+
+GLM estimation, family = binomial, Dep. Var.: is_le6
+Observations: 2,576,988
+Fixed-effects: zip: 669,  year_month: 126,  dow: 7
+Standard-errors: Clustered (zip & year_month) 
+                 Estimate Std. Error   z value Pr(>|z|)    
+effect::Cleanup -0.111066   0.075692 -1.467345 0.142282    
+effect::Threat  -0.032148   0.056498 -0.569022 0.569341    
+effect::Impact   0.261600   0.136040  1.922963 0.054485 .  
+Log-Likelihood: -392,643.5   Adj. Pseudo R2: 0.153986
+           BIC:  797,140.9     Squared Cor.: 0.053344
+           
+Poisson estimation, Dep. Var.: er_visits
+Observations: 2,648,475
+Fixed-effects: zip: 895,  year_month: 126,  dow: 7
+Standard-errors: Clustered (zip & year_month) 
+                 Estimate Std. Error   z value  Pr(>|z|)    
+effect::Cleanup  0.061417   0.023028  2.667050 0.0076520 ** 
+effect::Threat   0.014805   0.019471  0.760378 0.4470288    
+effect::Impact  -0.235362   0.077399 -3.040881 0.0023589 ** 
+Log-Likelihood: -8,280,629.7   Adj. Pseudo R2: 0.605412
+           BIC: 16,576,477.7     Squared Cor.: 0.880557
+
+
 * Use longer and shorter times (number of days) before (Threat) and after (Cleanup)
