@@ -104,15 +104,15 @@ union_Swaths2.sfg <- Swaths.sf |>
 library(tidyr)
 library(lubridate)
 
-max_lag  <- 10   # days before impact
+min_lag  <- -14   # days before impact
 max_lead <- 10   # days after impact
 
 TIC.sf <- Swaths.sf %>%
   rowwise() %>%
   mutate(event_days = list(
     tibble(
-      Date     = Date0 + (-max_lag:max_lead),
-      rel_day  = -max_lag:max_lead
+      Date     = Date0 + (min_lag:max_lead),
+      rel_day  = min_lag:max_lead
     )
   )) %>%
   unnest(event_days) %>%
@@ -205,13 +205,10 @@ grid <- CJ(zip = as.character(all_zips), date = all_dates)
 rel_calendar <- zcta_date_rel[grid, on = .(zip, date)]
 
 # --- Construct rel_day_f (factor) with "None" for non-storm days ---
-min_lag  <- -10L
+min_lag  <-  -14L
 max_lead <-  10L
 
-rel_levels <- c(
-  "None",
-  as.character(min_lag:max_lead)
-)
+rel_levels <- c("None", as.character(min_lag:max_lead))
 
 rel_calendar[, rel_day_f := fifelse(is.na(rel_day), "None", as.character(rel_day))]
 rel_calendar[, rel_day_f := factor(rel_day_f, levels = rel_levels)]
@@ -256,7 +253,7 @@ target_crs <- 5070
 sf_use_s2(FALSE)
 
 # IMPORTANT: set window here
-min_lag  <- -10L
+min_lag  <-  -14L
 max_lead <-  10L
 
 TIC_proj    <- st_transform(TIC.sf,    target_crs)
@@ -428,7 +425,6 @@ target_crs <- 5070
 sf_use_s2(FALSE)
 
 zctas_fl_proj <- st_transform(zctas_fl, target_crs)
-
 Deaths_proj <- st_transform(deaths_all_effects, target_crs)
 
 deaths_with_zip <- st_join(
@@ -454,6 +450,9 @@ Sys.time() - begin
 Save
 ```{r}
 saveRDS(deaths_with_zip, "data/outputs/Results/deaths_with_zip_55kt.rds")
+
+deaths_with_zip_55kt <- readRDS("data/outputs/Results/deaths_with_zip_55kt.rds")
+deaths_with_zip_34kt <- readRDS("data/outputs/Results/deaths_with_zip_34kt.rds")
 ```
 
 ## Panel-ready daily counts
@@ -518,13 +517,13 @@ panel_55kt <- readr::read_csv("data/outputs/Deaths/daily_panel_55kt.csv")
 Next we fit a Poisson with stratum fixed effects. This is equivalent to conditioning on the stratum totals and largely removes serial confounding. Use robust (clustered) SEs by stratum to protect against residual correlation within a stratum
 
 Add strata variables. Include only months during the hurricane season (May-November)
+~ 3.5 minutes
 ```{r}
 library(fixest)
 library(broom)
 
 begin <- Sys.time()
-# zip_day must already have one row per zip-date:
-# columns: zip, date, deaths, rel_day_f  (rel_day_f in {"None","-7",...,"3"})
+# zip_day must already have one row per zip-date: columns: zip, date, deaths, rel_day_f
 
 dat <- panel %>%
   filter(lubridate::month(as.Date(date)) %in% 5:11) %>%  # hurricane season only
@@ -557,7 +556,7 @@ rr_tbl <- tidy(m_event, conf.int = TRUE) %>%
     UCI     = exp(conf.high),
     p       = p.value
   ) %>%
-  mutate(rel_day = factor(rel_day, levels = as.character(-10:10))) %>%  
+  mutate(rel_day = factor(rel_day, levels = as.character(min_lag:max_lead))) %>%  
   arrange(rel_day)
 
 rr_tbl
@@ -567,8 +566,6 @@ Sys.time() - begin
 
 ## Plot results
 ```{r}
-library(dplyr)
-library(broom)
 library(ggplot2)
 
 plot_rr_event <- function(model, prefix = "rel_day_f::") {
@@ -601,6 +598,75 @@ plot_rr_event <- function(model, prefix = "rel_day_f::") {
 # run it
 plot_rr_event(m_event)
 ```
+
+Average (or otherwise summarize) the pre- and post-storm effects
+```{r}
+library(fixest)
+
+avg_lags <- function(m, days, prefix = "rel_day_f::", include_missing_as_zero = TRUE){
+  beta <- coef(m)
+  V    <- vcov(m)
+
+  wanted_terms <- paste0(prefix, days)
+  present <- wanted_terms[wanted_terms %in% names(beta)]
+  missing <- setdiff(wanted_terms, present)
+
+  if(length(present) == 0){
+    stop("None of the requested terms are in the model. Check coef(m) names and your prefix/days.")
+  }
+
+  # weights for the average
+  denom <- if(include_missing_as_zero) length(wanted_terms) else length(present)
+  w_present <- rep(1/denom, length(present))
+
+  # estimate (log scale)
+  est <- sum(w_present * beta[present])
+
+  # variance: w' V w (only over present coefficients)
+  Vpp <- V[present, present, drop = FALSE]
+  var <- as.numeric(t(w_present) %*% Vpp %*% w_present)
+  se  <- sqrt(var)
+
+  # 95% CI on log scale
+  lo <- est - 1.96 * se
+  hi <- est + 1.96 * se
+
+  out <- data.frame(
+    days_min = min(days),
+    days_max = max(days),
+    n_days_requested = length(days),
+    n_terms_present = length(present),
+    n_terms_missing = length(missing),
+    include_missing_as_zero = include_missing_as_zero,
+    logRR = est,
+    SE = se,
+    logRR_L = lo,
+    logRR_U = hi,
+    RR = exp(est),
+    RR_L = exp(lo),
+    RR_U = exp(hi)
+  )
+
+  attr(out, "present_terms") <- present
+  attr(out, "missing_terms") <- missing
+  out
+}
+
+# Define windows (adjust as you like)
+pre_days  <- -10:-1
+post_days <-  1:10
+
+pre_avg  <- avg_lags(m_event, pre_days,  include_missing_as_zero = TRUE)
+post_avg <- avg_lags(m_event, post_days, include_missing_as_zero = TRUE)
+
+pre_avg
+post_avg
+
+# If you want to see which terms were missing (often the reference day):
+attr(pre_avg, "missing_terms")
+attr(post_avg, "missing_terms")
+```
+
 
 
 Extract ZIP fixed effects from the model
