@@ -660,25 +660,61 @@ zip_contrib <- dat[, .(
   total_excess  = sum(excess_lag1, na.rm = TRUE),
   n_lag1_days   = sum(rel_day_f == "-1")
 ), by = zip]
+```
 
-library(ggplot2)
+```{r}
+library(sf)
 library(dplyr)
+library(tigris)
 
-zip_map <- zctas_fl %>%
+options(tigris_use_cache = TRUE)
+sf_use_s2(FALSE)  # robust for polygon ops; switch back to TRUE later if you prefer
+
+# 1) Florida state boundary (same year as your ZCTAs to align geometry as much as possible)
+fl <- states(cb = TRUE, year = 2020) %>%
+  filter(STUSPS == "FL") %>%
+  st_transform(st_crs(zctas_fl)) %>%
+  st_make_valid()
+
+# 2) Ensure ZCTAs are valid and clipped to Florida
+zctas_fl_clip <- zctas_fl %>%
+  st_make_valid() %>%
+  st_intersection(fl)   # clip to the Florida boundary
+
+# 3) Compute "non-ZCTA within Florida" grey polygons
+fl_union <- st_union(fl)                      # single-part Florida
+zcta_union <- st_union(zctas_fl_clip)         # union of all ZIPs (as one geometry)
+non_zcta_within_fl <- st_make_valid(st_difference(fl_union, zcta_union))
+
+zip_map <- zctas_fl_clip %>%
   mutate(zip = as.character(zip)) %>%
   left_join(zip_contrib, by = "zip")
 
-ggplot(zip_map) +
-  geom_sf(aes(fill = total_excess), color = NA) +
-  scale_fill_viridis_c(
-    name = "Total excess deaths\n(day −1)",
-    na.value = "grey85"
-  ) +
+library(ggplot2)
+
+ggplot() +
+  # A) Grey fill for areas of Florida not covered by any ZCTA polygon
+  geom_sf(data = non_zcta_within_fl, fill = "grey90", color = NA) +
+
+  # B) ZIP polygons colored by modeled total excess deaths on day -1
+  geom_sf(data = zip_map, aes(fill = total_excess), color = NA) +
+
+  # C) Florida boundary to crisply clip the edges
+  geom_sf(data = st_boundary(fl_union), color = "white", linewidth = 0.3) +
+  scale_fill_viridis_c(trans = "sqrt", breaks = scales::pretty_breaks(6),
+    name    = "Total excess deaths\n(day −1)",
+    na.value = "grey70"
+    ) +
+  coord_sf(expand = 0) +
   labs(
-    title = "Spatial distribution of pre-impact mortality burden",
-    subtitle = "Expected excess deaths attributable to day −1 threat conditions"
+    title    = "Spatial distribution of pre-impact mortality burden",
+    subtitle = "Modeled excess deaths relative to 'None' days (May–Nov)"
   ) +
-  theme_minimal()
+  theme_void(base_size = 11) +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(face = "bold")
+  )
 ```
 
 ## Average pre- and post-storm effects
