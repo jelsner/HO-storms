@@ -1,5 +1,5 @@
 ---
-title: "Daily death counts prior to storm impacts"
+title: "Daily death counts prior to storm impact"
 output: html_document
 editor_options:
   chunk_output_type: console
@@ -98,14 +98,103 @@ union_Swaths2.sfg <- Swaths.sf |>
   st_union()
 ```
 
+```{r}
+sum(table(Swaths.sf$Storm_Category))
+table(Swaths.sf$Storm_Category)
+```
+82 / 45 
+
+ 0  1  2  3  4  5 
+57  8  6  6  2  3 
+
+0  1  2  3  4  5 
+21  7  6  6  2  3 
+
+```{r}
+table(lubridate::year(Swaths.sf$Date0))
+```
+
+1981 1982 1983 1984 1985 1987 1988 1990 1991 1992 1994 1995 
+   1    1    1    2    5    1    2    1    1    1    3    4 
+1996 1997 1998 1999 2000 2001 2002 2004 2005 2006 2007 2008 
+   1    1    3    2    2    3    3    5    6    2    1    1 
+2009 2010 2011 2012 2013 2016 2017 2018 2019 2020 2021 2022 
+   2    2    1    3    1    3    3    3    1    3    4    3 
+   
+1985 1987 1988 1990 1992 1994 1995 1996 1997 1998 1999 2000 
+   4    1    1    1    1    2    3    1    1    3    1    1 
+2001 2004 2005 2006 2008 2012 2013 2016 2017 2018 2020 2021 
+   2    4    5    1    1    1    1    1    1    1    3    2 
+2022 
+   2 
+
+## Randomized dates
+```{r}
+# ---- Randomize Date0 independently within the same year's season ----
+library(dplyr)
+library(lubridate)
+
+season_start <- "05-01"
+season_end   <- "11-30"
+lead_days    <- 8
+lag_days     <- 8
+enforce_margin <- TRUE
+set.seed(20260206)
+
+season_bounds <- function(y, s_start = "05-01", s_end = "11-30",
+                          lead = 14, lag = 10, margin = FALSE) {
+  start <- as.Date(sprintf("%d-%s", y, s_start))
+  end   <- as.Date(sprintf("%d-%s", y, s_end))
+  if (margin) { start <- start + lead; end <- end - lag }
+  if (start > end) stop(sprintf("Season window collapsed for %d.", y))
+  list(start = start, end = end)
+}
+
+sample_date_uniform <- function(start, end) {
+  as.Date(sample(seq(start, end, by = "day"), size = 1L))
+}
+
+min_gap_days <- 30  # keep placebo ≥30 days away from real Date0
+
+draw_placebo_far <- function(y, real_d, season_start="05-01", season_end="11-30",
+                             lead=14, lag=10, margin=TRUE, min_gap=30) {
+  # sample until far-enough from real_d
+  b <- season_bounds(y, season_start, season_end, lead, lag, margin)
+  pool <- seq(b$start, b$end, by="day")
+  # If pool is too small, relax margin or min_gap for that storm-year
+  if (length(pool) < (2*min_gap + 7)) {
+    # relax margin first
+    b <- season_bounds(y, season_start, season_end, lead, lag, margin = FALSE)
+    pool <- seq(b$start, b$end, by="day")
+  }
+  repeat {
+    d <- sample(pool, 1L)
+    if (abs(as.integer(d - real_d)) >= min_gap) return(as.Date(d))
+  }
+}
+
+Swaths_random.sf <- Swaths.sf %>%
+  mutate(Original_Date0 = Date0, Year0 = lubridate::year(Date0)) %>%
+  rowwise() %>%
+  mutate(Date0 = draw_placebo_far(Year0, Original_Date0,
+                                  season_start, season_end,
+                                  lead_days, lag_days,
+                                  margin = TRUE, min_gap = min_gap_days)) %>%
+  ungroup() %>%
+  select(-Year0)
+
+# Sanity check: differences should rarely be 0
+table(Swaths_random.sf$Date0 - Swaths_random.sf$Original_Date0)
+```
+
 ## Expand `Swaths.sf` by adding rows based on the increment value of the attribute `Date0`
 
 ```{r}
 library(tidyr)
 library(lubridate)
 
-min_lag  <- -14   # days before impact
-max_lead <- 10   # days after impact
+min_lag  <- -8   # days before impact
+max_lead <- 8   # days after impact
 
 TIC.sf <- Swaths.sf %>%
   rowwise() %>%
@@ -205,8 +294,8 @@ grid <- CJ(zip = as.character(all_zips), date = all_dates)
 rel_calendar <- zcta_date_rel[grid, on = .(zip, date)]
 
 # --- Construct rel_day_f (factor) with "None" for non-storm days ---
-min_lag  <-  -14L
-max_lead <-  10L
+min_lag  <-  -8L
+max_lead <-  8L
 
 rel_levels <- c("None", as.character(min_lag:max_lead))
 
@@ -217,6 +306,17 @@ rel_calendar[, rel_day_f := factor(rel_day_f, levels = rel_levels)]
 stopifnot(rel_calendar[, .N, by = .(zip, date)][, all(N == 1)])
 rel_calendar[, table(rel_day_f)]
 ```
+
+rel_day_f
+    None       -8       -7       -6       -5       -4 
+14445031     4259     4259     4259     4259     4259 
+      -3       -2       -1        0        1        2 
+    4259     4259     4259     4259     4259     4259 
+       3        4        5        6        7        8 
+    4259     4259     4259     4259     4259     4259 
+    
+    
+1046 zip codes
 
 ## Merge storms with death records
 
@@ -232,13 +332,11 @@ load("data/all_data.Rdata")
 # load("data/injury_subset_all.Rdata")
 # load("data/neuropsych_subset_all.Rdata")
 
-
 #Deaths.df <- neuropsych_subset_all %>% # Use for subsets
 #  mutate(Date = as_date(DATE_OF_DEATH)) %>%
 #  filter(Date >= as.Date(begin_date)) %>%
 #  select(Death_ID = ID, Death_Date = Date, final_lon, final_lat)
   
-
 Deaths.df <- all_data %>%   # Use for all deaths
   mutate(Date = as_date(DATE_OF_DEATH)) %>%
   filter(Date >= as.Date(begin_date)) %>% 
@@ -251,6 +349,8 @@ Deaths.sf <- Deaths.df %>%
 rm(all_data, Deaths.df)
 Sys.time() - start_time
 ```
+
+5,851,050 deaths 
 
 ## Filter deaths by date of death and storm effect zones
 
@@ -265,8 +365,8 @@ target_crs <- 5070
 sf_use_s2(FALSE)
 
 # IMPORTANT: set window here
-min_lag  <-  -14L
-max_lead <-  10L
+min_lag  <-  -8L
+max_lead <-  8L
 
 TIC_proj    <- st_transform(TIC.sf,    target_crs)
 Deaths_proj <- st_transform(Deaths.sf, target_crs)
@@ -345,32 +445,11 @@ deaths_all_effects <- Deaths.sf %>%
   )
 ```
 
-Export (optional)
-```{r}
-# To CSV
-st_drop_geometry(deaths_all_effects) %>%
-  readr::write_csv("data/outputs/Deaths/All_Deaths_55kt.csv")
-
-# To GeoPackage
-st_write(
-  deaths_all_effects,              # full sf object with long names
-  dsn = "data/outputs/Deaths/All_Deaths_55kt.gpkg",
-  layer = "All_Deaths_Threat_55kt",
-  delete_dsn = TRUE
-)
-```
-
 ## Analytics of deaths and storms
 
 Compute statewide death rates
 ```{r}
-# Inputs:
-# - deaths_all_effects: all deaths with rel_day_f already attached ("None", "-7"... "+3")
-# - TIC.sf: storm swath polygons expanded with Date and rel_day (event window -7:+3)
-
-# -----------------------------
-# 1) Death totals by rel_day_f
-# -----------------------------
+# Death totals by rel_day_f
 Deaths.df <- deaths_all_effects %>% st_drop_geometry()
 
 total_deaths <- Deaths.df %>%
@@ -378,12 +457,7 @@ total_deaths <- Deaths.df %>%
   group_by(rel_day_f) %>%
   summarise(total_deaths = n(), .groups = "drop")
 
-# -----------------------------------------
-# 2) Statewide calendar: one rel_day per day
-# -----------------------------------------
-# Collapse TIC.sf to one rel_day per Date using:
-#  - min abs(rel_day)
-#  - tie-break toward negative rel_day (pre-impact)
+# Statewide calendar: one rel_day per day
 state_calendar <- TIC.sf %>%
   st_drop_geometry() %>%
   transmute(Date = as.Date(Date), rel_day = as.integer(rel_day)) %>%
@@ -412,8 +486,7 @@ state_calendar_full <- all_dates %>%
 num_days <- state_calendar_full %>%
   count(rel_day_f, name = "num_days")
 
-# 3) Calendar-day death rates by rel_day
-
+# Calendar-day death rates by rel_day
 death_rates <- total_deaths %>%
   full_join(num_days, by = "rel_day_f") %>%
   mutate(
@@ -423,7 +496,7 @@ death_rates <- total_deaths %>%
   mutate(rel_day_f = factor(rel_day_f, levels = c("None", as.character(min_lag:max_lead)))) %>%
   arrange(rel_day_f)
 
-print(death_rates)
+print(n = 35, death_rates)
 ```
 
 ## Add zip codes to each death
@@ -449,7 +522,7 @@ deaths_with_zip <- st_join(
 
 deaths_with_zip <- st_transform(deaths_with_zip, 4326)
 
-# How many didn't land in any ZCTA?
+# How many deaths didn't land in any ZCTA?
 sum(is.na(deaths_with_zip$zip))
 
 # Drop if desired
@@ -461,10 +534,9 @@ Sys.time() - begin
 
 Save
 ```{r}
-saveRDS(deaths_with_zip, "data/outputs/Results/deaths_with_zip_55kt.rds")
+saveRDS(deaths_with_zip, "data/outputs/Results/deaths_with_zip_55kt_PLACEBO.rds")
 
-deaths_with_zip_55kt <- readRDS("data/outputs/Results/deaths_with_zip_55kt.rds")
-deaths_with_zip_34kt <- readRDS("data/outputs/Results/deaths_with_zip_34kt.rds")
+deaths_with_zip<- readRDS("data/outputs/Results/deaths_with_zip_55kt.rds")
 ```
 
 ## Panel-ready daily counts
@@ -473,30 +545,21 @@ One row per zip-date
 ~ 20 sec
 ```{r}
 begin <- Sys.time()
-# 1) deaths per ZIP–date (no rel_day_f here)
- daily_deaths <- deaths_with_zip_55kt %>% # use for all deaths
-# daily_deaths <- deaths_with_zip %>%
+
+# 1) deaths per ZIP–date (unchanged)
+daily_deaths <- deaths_with_zip %>%
   st_drop_geometry() %>%
   transmute(
-    zip   = as.character(zip),
-    date  = as.IDate(Death_Date)
-#    age   = as.integer(age),
-#    white = white,
-#    sex   = sex,
-#    marital_code = marital_code,
-#    army = army
+    zip  = as.character(zip),
+    date = as.IDate(Death_Date)
+    # add subgroup filters here if needed
   ) %>%
-  # optional filters:
-  # filter(age >= 60) %>%
-  # filter(sex == "F") %>%
-  # filter(white == "N") %>%
-  # filter(marital_code %in% c("3", "4", "6")) %>%
-  # filter(army == "Y") %>%
   group_by(zip, date) %>%
   summarise(deaths = n(), .groups = "drop")
 
-# 2) Join to ZIP×date exposure calendar (must have unique zip-date rel_day_f)
-#    Assuming your calendar is named rel_calendar with columns: zip, date, rel_day_f
+# 2) Join to ZIP×date exposure calendar (NO de-overlap)
+library(data.table)
+
 dat <- as.data.table(daily_deaths)
 cal <- as.data.table(rel_calendar)
 
@@ -504,14 +567,16 @@ cal <- as.data.table(rel_calendar)
 dat[, `:=`(zip = as.character(zip), date = as.IDate(date))]
 cal[, `:=`(zip = as.character(zip), date = as.IDate(date))]
 
-# Left join calendar -> deaths (keeps all ZIP-days in calendar)
+# Left join calendar -> deaths (keeps all ZIP-days present in calendar)
 panel <- dat[cal, on = .(zip, date)]
 
 # Fill no-death days with 0
 panel[is.na(deaths), deaths := 0L]
 
 # 3) Ensure rel_day_f factor levels are correct
-panel[, rel_day_f := factor(as.character(rel_day_f), levels = c("None", as.character(min_lag:max_lead)))]
+#     (uses min_lag and max_lead already defined in your environment)
+panel[, rel_day_f := factor(as.character(rel_day_f),
+                            levels = c("None", as.character(min_lag:max_lead)))]
 
 # Sanity check: exactly one row per ZIP–date
 stopifnot(panel[, .N, by = .(zip, date)][, all(N == 1)])
@@ -519,14 +584,11 @@ stopifnot(panel[, .N, by = .(zip, date)][, all(N == 1)])
 Sys.time() - begin
 ```
 
+
 Export (optional)
 ```{r}
-readr::write_csv(panel, "data/outputs/Deaths/daily_panel_55kt.csv")
-
-panel_34kt <- readr::read_csv("data/outputs/Deaths/daily_panel_34kt.csv")
-panel_55kt <- readr::read_csv("data/outputs/Deaths/daily_panel_55kt.csv")
-
-panel <- panel_34kt
+readr::write_csv(panel, "data/outputs/Deaths/daily_panel_55kt_PLACEBO.csv")
+panel <- readr::read_csv("data/outputs/Deaths/daily_panel_55kt.csv")
 ```
 
 ## Poisson model with stratum fixed effects
@@ -538,49 +600,55 @@ Add strata variables. Include only months during the hurricane season (May-Novem
 ```{r}
 library(fixest)
 library(broom)
+library(lubridate)
+library(data.table)
+library(dplyr)
 
 begin <- Sys.time()
-# zip_day must already have one row per zip-date: columns: zip, date, deaths, rel_day_f
 
+# zip_day must already have one row per zip-date: zip, date, deaths, rel_day_f
 dat <- panel %>%
   filter(lubridate::month(as.Date(date)) %in% 5:11) %>%  # hurricane season only
   transmute(
-    zip      = as.character(zip),
-    date     = as.IDate(date),
-    deaths   = as.integer(deaths),
-    rel_day_f = factor(as.character(rel_day_f), levels = c("None", as.character(min_lag:max_lead))),
-    dow      = factor(strftime(as.Date(date), "%u"),
-                      levels = as.character(1:7),
-                      labels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")),
-    ym       = format(as.Date(date), "%Y-%m")
+    zip       = as.character(zip),
+    date      = as.IDate(date),
+    deaths    = as.integer(deaths),
+    rel_day_f = factor(as.character(rel_day_f),
+                       levels = c("None", as.character(min_lag:max_lead))),
+    dow       = factor(strftime(as.Date(date), "%u"),
+                       levels = as.character(1:7),
+                       labels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")),
+    ym        = factor(format(as.Date(date), "%Y-%m")),
+    covid     = as.integer(date >= as.IDate("2020-01-01") & date <= as.IDate("2022-12-31"))
+  ) %>%
+  mutate(
+    # Interaction FE for ZIP-specific COVID shift (absorbed efficiently in FE part)
+    zip_covid = interaction(zip, covid, drop = TRUE),
+    zip       = factor(zip)  # optional but helps compact FE
   )
 
+# Event-time model with ZIP-specific COVID shift **as a fixed effect**:
 m_event <- fepois(
-  deaths ~ i(rel_day_f, ref = "None") | zip + ym + dow,
+  deaths ~ i(rel_day_f, ref = "None") | zip + ym + dow + zip_covid,
   data    = dat,
   cluster = ~ zip + ym,
   notes   = FALSE
 )
 
 summary(m_event)
-
 Sys.time() - begin
-```
 
-```{r}
-rr_tbl <- tidy(m_event, conf.int = TRUE) %>%
-  filter(grepl("^rel_day_f::", term)) %>%
-  transmute(
-    rel_day = sub("^rel_day_f::", "", term),
-    RR      = exp(estimate),
-    LCI     = exp(conf.low),
-    UCI     = exp(conf.high),
-    p       = p.value
-  ) %>%
-  mutate(rel_day = factor(rel_day, levels = as.character(min_lag:max_lead))) %>%  
-  arrange(rel_day)
+dat <- dat %>%
+  mutate(yw = interaction(lubridate::year(as.Date(date)),
+                          lubridate::isoweek(as.Date(date)), drop = TRUE))
 
-rr_tbl
+m_event_yw <- fepois(
+  deaths ~ i(rel_day_f, ref = "None") | zip + yw + dow + zip_covid,
+  data    = dat,
+  cluster = ~ zip + yw,
+  notes   = TRUE
+)
+summary(m_event_yw)
 ```
 
 ## Plot results
@@ -617,6 +685,76 @@ plot_rr_event <- function(model, prefix = "rel_day_f::") {
 # run it
 plot_rr_event(m_event)
 ```
+
+## Average pre- and post-storm effects
+
+```{r}
+library(fixest)
+
+avg_lags <- function(m, days, prefix = "rel_day_f::", include_missing_as_zero = TRUE){
+  beta <- coef(m)
+  V    <- vcov(m)
+
+  wanted_terms <- paste0(prefix, days)
+  present <- wanted_terms[wanted_terms %in% names(beta)]
+  missing <- setdiff(wanted_terms, present)
+
+  if(length(present) == 0){
+    stop("None of the requested terms are in the model. Check coef(m) names and your prefix/days.")
+  }
+
+  # weights for the average
+  denom <- if(include_missing_as_zero) length(wanted_terms) else length(present)
+  w_present <- rep(1/denom, length(present))
+
+  # estimate (log scale)
+  est <- sum(w_present * beta[present])
+
+  # variance: w' V w (only over present coefficients)
+  Vpp <- V[present, present, drop = FALSE]
+  var <- as.numeric(t(w_present) %*% Vpp %*% w_present)
+  se  <- sqrt(var)
+
+  # 95% CI on log scale
+  lo <- est - 1.96 * se
+  hi <- est + 1.96 * se
+
+  out <- data.frame(
+    days_min = min(days),
+    days_max = max(days),
+    n_days_requested = length(days),
+    n_terms_present = length(present),
+    n_terms_missing = length(missing),
+    include_missing_as_zero = include_missing_as_zero,
+    logRR = est,
+    SE = se,
+    logRR_L = lo,
+    logRR_U = hi,
+    RR = exp(est),
+    RR_L = exp(lo),
+    RR_U = exp(hi)
+  )
+
+  attr(out, "present_terms") <- present
+  attr(out, "missing_terms") <- missing
+  out
+}
+
+# Define windows (adjust as you like)
+pre_days  <- -7:-1
+post_days <-  1:7
+
+pre_avg  <- avg_lags(m_event, pre_days,  include_missing_as_zero = TRUE)
+post_avg <- avg_lags(m_event, post_days, include_missing_as_zero = TRUE)
+
+pre_avg
+post_avg
+
+# If you want to see which terms were missing (often the reference day):
+attr(pre_avg, "missing_terms")
+attr(post_avg, "missing_terms")
+```
+
 
 ## Expected excess deaths spatially
 
