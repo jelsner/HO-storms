@@ -6,13 +6,12 @@ editor_options:
 ---
 
 ## Create an empirical storm threat model
-
 ```{r}
 library(sf)
 library(dplyr)
 
 storm_intensity <- 34
-begin_year <- 1981 # 1985 for 55+ winds, 1981 for 34+ winds
+begin_year <- 1985 # 1985 for 55+ winds, 1981 for 34+ winds
 end_year <- 2022
 begin_date <- paste0(begin_year, "-01-01")
 end_date <- paste0(end_year, "-12-31")
@@ -102,10 +101,10 @@ union_Swaths2.sfg <- Swaths.sf |>
 sum(table(Swaths.sf$Storm_Category))
 table(Swaths.sf$Storm_Category)
 ```
-82 / 45 / 24
+77 / 45 / 24
 
  0  1  2  3  4  5 
-57  8  6  6  2  3 
+52  8  6  6  2  3 
 
 0  1  2  3  4  5 
 21  7  6  6  2  3 
@@ -117,86 +116,29 @@ table(Swaths.sf$Storm_Category)
 table(lubridate::year(Swaths.sf$Date0))
 ```
 
-1981 1982 1983 1984 1985 1987 1988 1990 1991 1992 1994 1995 
-   1    1    1    2    5    1    2    1    1    1    3    4 
-1996 1997 1998 1999 2000 2001 2002 2004 2005 2006 2007 2008 
-   1    1    3    2    2    3    3    5    6    2    1    1 
-2009 2010 2011 2012 2013 2016 2017 2018 2019 2020 2021 2022 
-   2    2    1    3    1    3    3    3    1    3    4    3 
-   
+34 kt
+1985 1987 1988 1990 1991 1992 1994 1995 1996 1997 1998 1999 
+   5    1    2    1    1    1    3    4    1    1    3    2 
+2000 2001 2002 2004 2005 2006 2007 2008 2009 2010 2011 2012 
+   2    3    3    5    6    2    1    1    2    2    1    3 
+2013 2016 2017 2018 2019 2020 2021 2022 
+   1    3    3    3    1    3    4    3 
+
+55 kt
 1985 1987 1988 1990 1992 1994 1995 1996 1997 1998 1999 2000 
    4    1    1    1    1    2    3    1    1    3    1    1 
 2001 2004 2005 2006 2008 2012 2013 2016 2017 2018 2020 2021 
    2    4    5    1    1    1    1    1    1    1    3    2 
 2022 
    2 
-   
+
+64 kt
 1985 1987 1992 1995 1997 1998 1999 2004 2005 2016 2017 
    2    1    1    2    1    2    1    4    4    1    1 
 2018 2020 2022 
    1    1    2 
 
-## Randomized dates
-```{r}
-# ---- Randomize Date0 independently within the same year's season ----
-library(dplyr)
-library(lubridate)
-
-season_start <- "05-01"
-season_end   <- "11-30"
-lead_days    <- 8
-lag_days     <- 8
-enforce_margin <- TRUE
-set.seed(20260206)
-
-season_bounds <- function(y, s_start = "05-01", s_end = "11-30",
-                          lead = 14, lag = 10, margin = FALSE) {
-  start <- as.Date(sprintf("%d-%s", y, s_start))
-  end   <- as.Date(sprintf("%d-%s", y, s_end))
-  if (margin) { start <- start + lead; end <- end - lag }
-  if (start > end) stop(sprintf("Season window collapsed for %d.", y))
-  list(start = start, end = end)
-}
-
-sample_date_uniform <- function(start, end) {
-  as.Date(sample(seq(start, end, by = "day"), size = 1L))
-}
-
-min_gap_days <- 30  # keep placebo ≥30 days away from real Date0
-
-draw_placebo_far <- function(y, real_d, season_start="05-01", season_end="11-30",
-                             lead=14, lag=10, margin=TRUE, min_gap=30) {
-  # sample until far-enough from real_d
-  b <- season_bounds(y, season_start, season_end, lead, lag, margin)
-  pool <- seq(b$start, b$end, by="day")
-  # If pool is too small, relax margin or min_gap for that storm-year
-  if (length(pool) < (2*min_gap + 7)) {
-    # relax margin first
-    b <- season_bounds(y, season_start, season_end, lead, lag, margin = FALSE)
-    pool <- seq(b$start, b$end, by="day")
-  }
-  repeat {
-    d <- sample(pool, 1L)
-    if (abs(as.integer(d - real_d)) >= min_gap) return(as.Date(d))
-  }
-}
-
-Swaths_random.sf <- Swaths.sf %>%
-  mutate(Original_Date0 = Date0, Year0 = lubridate::year(Date0)) %>%
-  rowwise() %>%
-  mutate(Date0 = draw_placebo_far(Year0, Original_Date0,
-                                  season_start, season_end,
-                                  lead_days, lag_days,
-                                  margin = TRUE, min_gap = min_gap_days)) %>%
-  ungroup() %>%
-  select(-Year0)
-
-# Sanity check: differences should rarely be 0
-table(Swaths_random.sf$Date0 - Swaths_random.sf$Original_Date0)
-```
-
 ## Expand `Swaths.sf` by adding rows based on the increment value of the attribute `Date0`
-
 ```{r}
 library(tidyr)
 library(lubridate)
@@ -204,7 +146,7 @@ library(lubridate)
 min_lag  <- -8   # days before impact
 max_lead <- 8   # days after impact
 
-TIC.sf <- Swaths_random.sf %>%
+TIC.sf <- Swaths.sf %>%
   rowwise() %>%
   mutate(event_days = list(
     tibble(
@@ -238,7 +180,6 @@ st_geometry(TIC.sf) <- "geom"
 ```
 
 ## Build a zip x date relative day calendar
-
 ~ 25 sec
 ```{r}
 library(data.table)
@@ -315,6 +256,16 @@ stopifnot(rel_calendar[, .N, by = .(zip, date)][, all(N == 1)])
 rel_calendar[, table(rel_day_f)]
 ```
 
+34kt
+rel_day_f
+    None       -8       -7       -6       -5       -4       -3 
+14286431    13587    13587    13588    13589    13589    13589 
+      -2       -1        0        1        2        3        4 
+   13589    13589    13589    13589    13589    13589    13589 
+       5        6        7        8 
+   13589    13588    13587    13587 
+
+55kt
 rel_day_f
     None       -8       -7       -6       -5       -4       -3 
 14445048     4258     4258     4258     4258     4258     4258 
@@ -325,10 +276,17 @@ rel_day_f
     
 1046 zip codes
 
+64kt
+rel_day_f
+    None       -8       -7       -6       -5       -4       -3 
+14488092     1726     1726     1726     1726     1726     1726 
+      -2       -1        0        1        2        3        4 
+    1726     1726     1726     1726     1726     1726     1726 
+       5        6        7        8 
+    1726     1726     1726     1726
+
 ## Merge storms with death records
-
 Files received from Jihoon on November 27, 2025 
-
 ~ 2 minutes
 ```{r}
 start_time <- Sys.time()
@@ -360,7 +318,6 @@ Sys.time() - start_time
 5,851,050 deaths 
 
 ## Filter deaths by date of death and storm effect zones
-
 ~ 10 minutes
 ```{r}
 library(sf)
@@ -565,7 +522,7 @@ sum(is.na(deaths_with_zip$zip))
 
 Save
 ```{r}
-saveRDS(deaths_with_zip, "data/outputs/Results/deaths_with_zip_64kt.rds")
+saveRDS(deaths_with_zip, "data/outputs/Results/deaths_with_zip_34kt.rds")
 deaths_with_zip<- readRDS("data/outputs/Results/deaths_with_zip_55kt.rds")
 ```
 
@@ -581,9 +538,11 @@ daily_deaths <- deaths_with_zip %>%
   st_drop_geometry() %>%
   transmute(
     zip  = as.character(zip),
-    date = as.IDate(Death_Date)
+    date = as.IDate(Death_Date),
+    age = as.integer(age)
     # add subgroup filters here if needed
   ) %>%
+#  filter(age >= 65) %>%
   group_by(zip, date) %>%
   summarise(deaths = n(), .groups = "drop")
 
@@ -616,7 +575,7 @@ Sys.time() - begin
 
 Export (optional)
 ```{r}
-readr::write_csv(panel, "data/outputs/Deaths/daily_panel_64kt.csv")
+readr::write_csv(panel, "data/outputs/Deaths/daily_panel_34kt.csv")
 panel <- readr::read_csv("data/outputs/Deaths/daily_panel_55kt.csv")
 ```
 
@@ -672,13 +631,20 @@ Sys.time() - begin
 ```
 
 ```{r}
-saveRDS(m_event_55kt2, file = "m_event_55kt2.rds")
-
-m_event_55kt <- readRDS("m_event_55kt.rds")
+saveRDS(m_event, file = "m_event_34kt.rds")
 ```
 
+## Read in model results
+```{r}
+m_event_34kt <- readRDS("m_event_34kt.rds")
+m_event_34kt_placebo <- readRDS("m_event_34kt_placebo.rds")
+m_event_55kt <- readRDS("m_event_55kt.rds")
+m_event_55kt_placebo <- readRDS("m_event_55kt_placebo.rds")
+m_event_64kt <- readRDS("m_event_64kt.rds")
+m_event_64kt_placebo <- readRDS("m_event_64kt_placebo.rds")
+```
 
-## Plot results
+## Profile plot across days
 ```{r}
 library(ggplot2)
 
@@ -713,64 +679,13 @@ plot_rr_event <- function(model, prefix = "rel_day_f::") {
 plot_rr_event(m_event)
 ```
 
-Both main and placebo results
-```{r}
-# You may already have these loaded elsewhere
-library(ggplot2)
-library(dplyr)
-library(broom)
-
-plot_rr_event_with_placebo <- function(model, placebo_model, prefix = "rel_day_f::") {
-
-  # Main model (with CI)
-  rr_df <- tidy(model, conf.int = TRUE) %>%
-    filter(startsWith(term, prefix)) %>%
-    mutate(
-      rel_day = as.integer(sub(prefix, "", term)),
-      RR  = exp(estimate),
-      LCI = exp(conf.low),
-      UCI = exp(conf.high)
-    ) %>%
-    arrange(rel_day)
-
-  # Placebo model (no CI, just the line)
-  placebo_df <- tidy(placebo_model, conf.int = FALSE) %>%
-    filter(startsWith(term, prefix)) %>%
-    mutate(
-      rel_day = as.integer(sub(prefix, "", term)),
-      RR  = exp(estimate)
-    ) %>%
-    arrange(rel_day)
-
-  ggplot(rr_df, aes(x = rel_day, y = RR)) +
-    geom_hline(yintercept = 1, linetype = "dashed") +
-    # Main model CI band + line + points
-    geom_ribbon(aes(ymin = LCI, ymax = UCI), fill = "grey80", alpha = 0.7) +
-    geom_line(linewidth = 0.9, color = "black") +
-    geom_point(size = 2, color = "black") +
-    # Placebo: single red line, no ribbon/points
-    geom_line(data = placebo_df, aes(x = rel_day, y = RR), color = "red", linewidth = 0.9) +
-    # Make sure the x-axis includes all rel_day values from both datasets
-    scale_x_continuous(breaks = sort(unique(c(rr_df$rel_day, placebo_df$rel_day)))) +
-    labs(
-      x = "Days relative to impact (lag/lead)",
-      y = "Rate ratio (RR)",
-      title = "RR by lag/lead day: main model (with 95% CI) + placebo (red line)"
-    ) +
-    theme_minimal()
-}
-
-# run it
-plot_rr_event_with_placebo(m_event_55kt, m_event_55kt_placebo)
-```
-
-## Average pre- and post-storm effects
-
+## Daily average pre- and post-storm effects across lead/lag days
 ```{r}
 library(fixest)
 library(dplyr)
 library(ggplot2)
 
+# --- Averaging function (as given) ---
 avg_lags <- function(m, days, prefix = "rel_day_f::", include_missing_as_zero = TRUE){
   beta <- coef(m)
   V    <- vcov(m)
@@ -820,7 +735,7 @@ avg_lags <- function(m, days, prefix = "rel_day_f::", include_missing_as_zero = 
   out
 }
 
-# --- Helper to build pre/post summaries for one model ---
+# --- Helper: summarize pre/post for one model ---
 summarize_prepost <- function(model, model_label,
                               pre_days, post_days,
                               prefix = "rel_day_f::",
@@ -839,41 +754,256 @@ summarize_prepost <- function(model, model_label,
     mutate(period = factor(period, levels = c("Pre", "Post")))
 }
 
-# --- Define pre/post windows (adjust as needed) ---
+# --- Windows ---
 pre_days  <- -8:-1
 post_days <-  1:8
+coef_prefix <- "rel_day_f::"
 
-# --- Compute averages for both models ---
-res_both <- bind_rows(
-  summarize_prepost(m_event_64kt,          "Main (55kt)", pre_days, post_days),
-  summarize_prepost(m_event_55kt_placebo2,  "Placebo",     pre_days, post_days)
+# --- Compute averages for Main only (remove placebo) ---
+res_main <- summarize_prepost(m_event_64kt, "Main (64kt)", pre_days, post_days)
+
+# --- Extract per-day estimates (assumes all terms present) ---
+extract_days <- function(m, period_label, days, prefix = "rel_day_f::") {
+  beta <- coef(m)
+  tibble(
+    day   = days,
+    term  = paste0(prefix, day),
+    logRR = unname(beta[term]),
+    RR    = exp(logRR),
+    period = factor(period_label, levels = c("Pre", "Post"))
+  )
+}
+
+res_days <- bind_rows(
+  extract_days(m_event_64kt, "Pre",  pre_days,  prefix = coef_prefix),
+  extract_days(m_event_64kt, "Post", post_days, prefix = coef_prefix)
 )
 
-# --- Plot: points + ±95% CI hash marks for BOTH models ---
-dodge_width <- 0.45
-pd <- position_dodge(width = dodge_width)
-colors <- c("Main (55kt)" = "black", "Placebo" = "red")
+# --- Encode darkness via alpha: darker near -1/+1, lighter at -8/+8 ---
+# Pre: -1 darkest (alpha=1), -8 lightest (alpha_min)
+# Post: +1 darkest (alpha=1), +8 lightest (alpha_min)
+alpha_min <- 0.4
+alpha_range <- 1 - alpha_min
 
-p <- ggplot(res_both, aes(x = period, y = RR, color = model)) +
+res_days <- res_days |>
+  mutate(
+    alpha = case_when(
+      period == "Pre"  ~ alpha_min + alpha_range * (1 - (abs(day) - 1) / (max(abs(pre_days)) - 1)),  # -1 -> 1, -8 -> 0.4
+      period == "Post" ~ alpha_min + alpha_range * (1 - (day - 1) / (max(post_days) - 1)),          # +1 -> 1, +8 -> 0.4
+      TRUE ~ 1
+    )
+  )
+
+# --- Plot: averages + CIs + per-day jittered dots (one model) ---
+set.seed(2026)  # reproducible jitter
+
+p <- ggplot() +
   geom_hline(yintercept = 1, linetype = "dashed") +
-  geom_errorbar(aes(ymin = RR_L, ymax = RR_U),
-                width = 0.12, position = pd, linewidth = 0.8) +
-  geom_point(position = pd, size = 3) +
-  scale_color_manual(values = colors, name = NULL) +
+
+  # Per-day dots for PRE (fixed color, alpha encodes proximity to -1)
+  geom_point(
+    data = res_days |> filter(period == "Pre"),
+    aes(x = period, y = RR),
+    position = position_jitter(width = 0.12, height = 0),
+    size = 1.8,
+    color = "grey10",
+    alpha = res_days |> filter(period == "Pre") |> pull(alpha),
+    show.legend = FALSE
+  ) +
+
+  # Per-day dots for POST (fixed color, alpha encodes proximity to +1; darkest at +1)
+  geom_point(
+    data = res_days |> filter(period == "Post"),
+    aes(x = period, y = RR),
+    position = position_jitter(width = 0.15, height = 0),
+    size = 1.8,
+    color = "grey10",
+    alpha = res_days |> filter(period == "Post") |> pull(alpha),
+    show.legend = FALSE
+  ) +
+
+  # Average ±95% CI (no dodge needed—single model)
+  geom_errorbar(
+    data = res_main,
+    aes(x = period, ymin = RR_L, ymax = RR_U),
+    width = 0.12, linewidth = 0.8, color = "black"
+  ) +
+  geom_point(
+    data = res_main,
+    aes(x = period, y = RR),
+    size = 3, color = "black"
+  ) +
+
   labs(
     x = "Window",
     y = "Rate ratio (RR)",
-    title = "Average pre/post RR with 95% CI: Main vs Placebo"
+    title = "Average pre/post RR with daily coefficients (Main 64 kt only)",
+    subtitle = "Daily dots jittered; darker = closer to impact day (−1 for Pre, +1 for Post)"
   ) +
   theme_minimal()
 
 print(p)
+
+# --- Optional: log scale for RRs (often clearer) ---
+# p + scale_y_log10()
 ```
 
-
+## Compare 34kt, 55kt, and 64kt model results
 ```{r}
 library(fixest)
+library(dplyr)
+library(ggplot2)
 
+# --- Your averaging function (unchanged) ---
+avg_lags <- function(m, days, prefix = "rel_day_f::", include_missing_as_zero = TRUE){
+  beta <- coef(m)
+  V    <- vcov(m)
+
+  wanted_terms <- paste0(prefix, days)
+  present <- wanted_terms[wanted_terms %in% names(beta)]
+
+  if(length(present) == 0){
+    stop("None of the requested terms are in the model. Check coef(m) names and your prefix/days.")
+  }
+
+  # weights for the average
+  denom <- if(include_missing_as_zero) length(wanted_terms) else length(present)
+  w_present <- rep(1/denom, length(present))
+
+  # estimate (log scale)
+  est <- sum(w_present * beta[present])
+
+  # variance: w' V w (only over present coefficients)
+  Vpp <- V[present, present, drop = FALSE]
+  var <- as.numeric(t(w_present) %*% Vpp %*% w_present)
+  se  <- sqrt(var)
+
+  # 95% CI on log scale
+  lo <- est - 1.96 * se
+  hi <- est + 1.96 * se
+
+  out <- data.frame(
+    days_min = min(days),
+    days_max = max(days),
+    n_days_requested = length(days),
+    n_terms_present = length(present),
+    n_terms_missing = length(setdiff(wanted_terms, present)),
+    include_missing_as_zero = include_missing_as_zero,
+    logRR = est,
+    SE = se,
+    logRR_L = lo,
+    logRR_U = hi,
+    RR = exp(est),
+    RR_L = exp(lo),
+    RR_U = exp(hi)
+  )
+
+  attr(out, "present_terms") <- present
+  out
+}
+
+# --- Helper: summarize PRE-only for one model ---
+summarize_pre_only <- function(model, label,
+                               pre_days,
+                               prefix = "rel_day_f::",
+                               include_missing_as_zero = TRUE) {
+  avg_lags(model, pre_days,
+           prefix = prefix,
+           include_missing_as_zero = include_missing_as_zero) |>
+    mutate(group = label)
+}
+
+# --- Define the pre-impact window (adjust as needed) ---
+pre_days <- -8:-1
+coef_prefix <- "rel_day_f::"
+
+# --- Compute pre-impact averages for 34kt, 55kt, 64kt ---
+res_pre <- bind_rows(
+  summarize_pre_only(m_event_34kt, "≥34 kt", pre_days),
+  summarize_pre_only(m_event_55kt, "≥55 kt", pre_days),
+  summarize_pre_only(m_event_64kt, "≥64 kt", pre_days)
+) |>
+  # Ensure left-to-right order: 34 -> 55 -> 64
+  mutate(group = factor(group, levels = c("≥34 kt", "≥55 kt", "≥64 kt")))
+
+# --- NEW: extract per-day estimates (all days present) ---
+extract_day_estimates <- function(m, label, days, prefix = "rel_day_f::") {
+  beta <- coef(m)
+  tibble(
+    day = days,
+    term = paste0(prefix, day),
+    logRR = unname(beta[term]),
+    RR = exp(logRR)
+  ) |>
+    mutate(group = label)
+}
+
+res_days <- bind_rows(
+  extract_day_estimates(m_event_34kt, "≥34 kt", pre_days, prefix = coef_prefix),
+  extract_day_estimates(m_event_55kt, "≥55 kt", pre_days, prefix = coef_prefix),
+  extract_day_estimates(m_event_64kt, "≥64 kt", pre_days, prefix = coef_prefix)
+) |>
+  mutate(
+    group = factor(group, levels = c("≥34 kt", "≥55 kt", "≥64 kt")),
+    # Map day to a 0..1 scale so -8 is light, -1 is dark
+    day_rank = (day - min(pre_days)) / (max(pre_days) - min(pre_days))
+  )
+
+# --- Plot: averages + CIs + per-day jittered points ---
+set.seed(2026)  # reproducible jitter
+
+p <- ggplot() +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+
+  # Per-day dots (draw first so CI/average sit on top)
+  geom_point(
+    data = res_days,
+    aes(x = group, y = RR, color = day),
+    position = position_jitter(width = 0.15, height = 0),  # small horizontal jitter
+    size = 1.8,
+    alpha = 0.6,
+    show.legend = FALSE
+  ) +
+
+  # Average CI bars and points (your original layers)
+  geom_errorbar(
+    data = res_pre,
+    aes(x = group, ymin = RR_L, ymax = RR_U),
+    width = 0.12,
+    linewidth = 0.8,
+    color = "black"
+  ) +
+  geom_point(
+    data = res_pre,
+    aes(x = group, y = RR),
+    size = 3,
+    color = "black"
+  ) +
+
+  # Greyscale: lighter for -8, darker for -1
+  scale_color_gradient(low = "grey75", high = "grey10") +
+
+  labs(
+    x = "Wind speed exceedance",
+    y = "Pre-impact average RR (95% CI)",
+    title = "Pre-impact average rate ratios by wind speed threshold",
+    subtitle = "Points show daily coefficients (−8…−1); darker = closer to impact day (−1)"
+  ) +
+  theme_minimal()
+
+print(p)
+
+# --- Optional: log scale for RRs (often clearer) ---
+# p + scale_y_log10()
+```
+
+## Placebo plots
+```{r}
+library(fixest)
+library(dplyr)
+library(ggplot2)
+
+# ---- Averaging function (from your code, unchanged) ----
 avg_lags <- function(m, days, prefix = "rel_day_f::", include_missing_as_zero = TRUE){
   beta <- coef(m)
   V    <- vcov(m)
@@ -923,20 +1053,243 @@ avg_lags <- function(m, days, prefix = "rel_day_f::", include_missing_as_zero = 
   out
 }
 
-# Define windows (adjust as you like)
-pre_days  <- -7:-1
-post_days <-  1:7
+# ---- Helpers (pre-only) ----
+summarize_pre_only <- function(model, label,
+                               pre_days,
+                               prefix = "rel_day_f::",
+                               include_missing_as_zero = TRUE) {
+  avg_lags(model, pre_days,
+           prefix = prefix,
+           include_missing_as_zero = include_missing_as_zero) |>
+    mutate(model = label, period = "Pre")
+}
 
-pre_avg  <- avg_lags(m_event, pre_days,  include_missing_as_zero = TRUE)
-post_avg <- avg_lags(m_event, post_days, include_missing_as_zero = TRUE)
+extract_pre_days <- function(model, label, pre_days, prefix = "rel_day_f::") {
+  beta <- coef(model)
+  tibble(
+    model = label,
+    day   = pre_days,
+    term  = paste0(prefix, day),
+    logRR = unname(beta[term]),
+    RR    = exp(logRR)
+  )
+}
 
-pre_avg
-post_avg
+# ---- Plot function: Main vs Placebo for PRE only (two-layer points + optional limits) ----
+plot_pre_placebo_comparison <- function(main_model, placebo_model, main_label,
+                                        pre_days = -8:-1,
+                                        prefix   = "rel_day_f::",
+                                        title    = NULL,
+                                        use_log_y = FALSE,
+                                        y_limits = NULL) {
 
-# If you want to see which terms were missing (often the reference day):
-attr(pre_avg, "missing_terms")
-attr(post_avg, "missing_terms")
+  # Pre-window averages
+  res_avg <- dplyr::bind_rows(
+    summarize_pre_only(main_model,    paste0(main_label, " (Main)"),    pre_days, prefix = prefix),
+    summarize_pre_only(placebo_model, "Placebo",                         pre_days, prefix = prefix)
+  ) |>
+    dplyr::mutate(model = factor(model, levels = c(paste0(main_label, " (Main)"), "Placebo")))
+
+  # Per-day coefficients (assumes all terms present)
+  res_days <- dplyr::bind_rows(
+    extract_pre_days(main_model,    paste0(main_label, " (Main)"), pre_days, prefix = prefix),
+    extract_pre_days(placebo_model, "Placebo",                      pre_days, prefix = prefix)
+  ) |>
+    dplyr::mutate(model = factor(model, levels = levels(res_avg$model)))
+
+  main_level <- paste0(main_label, " (Main)")
+
+  set.seed(2026)  # reproducible jitter
+
+  p <- ggplot2::ggplot() +
+    ggplot2::geom_hline(yintercept = 1, linetype = "dashed") +
+
+    # Daily dots — Main: filled, darker towards -1
+    ggplot2::geom_point(
+      data = dplyr::filter(res_days, model == main_level),
+      ggplot2::aes(x = model, y = RR, color = day),
+      position = ggplot2::position_jitter(width = 0.12, height = 0),
+      size = 2.2,
+      shape = 16,   # filled
+      alpha = 0.9,
+      show.legend = FALSE
+    ) +
+
+    # Daily dots — Placebo: open, slightly lighter
+    ggplot2::geom_point(
+      data = dplyr::filter(res_days, model == "Placebo"),
+      ggplot2::aes(x = model, y = RR, color = day),
+      position = ggplot2::position_jitter(width = 0.12, height = 0),
+      size = 2.2,
+      shape = 1,    # open
+      alpha = 0.55,
+      show.legend = FALSE
+    ) +
+
+    # Pre-average ±95% CI (on top)
+    ggplot2::geom_errorbar(
+      data = res_avg,
+      ggplot2::aes(x = model, ymin = RR_L, ymax = RR_U),
+      width = 0.12, linewidth = 0.8, color = "black"
+    ) +
+    ggplot2::geom_point(
+      data = res_avg,
+      ggplot2::aes(x = model, y = RR),
+      size = 3, color = "black"
+    ) +
+
+    # Greyscale: -8 (light) -> -1 (dark)
+    ggplot2::scale_color_gradient(low = "grey75", high = "grey10") +
+
+    ggplot2::labs(
+      x = NULL,
+      y = "Pre-storm average RR (95% CI)",
+      title = if (is.null(title)) paste0("Pre-storm daily RRs and average: ", main_label) else title,
+      subtitle = "Daily dots (−8…−1) jittered; darker = closer to impact day (−1)"
+    ) +
+    ggplot2::theme_minimal()
+
+  # Apply linear or log scale
+  if (use_log_y) {
+    p <- p + ggplot2::scale_y_log10()
+  }
+
+  # If y_limits provided, apply them consistently
+  if (!is.null(y_limits)) {
+    # coord_cartesian to avoid dropping data outside limits (and keep errorbar calc intact)
+    p <- p + ggplot2::coord_cartesian(ylim = y_limits)
+  }
+
+  # Return plot + the underlying data (so we can compute global limits outside)
+  list(plot = p, res_avg = res_avg, res_days = res_days)
+}
+
+# ---- Define pre window ----
+pre_days <- -8:-1
+
+# ---- Build the figures ----
+# ---- Define pre window ----
+pre_days <- -8:-1
+
+# ---- Build the three figures (first pass, without limits) ----
+out_34 <- plot_pre_placebo_comparison(
+  main_model    = m_event_34kt,
+  placebo_model = m_event_34kt_placebo,
+  main_label    = "≥34 kt",
+  pre_days      = pre_days,
+  use_log_y     = FALSE   # set TRUE if you prefer log scale
+)
+
+out_55 <- plot_pre_placebo_comparison(
+  main_model    = m_event_55kt,
+  placebo_model = m_event_55kt_placebo,
+  main_label    = "≥55 kt",
+  pre_days      = pre_days,
+  use_log_y     = FALSE
+)
+
+out_64 <- plot_pre_placebo_comparison(
+  main_model    = m_event_64kt,
+  placebo_model = m_event_64kt_placebo,
+  main_label    = "≥64 kt",
+  pre_days      = pre_days,
+  use_log_y     = FALSE
+)
+
+# ---- Compute common y-limits across ALL panels (averages + daily points) ----
+get_range <- function(out) {
+  rng_days <- range(out$res_days$RR, na.rm = TRUE)
+  rng_avg  <- range(c(out$res_avg$RR_L, out$res_avg$RR_U), na.rm = TRUE)
+  range(c(rng_days, rng_avg), na.rm = TRUE)
+}
+
+rng_34 <- get_range(out_34)
+rng_55 <- get_range(out_55)
+rng_64 <- get_range(out_64)
+
+global_ylim <- range(c(rng_34, rng_55, rng_64), na.rm = TRUE)
+
+# Add a small padding for aesthetics on linear scale
+pad <- 0.02
+global_ylim <- c(
+  max(0, global_ylim[1] - pad),   # RR can't be negative; keep >= 0
+  global_ylim[2] + pad
+)
+
+# ---- Rebuild plots with the common y-limits applied ----
+p_34 <- plot_pre_placebo_comparison(
+  main_model    = m_event_34kt,
+  placebo_model = m_event_34kt_placebo,
+  main_label    = "≥34 kt",
+  pre_days      = pre_days,
+  use_log_y     = FALSE,
+  y_limits      = global_ylim
+)$plot
+
+p_55 <- plot_pre_placebo_comparison(
+  main_model    = m_event_55kt,
+  placebo_model = m_event_55kt_placebo,
+  main_label    = "≥55 kt",
+  pre_days      = pre_days,
+  use_log_y     = FALSE,
+  y_limits      = global_ylim
+)$plot
+
+p_64 <- plot_pre_placebo_comparison(
+  main_model    = m_event_64kt,
+  placebo_model = m_event_64kt_placebo,
+  main_label    = "≥64 kt",
+  pre_days      = pre_days,
+  use_log_y     = FALSE,
+  y_limits      = global_ylim
+)$plot
+
+# ---- Print individually or combine ----
+print(p_34)
+print(p_55)
+print(p_64)
+
+# Side-by-side with shared guides (colors are not shown in legend anyway)
+library(patchwork)
+p_34 + p_55 + p_64 + plot_layout(guides = "collect")
+
 ```
+
+
+## Compare all deaths with subgroups
+```{r}
+# --- Compute pre-impact average (lag -8:-1) for All vs Age ≥65 at ≥34 kt ---
+res_pre_34kt_groups <- bind_rows(
+  summarize_pre_only(m_event_34kt,      "All ages", pre_days),
+  summarize_pre_only(m_event_34kt_age,  "Age ≥ 65", pre_days)
+) |>
+  mutate(group = factor(group, levels = c("All ages", "Age ≥ 65")))
+
+# Inspect (optional)
+res_pre_34kt_groups
+# attributes(res_pre_34kt_groups)$present_terms  # to see which day terms were present
+# attributes(res_pre_34kt_groups)$missing_terms  # to see which were missing
+
+# --- Plot: two error bars (hash marks) with points ---
+p_subgroup <- ggplot(res_pre_34kt_groups, aes(x = group, y = RR)) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  geom_errorbar(aes(ymin = RR_L, ymax = RR_U), width = 0.12, linewidth = 0.8) +
+  geom_point(size = 3) +
+  labs(
+    x = "Population subgroup",
+    y = "Pre-impact average RR (95% CI)",
+    title = "Pre-impact average rate ratio for ≥34 kt: All ages vs Age ≥ 65",
+    subtitle = "Window: rel_day_f −8 to −1; missing day terms counted as zero effect"
+  ) +
+  theme_minimal()
+
+print(p_subgroup)
+
+# --- Optional: log scale for RRs (often clearer) ---
+# p_subgroup + scale_y_log10()
+```
+
+
 
 
 ## Expected excess deaths spatially
