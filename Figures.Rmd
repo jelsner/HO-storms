@@ -209,7 +209,7 @@ stopifnot(rel_calendar[, .N, by = .(zip, date)][, all(N == 1)])
 rel_calendar[, table(rel_day_f)]
 ```
 
-## Figure: Michael exposure and zip x day calendar
+## Figure 1
 ```{r}
 ## Figure: Michael exposure with inset ZIP-outlines (Panel B) and ZIP × day calendar (Panel C)
 library(sf)
@@ -293,14 +293,15 @@ pA <- ggplot() +
                arrow = arrow(length = unit(3, "mm"), type = "closed")) +
   coord_sf(xlim = xlim, ylim = ylim, expand = FALSE) +
   labs(
-    title    = "Panel A. Hurricane Michael (2018): track and buffered swath",
-    subtitle = paste0("Impact date: ", example_date0),
+    title    = "A. Hurricane Michael (2018)",
+#    subtitle = paste0("Impact date: ", example_date0),
     x = NULL, y = NULL
   ) +
-  theme_minimal(base_size = 12) +
+  theme_minimal() +
   theme(
     plot.title = element_text(face = "bold"),
-    panel.grid = element_blank()
+    panel.grid = element_blank(),
+    axis.text  = element_text(size = 6)
   )
 
 # ======================
@@ -327,14 +328,15 @@ pB <- ggplot() +
   geom_sf(data = swath_ex_m, fill = "#F8766D", color = NA, alpha = 0.35) +
   coord_sf(xlim = xlim_inset, ylim = ylim_inset, expand = FALSE) +
   labs(
-    title = "Panel B. ZIP polygons in Hurricane Michael's swath",
-    subtitle = "Outlines only; swath overlaid",
+    title = "B. ZIP exposures",
+#    subtitle = "Outlines only; swath overlaid",
     x = NULL, y = NULL
   ) +
-  theme_minimal(base_size = 12) +
+  theme_minimal() +
   theme(
     plot.title = element_text(face = "bold"),
-    panel.grid = element_blank()
+    panel.grid = element_blank(),
+    axis.text  = element_text(size = 6)
   )
 
 # ======================
@@ -382,34 +384,50 @@ names(red_vec) <- as.character(1:max_lead)
 fill_vals <- c(blue_vec, zero_col, red_vec)
 
 pC <- ggplot(cal_michael) +
-  geom_tile(aes(x = date, y = zip_lab, fill = rel_day_f),
-            color = "white", linewidth = 0.1) +
-  scale_fill_manual(values = fill_vals, drop = FALSE,
-                    name = "Relative day",
-                    guide = guide_legend(
-                      nrow = 1,
-                      keyheight = unit(2.5, "mm"),
-                      keywidth  = unit(3.5, "mm"),
-                      title.position = "top",
-                      label.position = "bottom"
-                    )) +
+  geom_tile(
+    aes(x = date, y = zip_lab, fill = rel_day_f),
+    color = "white", linewidth = 0.1        # keep borders in the plot
+  ) +
+  scale_fill_manual(
+    values = fill_vals, drop = FALSE,
+    name = "Relative day",
+    guide = guide_legend(
+      nrow = 1,
+      keyheight = unit(3, "mm"),
+      keywidth  = unit(4, "mm"),
+      title.position = "top",
+      label.position = "bottom",
+      # --- Key change: remove borders on legend keys only ---
+      override.aes = list(colour = NA, linewidth = 0)
+    )
+  ) +
   scale_x_date(date_breaks = "2 day", date_labels = "%b %d", expand = c(0.01, 0.01)) +
   labs(
-    title = "Panel C. ZIP × day exposure calendar",
-    subtitle = paste0("Relative day assignments (", min_lag, "…", max_lead,
-                      ") around ", example_date0),
+    title = "C. ZIP × day exposure calendar",
     x = NULL, y = "ZIP"
   ) +
-  theme_minimal(base_size = 12) +
   theme(
     plot.title      = element_text(face = "bold"),
-    axis.text.y     = element_text(size = 7),
+    axis.text.y     = element_text(size = 5),
     axis.text.x     = element_text(angle = 45, hjust = 1),
     panel.grid      = element_blank(),
     legend.position = "bottom",
-    legend.title    = element_text(size = 8),
-    legend.text     = element_text(size = 7),
-    legend.margin   = margin(t = 2, r = 2, b = 2, l = 2)
+    legend.title    = element_text(size = 7),
+    legend.text     = element_text(size = 6),
+
+    # no inner padding of the legend box:
+    legend.margin   = margin(0, 0, 0, 0),
+
+    # spacing between keys:
+    legend.spacing.x  = unit(0, "pt"),
+    legend.spacing.y  = unit(0, "pt"),
+
+    # optional: ensure the legend key itself has no stroke/border
+    legend.key        = element_rect(colour = NA, fill = NA),
+
+    # key (swatch) size — keep reasonable so labels fit
+    legend.key.width  = unit(4, "mm"),
+    legend.key.height = unit(3, "mm")
   )
 
 library(patchwork)
@@ -418,22 +436,19 @@ library(patchwork)
 # Row 1: A  C
 # Row 2: B  C   -> C spans vertically across both rows in the right column
 design <- "
-AC
-BC
+AB
+CC
 "
 fig1 <- pA + pB + pC +
-  plot_layout(design = design, widths = c(1.25, 1)) +
-  plot_annotation(
-    title = "Figure 1. Constructing storm exposure and event time (Hurricane Michael, 2018)"
-  )
+  plot_layout(design = design, heights = c(1, 1.2))
 
 print(fig1)
 
-ggsave("figs/Figure1_constructing_exposure_event_time.png", fig1, width = 16, height = 12, dpi = 300)
-ggsave("figs/Figure1_constructing_exposure_event_time.pdf",  fig1, width = 16, height = 12)
+ggsave("figs/Figure1_constructing_exposure_event_time.png", fig1, width = 8.5, height = 6, dpi = 600)
+#ggsave("figs/Figure1_constructing_exposure_event_time.pdf",  fig1, width = 16, height = 12)
 ```
 
-## Figures
+## Figure 2
 
 Read in model results
 ```{r}
@@ -445,29 +460,28 @@ m_event_64kt <- readRDS("m_event_64kt.rds")
 m_event_64kt_placebo <- readRDS("m_event_64kt_placebo.rds")
 ```
 
+Figure 2
 ```{r}
-# ---- Dependencies ----
+# ---- Libraries ----
 library(ggplot2)
 library(broom)
 library(dplyr)
 library(stringr)
 library(scales)
+library(patchwork)   # install.packages("patchwork") if needed
+# If you cannot add packages, see the cowplot alternative further below.
 
-# ---- Theme tuned for publication ---
+# ---- Theme tuned for publication (keeps your system's default font family) ----
 theme_pub <- function(base_size = 10) {
   theme_minimal(base_size = base_size) +
     theme(
-      # grid: keep horizontal majors only
       panel.grid.major.x = element_blank(),
       panel.grid.minor   = element_blank(),
       panel.grid.major.y = element_line(color = "grey85", linewidth = 0.4),
-      # panel border for print
       panel.border       = element_rect(color = "black", fill = NA, linewidth = 0.5),
-      # axes
       axis.title         = element_text(color = "black"),
       axis.text          = element_text(color = "black"),
       axis.ticks         = element_line(color = "black"),
-      # titles
       plot.title         = element_text(face = "bold", hjust = 0),
       plot.subtitle      = element_text(hjust = 0),
       legend.position    = "none",
@@ -475,7 +489,7 @@ theme_pub <- function(base_size = 10) {
     )
 }
 
-# ---- Main plotting function ----
+# ---- Panel A: Event-study profile ----
 plot_rr_event <- function(model,
                           prefix = "rel_day_f::",
                           highlight_day = 0,
@@ -484,8 +498,7 @@ plot_rr_event <- function(model,
                           title = "Rate ratio by day relative to impact",
                           subtitle = NULL,
                           caption = "Points show RR; shading/lines show 95% CI.",
-                          base_size = 10,
-                          base_family = "Times") {
+                          base_size = 10) {
 
   ci <- match.arg(ci)
 
@@ -499,10 +512,8 @@ plot_rr_event <- function(model,
     ) %>%
     arrange(rel_day)
 
-  # sensible x breaks
   x_breaks <- sort(unique(rr_df$rel_day))
 
-  # y scaling: keep a small expansion so CI doesn't get clipped
   if (log_y) {
     y_scale <- scale_y_log10(
       breaks = pretty_breaks(n = 6),
@@ -511,7 +522,6 @@ plot_rr_event <- function(model,
       name = "Rate ratio (RR, log scale)"
     )
   } else {
-    # derive a tidy limit to avoid overexpansion
     y_min <- min(rr_df$LCI, na.rm = TRUE)
     y_max <- max(rr_df$UCI, na.rm = TRUE)
     pad   <- 0.05 * (y_max - y_min)
@@ -524,12 +534,9 @@ plot_rr_event <- function(model,
     )
   }
 
-  p <- ggplot(rr_df, aes(x = rel_day, y = RR))
+  p <- ggplot(rr_df, aes(x = rel_day, y = RR)) +
+    geom_hline(yintercept = 1, linetype = "dashed", color = "grey35", linewidth = 0.5)
 
-  # 1) Reference at RR = 1 (slightly darker and thinner than data line)
-  p <- p + geom_hline(yintercept = 1, linetype = "dashed", color = "grey35", linewidth = 0.5)
-
-  # 2) Subtle highlight for impact day (0); use a light vertical band
   if (!is.null(highlight_day) && highlight_day %in% rr_df$rel_day) {
     p <- p + annotate(
       "rect",
@@ -539,7 +546,6 @@ plot_rr_event <- function(model,
     )
   }
 
-  # 3) Uncertainty: ribbon or error bars
   if (ci == "ribbon") {
     p <- p + geom_ribbon(
       aes(ymin = LCI, ymax = UCI),
@@ -552,17 +558,10 @@ plot_rr_event <- function(model,
     )
   }
 
-  # 4) Central estimate line and points
-  p <- p +
+  p +
     geom_line(color = "black", linewidth = 0.9) +
-    geom_point(color = "black", size = 2)
-
-  # 5) Scales and labels
-  p <- p +
-    scale_x_continuous(
-      breaks = x_breaks,
-      name = "Days relative to impact"
-    ) +
+    geom_point(color = "black", size = 2) +
+    scale_x_continuous(breaks = x_breaks, name = "Days relative to impact") +
     y_scale +
     labs(
       title = title,
@@ -570,51 +569,9 @@ plot_rr_event <- function(model,
       caption = caption
     ) +
     theme_pub(base_size = base_size)
-
-  return(p)
 }
 
-fig2 <- plot_rr_event(m_event_64kt, ci = "ribbon", log_y = FALSE)
-print(fig2)
-
-# Single-column width (85 mm ≈ 3.35 in); adjust height as needed
-ggsave(
-  filename = "rr_profile.png",
-  plot = fig2,
-  width = 3.35, height = 2.6, units = "in",
-  dpi = 600
-)
-
-ggsave("figs/Figure2_rr_profile.png", fig2, width = 5, height = 5, dpi = 600)
-```
-
-```{r}
-library(fixest)
-library(ggplot2)
-library(dplyr)
-
-theme_pub <- function(base_size = 10) {
-  theme_minimal(base_size = base_size) +
-    theme(
-      # grid: keep horizontal majors only
-      panel.grid.major.x = element_blank(),
-      panel.grid.minor   = element_blank(),
-      panel.grid.major.y = element_line(color = "grey85", linewidth = 0.4),
-      # panel border for print
-      panel.border       = element_rect(color = "black", fill = NA, linewidth = 0.5),
-      # axes
-      axis.title         = element_text(color = "black"),
-      axis.text          = element_text(color = "black"),
-      axis.ticks         = element_line(color = "black"),
-      # titles
-      plot.title         = element_text(face = "bold", hjust = 0),
-      plot.subtitle      = element_text(hjust = 0),
-      legend.position    = "none",
-      plot.margin        = margin(6, 8, 6, 6)
-    )
-}
-
-# --- Averaging function ---
+# ---- Helpers for Panel B ----
 avg_lags <- function(m, days, prefix = "rel_day_f::", include_missing_as_zero = TRUE){
   beta <- coef(m)
   V    <- vcov(m)
@@ -654,13 +611,11 @@ avg_lags <- function(m, days, prefix = "rel_day_f::", include_missing_as_zero = 
     RR_L = exp(lo),
     RR_U = exp(hi)
   )
-
   attr(out, "present_terms") <- present
   attr(out, "missing_terms") <- missing
   out
 }
 
-# --- Helper: summarize pre/post for one model ---
 summarize_prepost <- function(model, model_label,
                               pre_days, post_days,
                               prefix = "rel_day_f::",
@@ -669,12 +624,10 @@ summarize_prepost <- function(model, model_label,
     mutate(period = "Pre",  model = model_label)
   post <- avg_lags(model, post_days, prefix = prefix, include_missing_as_zero = include_missing_as_zero) |>
     mutate(period = "Post", model = model_label)
-
   bind_rows(pre, post) |>
     mutate(period = factor(period, levels = c("Pre", "Post")))
 }
 
-# --- Extract per-day estimates ---
 extract_days <- function(m, period_label, days, prefix = "rel_day_f::") {
   beta <- coef(m)
   tibble(
@@ -686,7 +639,69 @@ extract_days <- function(m, period_label, days, prefix = "rel_day_f::") {
   )
 }
 
-# --- Windows ---
+# ---- Panel B: Pre/Post plot ----
+plot_prepost_rr <- function(res_days, res_main,
+                            log_y = FALSE,
+                            show_title = TRUE,
+                            seed = 2026) {
+  set.seed(seed)
+
+  if (!log_y) {
+    y_min <- min(res_main$RR_L, res_days$RR, na.rm = TRUE)
+    y_max <- max(res_main$RR_U, res_days$RR, na.rm = TRUE)
+    pad   <- 0.05 * (y_max - y_min)
+  }
+
+  p <- ggplot() +
+    geom_hline(yintercept = 1, linetype = "dashed", color = "grey35", linewidth = 0.5) +
+    geom_point(
+      data = res_days |> filter(period == "Pre"),
+      aes(x = period, y = RR, alpha = alpha),
+      position = position_jitter(width = 0.12, height = 0),
+      size = 1.8, color = "grey10", show.legend = FALSE
+    ) +
+    geom_point(
+      data = res_days |> filter(period == "Post"),
+      aes(x = period, y = RR, alpha = alpha),
+      position = position_jitter(width = 0.12, height = 0),
+      size = 1.8, color = "grey10", show.legend = FALSE
+    ) +
+    geom_errorbar(
+      data = res_main,
+      aes(x = period, ymin = RR_L, ymax = RR_U),
+      width = 0.12, linewidth = 0.9, color = "black"
+    ) +
+    geom_point(
+      data = res_main,
+      aes(x = period, y = RR),
+      size = 3, color = "black"
+    ) +
+    scale_x_discrete(drop = FALSE, name = "Window")
+
+  if (log_y) {
+    p <- p + scale_y_log10(
+      name = "Rate ratio (RR, log scale)",
+      breaks = c(0.8, 1, 1.25, 1.5, 2),
+      minor_breaks = NULL
+    )
+  } else {
+    p <- p + scale_y_continuous(
+      name = "Rate ratio (RR)",
+      limits = c(max(0, y_min - pad), y_max + pad)
+    )
+  }
+
+  if (show_title) {
+    p <- p + labs(
+      title = "Average pre/post rate ratio (with daily coefficients)",
+      subtitle = "Daily dots jittered; darker = closer to impact day (−1 for Pre, +1 for Post)"
+    )
+  }
+
+  p + theme_pub(10)
+}
+
+# ---- Build data for Panel B ----
 pre_days  <- -8:-1
 post_days <-  1:8
 coef_prefix <- "rel_day_f::"
@@ -698,102 +713,34 @@ res_days <- bind_rows(
   extract_days(m_event_64kt, "Post", post_days, prefix = coef_prefix)
 )
 
-# --- Encode darkness via alpha (darker near -1/+1, lighter at -8/+8) ---
 alpha_min  <- 0.4
 alpha_range <- 1 - alpha_min
 
 res_days <- res_days |>
   mutate(
     alpha = case_when(
-      period == "Pre"  ~ alpha_min + alpha_range * (1 - (abs(day) - 1) / (max(abs(pre_days)) - 1)),  # -1 -> 1, -8 -> 0.4
-      period == "Post" ~ alpha_min + alpha_range * (1 - (day - 1) / (max(post_days) - 1)),          # +1 -> 1, +8 -> 0.4
+      period == "Pre"  ~ alpha_min + alpha_range * (1 - (abs(day) - 1) / (max(abs(pre_days)) - 1)),
+      period == "Post" ~ alpha_min + alpha_range * (1 - (day - 1) / (max(post_days) - 1)),
       TRUE ~ 1
     )
   )
 
-# --- Plot function with options ---
-plot_prepost_rr <- function(res_days, res_main,
-                            log_y = FALSE,
-                            show_title = TRUE,
-                            seed = 2026) {
+# ---- Create the two panels ----
+panel_A <- plot_rr_event(m_event_64kt, ci = "ribbon", log_y = FALSE,
+                         title = "A. Event profile across days",
+                         subtitle = NULL, caption = NULL)
 
-  set.seed(seed)
+panel_B <- plot_prepost_rr(res_days, res_main, log_y = FALSE, show_title = FALSE) +
+  labs(title = "B. Average pre/post rate ratio")
 
-  # Derive sensible y-limits (linear scale) so CI bars aren’t clipped
-  if (!log_y) {
-    y_min <- min(res_main$RR_L, res_days$RR, na.rm = TRUE)
-    y_max <- max(res_main$RR_U, res_days$RR, na.rm = TRUE)
-    pad   <- 0.05 * (y_max - y_min)
-  }
+# ---- Combine into a single figure (top: A, bottom: B) ----
+# heights controls relative vertical space; adjust if needed
+fig3 <- panel_A / panel_B + plot_layout(heights = c(1, 1)) &
+  theme_pub(10)
 
-  p <- ggplot() +
-    # reference at 1 (subtle)
-    geom_hline(yintercept = 1, linetype = "dashed", color = "grey35", linewidth = 0.5) +
+ggsave("figs/Figure2_profile_pre_post_rr.png",  fig3, width = 4, height = 5, units = "in", dpi = 600)
 
-    # per-day dots (Pre)
-    geom_point(
-      data = res_days |> filter(period == "Pre"),
-      aes(x = period, y = RR, alpha = alpha),
-      position = position_jitter(width = 0.12, height = 0),
-      size = 1.8, color = "grey10", show.legend = FALSE
-    ) +
-
-    # per-day dots (Post)
-    geom_point(
-      data = res_days |> filter(period == "Post"),
-      aes(x = period, y = RR, alpha = alpha),
-      position = position_jitter(width = 0.12, height = 0),
-      size = 1.8, color = "grey10", show.legend = FALSE
-    ) +
-
-    # Average ±95% CI
-    geom_errorbar(
-      data = res_main,
-      aes(x = period, ymin = RR_L, ymax = RR_U),
-      width = 0.12, linewidth = 0.9, color = "black"
-    ) +
-    geom_point(
-      data = res_main,
-      aes(x = period, y = RR),
-      size = 3, color = "black"
-    ) +
-
-    scale_x_discrete(drop = FALSE, name = "Window")
-
-  # y scale/log option
-  if (log_y) {
-    p <- p +
-      scale_y_log10(
-        name = "Rate ratio (RR, log scale)",
-        breaks = c(0.8, 1, 1.25, 1.5, 2),
-        minor_breaks = NULL
-      )
-  } else {
-    p <- p +
-      scale_y_continuous(
-        name = "Rate ratio (RR)",
-        limits = c(max(0, y_min - pad), y_max + pad)
-      )
-  }
-
-  if (show_title) {
-    p <- p + labs(
-      title = "Average pre/post rate ratio (with daily coefficients)",
-      subtitle = "Daily dots jittered; darker = closer to impact day (−1 for Pre, +1 for Post)"
-    )
-  } else {
-    p <- p + labs(title = NULL, subtitle = NULL)
-  }
-
-  fig3 <- p + theme_pub(10)
-}
-
-# --- Build the figure ---
-fig3 <- plot_prepost_rr(res_days, res_main, log_y = FALSE, show_title = TRUE)
-print(fig3)
-
-#ggsave("figs/Figure3_prepost_rr.pdf", fig3, width = 5, height = 5, units = "in")
-ggsave("figs/Figure3_prepost_rr.png",  fig3, width = 5, height = 5, units = "in", dpi = 600)
+# Optional global annotation (e.g., figure caption)
 ```
 
 
