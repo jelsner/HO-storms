@@ -647,6 +647,7 @@ m_event_64kt_placebo <- readRDS("m_event_64kt_placebo.rds")
 ## Profile plot across days
 ```{r}
 library(ggplot2)
+library(broom)
 
 plot_rr_event <- function(model, prefix = "rel_day_f::") {
 

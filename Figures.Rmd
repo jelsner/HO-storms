@@ -1,0 +1,845 @@
+---
+title: "Figures"
+output: html_document
+editor_options:
+  chunk_output_type: console
+---
+
+## Create an empirical storm threat model
+```{r}
+library(sf)
+library(dplyr)
+
+storm_intensity <- 64
+begin_year <- 1985 # 1985 for 55+ winds, 1981 for 34+ winds
+end_year <- 2022
+begin_date <- paste0(begin_year, "-01-01")
+end_date <- paste0(end_year, "-12-31")
+
+L <- "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/IBTrACS.NA.list.v04r00.lines.zip"
+  
+if(!"IBTrACS.NA.list.v04r00.lines.zip" %in% list.files(here::here("data"))) {
+download.file(url = L,
+              destfile = here::here("data",
+                                    "IBTrACS.NA.list.v04r00.lines.zip"))
+unzip(here::here("data", "IBTrACS.NA.list.v04r00.lines.zip"),
+      exdir = here::here("data"))
+}
+
+Tracks.sf <- st_read(dsn = here::here("data"), 
+                     layer = "IBTrACS.NA.list.v04r00.lines") |>
+  st_transform(crs = 32616)
+
+Tracks.sf <- Tracks.sf |>
+  filter(year >= begin_year & year <= end_year) |>
+  filter(USA_WIND >= storm_intensity) |>
+  select(SID, SEASON, year, month, day, hour, min,
+         NAME, SUBBASIN, ISO_TIME, USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
+
+Tracks.sf |>
+  st_drop_geometry() |>
+  summarize(avgRMW = mean(USA_RMW, na.rm = TRUE) * 1.852,
+                   avgEYE = mean(USA_EYE, na.rm = TRUE) * 1.852,
+                   avgROCI = mean(USA_ROCI, na.rm = TRUE) * 1.852)
+
+# Fill in missing RMW values. Start with pedigree, then use minimum pressure, and finish again with pedigree
+Tracks.sf <- Tracks.sf |>
+  group_by(SID) |>  # pedigree
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+Tracks.sf <- Tracks.sf |>
+  group_by(USA_PRES) |> # minimum pressure
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+Tracks.sf <- Tracks.sf |>
+  group_by(SID) |> # pedigree
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+Swaths.sf <- Tracks.sf |>
+  st_buffer(dist = Tracks.sf$USA_RMW * 1852) # 1852 converts to meters
+
+Boundaries.sf <- USAboundaries::us_states(resolution = "low", states = "FL") |> 
+  st_transform(crs = 32616)
+
+X <- Swaths.sf |>
+  st_intersects(Boundaries.sf, sparse = FALSE) #Does the swath intersect the state border?
+Swaths.sf <- Swaths.sf[X, ]
+Swaths.sf <- Swaths.sf |>
+  mutate(Date = lubridate::as_date(ISO_TIME)) #Add a date column
+
+Swaths.sf <- Swaths.sf |>
+  group_by(SID) |>
+  summarize(Date0 = first(Date),
+            NAME = first(NAME),
+            Wind = max(USA_WIND),
+            geometry = st_union(geometry)) |>
+  mutate(Storm_Category = case_when(
+    Wind >= 34 & Wind <= 63 ~ 0,
+    Wind >= 64 & Wind <= 82 ~ 1,
+    Wind >= 83 & Wind <= 95 ~ 2,
+    Wind >= 96 & Wind <= 112 ~ 3,
+    Wind >= 113 & Wind <= 136 ~ 4,
+    Wind >= 137 ~ 5
+  ))
+
+# Transform the geometry to a geographic CRS (4326) and unionize the swaths
+sf_use_s2(TRUE)
+
+Swaths.sf <- Swaths.sf |>
+    st_transform(crs = 4326)
+union_Swaths2.sfg <- Swaths.sf |>
+  st_union()
+```
+
+## Expand `Swaths.sf` by adding rows based on the increment value of the attribute `Date0`
+```{r}
+library(tidyr)
+library(lubridate)
+
+min_lag  <- -8   # days before impact
+max_lead <- 8   # days after impact
+
+TIC.sf <- Swaths.sf %>%
+  rowwise() %>%
+  mutate(event_days = list(
+    tibble(
+      Date     = Date0 + (min_lag:max_lead),
+      rel_day  = min_lag:max_lead
+    )
+  )) %>%
+  unnest(event_days) %>%
+  ungroup() %>%
+  select(
+    Date,
+    rel_day,
+    Storm_Name = NAME,
+    Storm_Category
+  )
+
+# Create event-time factors
+TIC.sf <- TIC.sf %>%
+  mutate(
+    rel_day_f = factor(rel_day)
+  )
+
+# Add month and year indicators change name of the geometry column (this is needed for spatial merges)
+TIC.sf <- TIC.sf |>
+  mutate(Month = lubridate::month(Date),
+         Year = lubridate::year(Date))
+storm_months <- unique(TIC.sf$Month)
+storm_year_range <- range(TIC.sf$Year)
+
+st_geometry(TIC.sf) <- "geom"
+```
+
+## Build a zip x date relative day calendar
+~ 25 sec
+```{r}
+library(data.table)
+library(tigris)
+library(sf)
+library(dplyr)
+
+options(tigris_use_cache = TRUE)
+
+# --- ZCTAs for Florida (2020) ---
+zcta_us <- zctas(cb = TRUE, year = 2020) %>%
+  select(zip = ZCTA5CE20, geometry)
+
+fl <- states(cb = TRUE, year = 2020) %>%
+  filter(STUSPS == "FL") %>%
+  st_transform(st_crs(zcta_us))
+
+zctas_fl <- st_join(zcta_us, fl, join = st_intersects, left = FALSE) %>%
+  select(zip, geometry)
+
+# --- Align CRS ---
+tic_aligned <- st_transform(TIC.sf, st_crs(zctas_fl))
+
+# --- Keep only what we need from TIC: Date + rel_day (or rel_day_f) + geometry ---
+# Prefer storing numeric rel_day and constructing rel_day_f later.
+tic_keep <- tic_aligned %>%
+  select(Date, rel_day, geom)
+
+# --- Spatial join: which zips intersect a TIC polygon on that date ---
+zcta_date_rel_sf <- st_join(
+  zctas_fl,
+  tic_keep,
+  join = st_intersects,
+  left = FALSE
+)
+
+# --- Drop geometry and convert to data.table ---
+zcta_date_rel <- as.data.table(st_drop_geometry(zcta_date_rel_sf))
+setnames(zcta_date_rel, c("zip", "Date", "rel_day"), c("zip", "date", "rel_day"))
+
+# --- Normalize types ---
+zcta_date_rel[, `:=`(
+  zip     = as.character(zip),
+  date    = as.IDate(date),
+  rel_day = as.integer(rel_day)
+)]
+
+# --- Resolve multiple hits per ZIP–date ---
+# Rule: choose rel_day closest to 0 (impact). Tie-break: prefer negative (pre-impact).
+zcta_date_rel <- zcta_date_rel[
+  , .SD[order(abs(rel_day), rel_day)][1],
+  by = .(zip, date)
+]
+
+# --- Build full ZIP × date grid (choose your desired universe) ---
+all_zips <- sort(unique(zctas_fl$zip))
+all_dates <- as.IDate(seq(as.Date(begin_date), as.Date(end_date), by = "day"))
+grid <- CJ(zip = as.character(all_zips), date = all_dates)
+
+# --- Left-join observed rel_day onto full grid ---
+rel_calendar <- zcta_date_rel[grid, on = .(zip, date)]
+
+# --- Construct rel_day_f (factor) with "None" for non-storm days ---
+min_lag  <-  -8L
+max_lead <-  8L
+
+rel_levels <- c("None", as.character(min_lag:max_lead))
+
+rel_calendar[, rel_day_f := fifelse(is.na(rel_day), "None", as.character(rel_day))]
+rel_calendar[, rel_day_f := factor(rel_day_f, levels = rel_levels)]
+
+# --- Sanity checks ---
+stopifnot(rel_calendar[, .N, by = .(zip, date)][, all(N == 1)])
+rel_calendar[, table(rel_day_f)]
+```
+
+## Figure: Michael exposure and zip x day calendar
+```{r}
+## Figure: Michael exposure with inset ZIP-outlines (Panel B) and ZIP × day calendar (Panel C)
+library(sf)
+library(dplyr)
+library(ggplot2)
+library(data.table)
+library(lubridate)
+library(patchwork)
+library(RColorBrewer)  # stable Blues/Reds palettes
+library(grid)
+
+# ---- Parameters ----
+min_lag  <- -8L
+max_lead <-  8L
+pad_km   <- 100        # map padding around Florida for Panel A
+
+# ---- Ensure ZCTA layer exists (load if not in memory) ----
+if (!exists("zctas_fl")) {
+  library(tigris)
+  options(tigris_use_cache = TRUE)
+  zcta_us <- zctas(cb = TRUE, year = 2020) %>% select(zip = ZCTA5CE20, geometry)
+  fl      <- states(cb = TRUE, year = 2020) %>% filter(STUSPS == "FL") %>%
+             st_transform(st_crs(zcta_us))
+  zctas_fl <- st_join(zcta_us, fl, join = st_intersects, left = FALSE) %>%
+              select(zip, geometry)
+}
+
+# ---- 1) Select Hurricane Michael (2018) ----
+example_storm <- Swaths.sf %>%
+  filter(lubridate::year(Date0) == 2018,
+         toupper(NAME) == "MICHAEL") %>%
+  slice(1)
+stopifnot(nrow(example_storm) == 1L)
+
+example_sid   <- example_storm$SID
+example_name  <- example_storm$NAME
+example_date0 <- example_storm$Date0
+
+# ---- 2) Prepare geometries in a projected CRS (meters) ----
+crs_m     <- 32616  # UTM Zone 16N
+fl_utm    <- st_transform(Boundaries.sf, crs_m)
+tracks_ex <- Tracks.sf %>% filter(SID == example_sid) %>% st_transform(crs_m)
+swath_ex  <- example_storm %>% st_transform(crs_m)
+
+# Build bounding box padded by ~100 km for Panel A
+bb   <- st_bbox(fl_utm)
+pad  <- pad_km * 1000
+xlim <- c(bb["xmin"] - pad, bb["xmax"] + pad)
+ylim <- c(bb["ymin"] - pad, bb["ymax"] + pad)
+
+# ---- Arrow at the northern-most track point (Panel A) ----
+coords   <- st_coordinates(tracks_ex)  # columns: X, Y, (and L1/L2 if multilines)
+idx_maxY <- which.max(coords[, "Y"])
+idx_prev <- if (idx_maxY > 1) idx_maxY - 1L else idx_maxY + 1L
+v        <- c(coords[idx_maxY, "X"] - coords[idx_prev, "X"],
+              coords[idx_maxY, "Y"] - coords[idx_prev, "Y"])
+v_norm   <- v / sqrt(sum(v^2))
+arrow_len <- 80000  # 80 km
+arrow_df <- data.frame(
+  x    = coords[idx_maxY, "X"],
+  y    = coords[idx_maxY, "Y"],
+  xend = coords[idx_maxY, "X"] + arrow_len * v_norm[1],
+  yend = coords[idx_maxY, "Y"] + arrow_len * v_norm[2]
+)
+
+# ======================
+# Panel A: Main map
+# ======================
+pA <- ggplot() +
+  geom_sf(data = fl_utm,  fill = "grey98", color = "grey40", linewidth = 0.25) +
+  geom_sf(data = swath_ex, fill = "#F8766D", color = NA, alpha = 0.30) +
+  geom_sf(data = tracks_ex, color = "#2C3E50", linewidth = 0.8) +
+  # Start/end markers (optional)
+  geom_sf(data = tracks_ex %>% slice(1),   color = "#2C3E50", size = 2) +
+  geom_sf(data = tracks_ex %>% slice(n()), color = "#2C3E50", size = 2, shape = 17) +
+  # Arrow showing continued motion away from Florida at northern-most point
+  geom_segment(data = arrow_df,
+               aes(x = x, y = y, xend = xend, yend = yend),
+               inherit.aes = FALSE,
+               color = "#2C3E50", linewidth = 0.8,
+               arrow = arrow(length = unit(3, "mm"), type = "closed")) +
+  coord_sf(xlim = xlim, ylim = ylim, expand = FALSE) +
+  labs(
+    title    = "Panel A. Hurricane Michael (2018): track and buffered swath",
+    subtitle = paste0("Impact date: ", example_date0),
+    x = NULL, y = NULL
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid = element_blank()
+  )
+
+# ======================
+# Panel B: Inset as a full panel to the right (ZIP outlines that intersect swath)
+# ======================
+
+# Compute intersecting ZIPs (in UTM)
+zctas_fl_m <- st_transform(zctas_fl, crs_m)
+swath_ex_m <- st_transform(swath_ex,  crs_m)
+
+zip_michael <- st_intersection(zctas_fl_m, swath_ex_m) %>%
+  st_drop_geometry() %>% pull(zip) %>% unique()
+
+zips_touch <- zctas_fl_m %>% filter(zip %in% zip_michael)
+
+# Tight bbox around the intersecting ZIPs with ~20 km padding
+bbox_zip   <- sf::st_bbox(sf::st_union(zips_touch))
+pad_inset  <- 20000  # meters
+xlim_inset <- c(bbox_zip["xmin"] - pad_inset, bbox_zip["xmax"] + pad_inset)
+ylim_inset <- c(bbox_zip["ymin"] - pad_inset, bbox_zip["ymax"] + pad_inset)
+
+pB <- ggplot() +
+  geom_sf(data = zips_touch, fill = NA, color = "#5B4EBC", linewidth = 0.5) +
+  geom_sf(data = swath_ex_m, fill = "#F8766D", color = NA, alpha = 0.35) +
+  coord_sf(xlim = xlim_inset, ylim = ylim_inset, expand = FALSE) +
+  labs(
+    title = "Panel B. ZIP polygons in Hurricane Michael's swath",
+    subtitle = "Outlines only; swath overlaid",
+    x = NULL, y = NULL
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid = element_blank()
+  )
+
+# ======================
+# Panel C: ZIP × day calendar (Michael-only), full width below
+# ======================
+
+# Build ZIP × date grid for ±8 days around Date0 (only intersecting ZIPs)
+win_dates <- seq(as.Date(example_date0) + min_lag,
+                 as.Date(example_date0) + max_lead, by = "1 day")
+
+cal_michael <- as.data.table(expand.grid(
+  zip  = zip_michael,
+  date = win_dates,
+  KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE
+))
+cal_michael[, date := as.Date(date)]
+cal_michael[, rel_day := as.integer(date - as.Date(example_date0))]
+cal_michael[, rel_day_f := factor(as.character(rel_day),
+                                  levels = as.character(min_lag:max_lead))]
+
+# Reduce to a readable number of ZIP rows (ordered north→south)
+max_rows <- 60L
+cent <- st_coordinates(st_centroid(zctas_fl_m)) %>% as.data.frame()
+cent$zip <- zctas_fl_m$zip
+zorder <- cal_michael %>%
+  distinct(zip) %>%
+  left_join(cent, by = "zip") %>%
+  arrange(desc(Y)) %>%
+  mutate(zip_lab = factor(zip, levels = zip))
+if (length(unique(zorder$zip)) > max_rows) {
+  keep_zip     <- zorder$zip[1:max_rows]
+  cal_michael  <- cal_michael[zip %in% keep_zip]
+  zorder       <- zorder %>% filter(zip %in% keep_zip)
+}
+cal_michael <- cal_michael %>%
+  left_join(zorder %>% select(zip, zip_lab), by = "zip")
+
+# Palette for Panel C
+blue_vec <- colorRampPalette(brewer.pal(9, "Blues"))(8)  # -8..-1 (light->dark)
+names(blue_vec) <- as.character(min_lag:-1)
+zero_col <- c("0" = "#000000")                           # 0 = black
+red_seq  <- colorRampPalette(brewer.pal(9, "Reds"))(8)   # +1..+8 base
+red_vec  <- rev(red_seq)                                 # dark->light
+names(red_vec) <- as.character(1:max_lead)
+fill_vals <- c(blue_vec, zero_col, red_vec)
+
+pC <- ggplot(cal_michael) +
+  geom_tile(aes(x = date, y = zip_lab, fill = rel_day_f),
+            color = "white", linewidth = 0.1) +
+  scale_fill_manual(values = fill_vals, drop = FALSE,
+                    name = "Relative day",
+                    guide = guide_legend(
+                      nrow = 1,
+                      keyheight = unit(2.5, "mm"),
+                      keywidth  = unit(3.5, "mm"),
+                      title.position = "top",
+                      label.position = "bottom"
+                    )) +
+  scale_x_date(date_breaks = "2 day", date_labels = "%b %d", expand = c(0.01, 0.01)) +
+  labs(
+    title = "Panel C. ZIP × day exposure calendar",
+    subtitle = paste0("Relative day assignments (", min_lag, "…", max_lead,
+                      ") around ", example_date0),
+    x = NULL, y = "ZIP"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title      = element_text(face = "bold"),
+    axis.text.y     = element_text(size = 7),
+    axis.text.x     = element_text(angle = 45, hjust = 1),
+    panel.grid      = element_blank(),
+    legend.position = "bottom",
+    legend.title    = element_text(size = 8),
+    legend.text     = element_text(size = 7),
+    legend.margin   = margin(t = 2, r = 2, b = 2, l = 2)
+  )
+
+library(patchwork)
+
+# Design grid (2 rows × 2 columns):
+# Row 1: A  C
+# Row 2: B  C   -> C spans vertically across both rows in the right column
+design <- "
+AC
+BC
+"
+fig1 <- pA + pB + pC +
+  plot_layout(design = design, widths = c(1.25, 1)) +
+  plot_annotation(
+    title = "Figure 1. Constructing storm exposure and event time (Hurricane Michael, 2018)"
+  )
+
+print(fig1)
+
+ggsave("figs/Figure1_constructing_exposure_event_time.png", fig1, width = 16, height = 12, dpi = 300)
+ggsave("figs/Figure1_constructing_exposure_event_time.pdf",  fig1, width = 16, height = 12)
+```
+
+## Figures
+
+Read in model results
+```{r}
+m_event_34kt <- readRDS("m_event_34kt.rds")
+m_event_34kt_placebo <- readRDS("m_event_34kt_placebo.rds")
+m_event_55kt <- readRDS("m_event_55kt.rds")
+m_event_55kt_placebo <- readRDS("m_event_55kt_placebo.rds")
+m_event_64kt <- readRDS("m_event_64kt.rds")
+m_event_64kt_placebo <- readRDS("m_event_64kt_placebo.rds")
+```
+
+```{r}
+# ---- Dependencies ----
+library(ggplot2)
+library(broom)
+library(dplyr)
+library(stringr)
+library(scales)
+
+# ---- Theme tuned for publication ----
+theme_nature <- function(base_size = 10, base_family = "Times") {
+  # Nature journals often print with serif text; adjust to your system fonts if needed.
+  # Alternatives: "Times New Roman", "Helvetica", or set via showtext if unavailable.
+  theme_minimal(base_size = base_size, base_family = base_family) +
+    theme(
+      # Panels & grid
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.y = element_line(color = "grey85", linewidth = 0.4),
+      panel.border = element_rect(color = "black", fill = NA, linewidth = 0.5),
+      # Axes
+      axis.title = element_text(color = "black"),
+      axis.text = element_text(color = "black"),
+      axis.ticks = element_line(color = "black"),
+      # Titles / captions
+      plot.title = element_text(face = "bold", hjust = 0, color = "black"),
+      plot.subtitle = element_text(hjust = 0, color = "black"),
+      plot.caption = element_text(size = rel(0.9), color = "grey30"),
+      # Legend
+      legend.position = "none",
+      # Margins
+      plot.margin = margin(6, 8, 6, 6)
+    )
+}
+
+# ---- Main plotting function ----
+plot_rr_event <- function(model,
+                          prefix = "rel_day_f::",
+                          highlight_day = 0,
+                          ci = c("ribbon", "errorbar"),
+                          log_y = FALSE,
+                          title = "Rate ratio by day relative to impact",
+                          subtitle = NULL,
+                          caption = "Points show RR; shading/lines show 95% CI.",
+                          base_size = 10,
+                          base_family = "Times") {
+
+  ci <- match.arg(ci)
+
+  rr_df <- tidy(model, conf.int = TRUE) %>%
+    dplyr::filter(startsWith(term, prefix)) %>%
+    mutate(
+      rel_day = as.integer(sub(prefix, "", term)),
+      RR  = exp(estimate),
+      LCI = exp(conf.low),
+      UCI = exp(conf.high)
+    ) %>%
+    arrange(rel_day)
+
+  # sensible x breaks
+  x_breaks <- sort(unique(rr_df$rel_day))
+
+  # y scaling: keep a small expansion so CI doesn't get clipped
+  if (log_y) {
+    y_scale <- scale_y_log10(
+      breaks = pretty_breaks(n = 6),
+      labels = number_format(accuracy = 0.01),
+      expand = expansion(mult = c(0.02, 0.06)),
+      name = "Rate ratio (RR, log scale)"
+    )
+  } else {
+    # derive a tidy limit to avoid overexpansion
+    y_min <- min(rr_df$LCI, na.rm = TRUE)
+    y_max <- max(rr_df$UCI, na.rm = TRUE)
+    pad   <- 0.05 * (y_max - y_min)
+    y_scale <- scale_y_continuous(
+      limits = c(max(0, y_min - pad), y_max + pad),
+      breaks = pretty_breaks(n = 6),
+      labels = number_format(accuracy = 0.01),
+      expand = expansion(mult = c(0.02, 0.06)),
+      name = "Rate ratio (RR)"
+    )
+  }
+
+  p <- ggplot(rr_df, aes(x = rel_day, y = RR))
+
+  # 1) Reference at RR = 1 (slightly darker and thinner than data line)
+  p <- p + geom_hline(yintercept = 1, linetype = "dashed", color = "grey35", linewidth = 0.5)
+
+  # 2) Subtle highlight for impact day (0); use a light vertical band
+  if (!is.null(highlight_day) && highlight_day %in% rr_df$rel_day) {
+    p <- p + annotate(
+      "rect",
+      xmin = highlight_day - 0.45, xmax = highlight_day + 0.45,
+      ymin = -Inf, ymax = Inf,
+      fill = "grey92", alpha = 0.6
+    )
+  }
+
+  # 3) Uncertainty: ribbon or error bars
+  if (ci == "ribbon") {
+    p <- p + geom_ribbon(
+      aes(ymin = LCI, ymax = UCI),
+      fill = "grey75", alpha = 0.5
+    )
+  } else {
+    p <- p + geom_errorbar(
+      aes(ymin = LCI, ymax = UCI),
+      width = 0.2, color = "grey30", linewidth = 0.5
+    )
+  }
+
+  # 4) Central estimate line and points
+  p <- p +
+    geom_line(color = "black", linewidth = 0.9) +
+    geom_point(color = "black", size = 2)
+
+  # 5) Scales and labels
+  p <- p +
+    scale_x_continuous(
+      breaks = x_breaks,
+      name = "Days relative to impact"
+    ) +
+    y_scale +
+    labs(
+      title = title,
+      subtitle = subtitle,
+      caption = caption
+    ) +
+    theme_nature(base_size = base_size, base_family = base_family)
+
+  return(p)
+}
+
+fig2 <- plot_rr_event(m_event_64kt, ci = "ribbon", log_y = FALSE)
+print(fig2)
+
+# Single-column width (85 mm ≈ 3.35 in); adjust height as needed
+ggsave(
+  filename = "rr_profile.png",
+  plot = fig2,
+  width = 3.35, height = 2.6, units = "in",
+  dpi = 600
+)
+
+# For vector (recommended for line/point graphics):
+ggsave(
+  filename = "rr_profile.pdf",
+  plot = fig2,
+  width = 3.35, height = 2.6, units = "in",
+  device = cairo_pdf # if available; improves text embedding
+)
+``
+
+ggsave("figs/Figure2_rr_profile.png", fig2, width = 5, height = 5, dpi = 600)
+ggsave("figs/Figure2_rr_profile.pdf",  fig2, width = 5, height = 5)
+```
+
+```{r}
+library(fixest)
+library(dplyr)
+library(ggplot2)
+
+# --- Compact publication theme (keeps your current font family) ---
+theme_pub <- function(base_size = 10) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      # grid: keep horizontal majors only
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor   = element_blank(),
+      panel.grid.major.y = element_line(color = "grey85", linewidth = 0.4),
+      # panel border for print
+      panel.border       = element_rect(color = "black", fill = NA, linewidth = 0.5),
+      # axes
+      axis.title         = element_text(color = "black"),
+      axis.text          = element_text(color = "black"),
+      axis.ticks         = element_line(color = "black"),
+      # titles
+      plot.title         = element_text(face = "bold", hjust = 0),
+      plot.subtitle      = element_text(hjust = 0),
+      legend.position    = "none",
+      plot.margin        = margin(6, 8, 6, 6)
+    )
+}
+
+library(fixest)
+library(dplyr)
+library(ggplot2)
+
+# --- Compact publication theme (keeps your current font family) ---
+theme_pub <- function(base_size = 10) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      # grid: keep horizontal majors only
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor   = element_blank(),
+      panel.grid.major.y = element_line(color = "grey85", linewidth = 0.4),
+      # panel border for print
+      panel.border       = element_rect(color = "black", fill = NA, linewidth = 0.5),
+      # axes
+      axis.title         = element_text(color = "black"),
+      axis.text          = element_text(color = "black"),
+      axis.ticks         = element_line(color = "black"),
+      # titles
+      plot.title         = element_text(face = "bold", hjust = 0),
+      plot.subtitle      = element_text(hjust = 0),
+      legend.position    = "none",
+      plot.margin        = margin(6, 8, 6, 6)
+    )
+}
+
+# --- Averaging function (unchanged) ---
+avg_lags <- function(m, days, prefix = "rel_day_f::", include_missing_as_zero = TRUE){
+  beta <- coef(m)
+  V    <- vcov(m)
+
+  wanted_terms <- paste0(prefix, days)
+  present <- wanted_terms[wanted_terms %in% names(beta)]
+  missing <- setdiff(wanted_terms, present)
+
+  if(length(present) == 0){
+    stop("None of the requested terms are in the model. Check coef(m) names and your prefix/days.")
+  }
+
+  denom <- if(include_missing_as_zero) length(wanted_terms) else length(present)
+  w_present <- rep(1/denom, length(present))
+
+  est <- sum(w_present * beta[present])
+
+  Vpp <- V[present, present, drop = FALSE]
+  var <- as.numeric(t(w_present) %*% Vpp %*% w_present)
+  se  <- sqrt(var)
+
+  lo <- est - 1.96 * se
+  hi <- est + 1.96 * se
+
+  out <- data.frame(
+    days_min = min(days),
+    days_max = max(days),
+    n_days_requested = length(days),
+    n_terms_present = length(present),
+    n_terms_missing = length(missing),
+    include_missing_as_zero = include_missing_as_zero,
+    logRR = est,
+    SE = se,
+    logRR_L = lo,
+    logRR_U = hi,
+    RR = exp(est),
+    RR_L = exp(lo),
+    RR_U = exp(hi)
+  )
+
+  attr(out, "present_terms") <- present
+  attr(out, "missing_terms") <- missing
+  out
+}
+
+# --- Helper: summarize pre/post for one model ---
+summarize_prepost <- function(model, model_label,
+                              pre_days, post_days,
+                              prefix = "rel_day_f::",
+                              include_missing_as_zero = TRUE) {
+  pre  <- avg_lags(model, pre_days,  prefix = prefix, include_missing_as_zero = include_missing_as_zero) |>
+    mutate(period = "Pre",  model = model_label)
+  post <- avg_lags(model, post_days, prefix = prefix, include_missing_as_zero = include_missing_as_zero) |>
+    mutate(period = "Post", model = model_label)
+
+  bind_rows(pre, post) |>
+    mutate(period = factor(period, levels = c("Pre", "Post")))
+}
+
+# --- Extract per-day estimates ---
+extract_days <- function(m, period_label, days, prefix = "rel_day_f::") {
+  beta <- coef(m)
+  tibble(
+    day   = days,
+    term  = paste0(prefix, day),
+    logRR = unname(beta[term]),
+    RR    = exp(logRR),
+    period = factor(period_label, levels = c("Pre", "Post"))
+  )
+}
+
+# --- Windows ---
+pre_days  <- -8:-1
+post_days <-  1:8
+coef_prefix <- "rel_day_f::"
+
+res_main <- summarize_prepost(m_event_64kt, "Main (64kt)", pre_days, post_days)
+
+res_days <- bind_rows(
+  extract_days(m_event_64kt, "Pre",  pre_days,  prefix = coef_prefix),
+  extract_days(m_event_64kt, "Post", post_days, prefix = coef_prefix)
+)
+
+# --- Encode darkness via alpha (darker near -1/+1, lighter at -8/+8) ---
+alpha_min  <- 0.4
+alpha_range <- 1 - alpha_min
+
+res_days <- res_days |>
+  mutate(
+    alpha = case_when(
+      period == "Pre"  ~ alpha_min + alpha_range * (1 - (abs(day) - 1) / (max(abs(pre_days)) - 1)),  # -1 -> 1, -8 -> 0.4
+      period == "Post" ~ alpha_min + alpha_range * (1 - (day - 1) / (max(post_days) - 1)),          # +1 -> 1, +8 -> 0.4
+      TRUE ~ 1
+    )
+  )
+
+# --- Plot function with options ---
+plot_prepost_rr <- function(res_days, res_main,
+                            log_y = FALSE,
+                            show_title = TRUE,
+                            seed = 2026) {
+
+  set.seed(seed)
+
+  # Derive sensible y-limits (linear scale) so CI bars aren’t clipped
+  if (!log_y) {
+    y_min <- min(res_main$RR_L, res_days$RR, na.rm = TRUE)
+    y_max <- max(res_main$RR_U, res_days$RR, na.rm = TRUE)
+    pad   <- 0.05 * (y_max - y_min)
+  }
+
+  p <- ggplot() +
+    # reference at 1 (subtle)
+    geom_hline(yintercept = 1, linetype = "dashed", color = "grey35", linewidth = 0.5) +
+
+    # per-day dots (Pre)
+    geom_point(
+      data = res_days |> filter(period == "Pre"),
+      aes(x = period, y = RR, alpha = alpha),
+      position = position_jitter(width = 0.12, height = 0),
+      size = 1.8, color = "grey10", show.legend = FALSE
+    ) +
+
+    # per-day dots (Post)
+    geom_point(
+      data = res_days |> filter(period == "Post"),
+      aes(x = period, y = RR, alpha = alpha),
+      position = position_jitter(width = 0.12, height = 0),
+      size = 1.8, color = "grey10", show.legend = FALSE
+    ) +
+
+    # Average ±95% CI
+    geom_errorbar(
+      data = res_main,
+      aes(x = period, ymin = RR_L, ymax = RR_U),
+      width = 0.12, linewidth = 0.9, color = "black"
+    ) +
+    geom_point(
+      data = res_main,
+      aes(x = period, y = RR),
+      size = 3, color = "black"
+    ) +
+
+    scale_x_discrete(drop = FALSE, name = "Window")
+
+  # y scale/log option
+  if (log_y) {
+    p <- p +
+      scale_y_log10(
+        name = "Rate ratio (RR, log scale)",
+        breaks = c(0.8, 1, 1.25, 1.5, 2),
+        minor_breaks = NULL
+      )
+  } else {
+    p <- p +
+      scale_y_continuous(
+        name = "Rate ratio (RR)",
+        limits = c(max(0, y_min - pad), y_max + pad)
+      )
+  }
+
+  if (show_title) {
+    p <- p + labs(
+      title = "Average pre/post rate ratio (with daily coefficients)",
+      subtitle = "Daily dots jittered; darker = closer to impact day (−1 for Pre, +1 for Post)"
+    )
+  } else {
+    p <- p + labs(title = NULL, subtitle = NULL)
+  }
+
+  p + theme_pub(10)
+}
+
+# --- Build the figure ---
+p <- plot_prepost_rr(res_days, res_main, log_y = FALSE, show_title = TRUE)
+print(p)
+
+# Single-column export (recommended)
+ggsave("figs/Figure3_prepost_rr_singlecol.pdf", p, width = 3.35, height = 2.6, units = "in")
+ggsave("figs/Figure3_prepost_rr_singlecol.png",  p, width = 3.35, height = 2.6, units = "in", dpi = 600)
+
+# If panel lettering is needed later, add with annotate() or patchwork/cowplot
+```
+
+
+
+

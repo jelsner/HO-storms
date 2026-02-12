@@ -115,10 +115,10 @@ sample_date_uniform <- function(start, end) {
   as.Date(sample(seq(start, end, by = "day"), size = 1L))
 }
 
-min_gap_days <- 16  # keep placebo ≥16 days away from real Date0
+min_gap_days <- 50  # keep placebo ≥16 days away from real Date0
 
 draw_placebo_far <- function(y, real_d, season_start="05-01", season_end="11-30",
-                             lead=8, lag=8, margin=TRUE, min_gap=16) {
+                             lead=8, lag=8, margin=TRUE, min_gap=30) {
   # sample until far-enough from real_d
   b <- season_bounds(y, season_start, season_end, lead, lag, margin)
   pool <- seq(b$start, b$end, by="day")
