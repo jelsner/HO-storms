@@ -589,8 +589,10 @@ ggsave("figs/Figure2_rr_profile.png", fig2, width = 5, height = 5, dpi = 600)
 ```
 
 ```{r}
+library(fixest)
+library(ggplot2)
+library(dplyr)
 
-# --- Compact publication theme (keeps your current font family) ---
 theme_pub <- function(base_size = 10) {
   theme_minimal(base_size = base_size) +
     theme(
@@ -612,7 +614,7 @@ theme_pub <- function(base_size = 10) {
     )
 }
 
-# --- Averaging function (unchanged) ---
+# --- Averaging function ---
 avg_lags <- function(m, days, prefix = "rel_day_f::", include_missing_as_zero = TRUE){
   beta <- coef(m)
   V    <- vcov(m)
@@ -783,20 +785,15 @@ plot_prepost_rr <- function(res_days, res_main,
     p <- p + labs(title = NULL, subtitle = NULL)
   }
 
-  p + theme_pub(10)
+  fig3 <- p + theme_pub(10)
 }
 
 # --- Build the figure ---
-p <- plot_prepost_rr(res_days, res_main, log_y = FALSE, show_title = TRUE)
-print(p)
+fig3 <- plot_prepost_rr(res_days, res_main, log_y = FALSE, show_title = TRUE)
+print(fig3)
 
-# Single-column export (recommended)
-#ggsave("figs/Figure3_prepost_rr_singlecol.pdf", p, width = 3.35, height = 2.6, units = "in")
-#ggsave("figs/Figure3_prepost_rr_singlecol.png",  p, width = 3.35, height = 2.6, units = "in", dpi = 600)
-
-# If panel lettering is needed later, add with annotate() or patchwork/cowplot
+#ggsave("figs/Figure3_prepost_rr.pdf", fig3, width = 5, height = 5, units = "in")
+ggsave("figs/Figure3_prepost_rr.png",  fig3, width = 5, height = 5, units = "in", dpi = 600)
 ```
-
-
 
 
