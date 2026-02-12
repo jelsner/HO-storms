@@ -453,29 +453,25 @@ library(dplyr)
 library(stringr)
 library(scales)
 
-# ---- Theme tuned for publication ----
-theme_nature <- function(base_size = 10, base_family = "Times") {
-  # Nature journals often print with serif text; adjust to your system fonts if needed.
-  # Alternatives: "Times New Roman", "Helvetica", or set via showtext if unavailable.
-  theme_minimal(base_size = base_size, base_family = base_family) +
+# ---- Theme tuned for publication ---
+theme_pub <- function(base_size = 10) {
+  theme_minimal(base_size = base_size) +
     theme(
-      # Panels & grid
+      # grid: keep horizontal majors only
       panel.grid.major.x = element_blank(),
-      panel.grid.minor = element_blank(),
+      panel.grid.minor   = element_blank(),
       panel.grid.major.y = element_line(color = "grey85", linewidth = 0.4),
-      panel.border = element_rect(color = "black", fill = NA, linewidth = 0.5),
-      # Axes
-      axis.title = element_text(color = "black"),
-      axis.text = element_text(color = "black"),
-      axis.ticks = element_line(color = "black"),
-      # Titles / captions
-      plot.title = element_text(face = "bold", hjust = 0, color = "black"),
-      plot.subtitle = element_text(hjust = 0, color = "black"),
-      plot.caption = element_text(size = rel(0.9), color = "grey30"),
-      # Legend
-      legend.position = "none",
-      # Margins
-      plot.margin = margin(6, 8, 6, 6)
+      # panel border for print
+      panel.border       = element_rect(color = "black", fill = NA, linewidth = 0.5),
+      # axes
+      axis.title         = element_text(color = "black"),
+      axis.text          = element_text(color = "black"),
+      axis.ticks         = element_line(color = "black"),
+      # titles
+      plot.title         = element_text(face = "bold", hjust = 0),
+      plot.subtitle      = element_text(hjust = 0),
+      legend.position    = "none",
+      plot.margin        = margin(6, 8, 6, 6)
     )
 }
 
@@ -573,7 +569,7 @@ plot_rr_event <- function(model,
       subtitle = subtitle,
       caption = caption
     ) +
-    theme_nature(base_size = base_size, base_family = base_family)
+    theme_pub(base_size = base_size)
 
   return(p)
 }
@@ -589,49 +585,10 @@ ggsave(
   dpi = 600
 )
 
-# For vector (recommended for line/point graphics):
-ggsave(
-  filename = "rr_profile.pdf",
-  plot = fig2,
-  width = 3.35, height = 2.6, units = "in",
-  device = cairo_pdf # if available; improves text embedding
-)
-``
-
 ggsave("figs/Figure2_rr_profile.png", fig2, width = 5, height = 5, dpi = 600)
-ggsave("figs/Figure2_rr_profile.pdf",  fig2, width = 5, height = 5)
 ```
 
 ```{r}
-library(fixest)
-library(dplyr)
-library(ggplot2)
-
-# --- Compact publication theme (keeps your current font family) ---
-theme_pub <- function(base_size = 10) {
-  theme_minimal(base_size = base_size) +
-    theme(
-      # grid: keep horizontal majors only
-      panel.grid.major.x = element_blank(),
-      panel.grid.minor   = element_blank(),
-      panel.grid.major.y = element_line(color = "grey85", linewidth = 0.4),
-      # panel border for print
-      panel.border       = element_rect(color = "black", fill = NA, linewidth = 0.5),
-      # axes
-      axis.title         = element_text(color = "black"),
-      axis.text          = element_text(color = "black"),
-      axis.ticks         = element_line(color = "black"),
-      # titles
-      plot.title         = element_text(face = "bold", hjust = 0),
-      plot.subtitle      = element_text(hjust = 0),
-      legend.position    = "none",
-      plot.margin        = margin(6, 8, 6, 6)
-    )
-}
-
-library(fixest)
-library(dplyr)
-library(ggplot2)
 
 # --- Compact publication theme (keeps your current font family) ---
 theme_pub <- function(base_size = 10) {
@@ -834,8 +791,8 @@ p <- plot_prepost_rr(res_days, res_main, log_y = FALSE, show_title = TRUE)
 print(p)
 
 # Single-column export (recommended)
-ggsave("figs/Figure3_prepost_rr_singlecol.pdf", p, width = 3.35, height = 2.6, units = "in")
-ggsave("figs/Figure3_prepost_rr_singlecol.png",  p, width = 3.35, height = 2.6, units = "in", dpi = 600)
+#ggsave("figs/Figure3_prepost_rr_singlecol.pdf", p, width = 3.35, height = 2.6, units = "in")
+#ggsave("figs/Figure3_prepost_rr_singlecol.png",  p, width = 3.35, height = 2.6, units = "in", dpi = 600)
 
 # If panel lettering is needed later, add with annotate() or patchwork/cowplot
 ```
