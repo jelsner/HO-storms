@@ -1253,7 +1253,6 @@ print(p_64)
 # Side-by-side with shared guides (colors are not shown in legend anyway)
 library(patchwork)
 p_34 + p_55 + p_64 + plot_layout(guides = "collect")
-
 ```
 
 
