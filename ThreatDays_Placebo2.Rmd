@@ -1,0 +1,542 @@
+---
+title: "Daily death counts prior to storm impact: Placebo 2 spatial randomness"
+output: html_document
+editor_options:
+  chunk_output_type: console
+---
+
+## Create an empirical storm threat model
+```{r}
+library(sf)
+library(dplyr)
+
+storm_intensity <- 64
+begin_year <- 1985 
+end_year <- 2022
+begin_date <- paste0(begin_year, "-01-01")
+end_date <- paste0(end_year, "-12-31")
+
+L <- "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/IBTrACS.NA.list.v04r00.lines.zip"
+  
+if(!"IBTrACS.NA.list.v04r00.lines.zip" %in% list.files(here::here("data"))) {
+download.file(url = L,
+              destfile = here::here("data",
+                                    "IBTrACS.NA.list.v04r00.lines.zip"))
+unzip(here::here("data", "IBTrACS.NA.list.v04r00.lines.zip"),
+      exdir = here::here("data"))
+}
+
+Tracks.sf <- st_read(dsn = here::here("data"), 
+                     layer = "IBTrACS.NA.list.v04r00.lines") |>
+  st_transform(crs = 32616)
+
+Tracks.sf <- Tracks.sf |>
+  filter(year >= begin_year & year <= end_year) |>
+  filter(USA_WIND >= storm_intensity) |>
+  select(SID, SEASON, year, month, day, hour, min,
+         NAME, SUBBASIN, ISO_TIME, USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
+
+Tracks.sf |>
+  st_drop_geometry() |>
+  summarize(avgRMW = mean(USA_RMW, na.rm = TRUE) * 1.852,
+                   avgEYE = mean(USA_EYE, na.rm = TRUE) * 1.852,
+                   avgROCI = mean(USA_ROCI, na.rm = TRUE) * 1.852)
+
+# Fill in missing RMW values. Start with pedigree, then use minimum pressure, and finish again with pedigree
+Tracks.sf <- Tracks.sf |>
+  group_by(SID) |>  # pedigree
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+Tracks.sf <- Tracks.sf |>
+  group_by(USA_PRES) |> # minimum pressure
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+Tracks.sf <- Tracks.sf |>
+  group_by(SID) |> # pedigree
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+#Add a buffer to the tracks to make segmented wind swaths
+Swaths.sf <- Tracks.sf |>
+  st_buffer(dist = Tracks.sf$USA_RMW * 1852) # 1852 converts to meters
+
+# Wind swaths that cross Florida. `USAboundaries` package no longer maintained on CRAN
+#devtools::install_github("ropensci/USAboundariesData")
+#devtools::install_github("ropensci/USAboundaries", force = TRUE)
+#install.packages("USAboundariesData", repos = "https://ropensci.r-universe.dev", type = "source")
+Boundaries.sf <- USAboundaries::us_states(resolution = "low", states = "FL") |> 
+  st_transform(crs = 32616)
+
+X <- Swaths.sf |>
+  st_intersects(Boundaries.sf, sparse = FALSE) #Does the swath intersect the state border?
+Swaths.sf <- Swaths.sf[X, ]
+Swaths.sf <- Swaths.sf |>
+  mutate(Date = lubridate::as_date(ISO_TIME)) #Add a date column
+
+# Extract the boundaries of storm impacts by storm ID. Dissolve the overlap borders of the individual swaths by storm to create a single storm swath. Add the storm category (Saffir-Simpson) based on wind speed
+Swaths.sf <- Swaths.sf |>
+  group_by(SID) |>
+  summarize(Date0 = first(Date),
+            NAME = first(NAME),
+            Wind = max(USA_WIND),
+            geometry = st_union(geometry)) |>
+  mutate(Storm_Category = case_when(
+    Wind >= 34 & Wind <= 63 ~ 0,
+    Wind >= 64 & Wind <= 82 ~ 1,
+    Wind >= 83 & Wind <= 95 ~ 2,
+    Wind >= 96 & Wind <= 112 ~ 3,
+    Wind >= 113 & Wind <= 136 ~ 4,
+    Wind >= 137 ~ 5
+  ))
+
+# Transform the geometry to a geographic CRS (4326) and unionize the swaths
+sf_use_s2(TRUE)
+
+Swaths.sf <- Swaths.sf |>
+    st_transform(crs = 4326)
+union_Swaths2.sfg <- Swaths.sf |>
+  st_union()
+```
+
+## Expand `Swaths.sf` by adding rows based on the increment value of the attribute `Date0`
+```{r}
+library(tidyr)
+library(lubridate)
+
+min_lag  <- -8   # days before impact
+max_lead <- 8   # days after impact
+
+TIC.sf <- Swaths.sf %>%
+  rowwise() %>%
+  mutate(event_days = list(
+    tibble(
+      Date     = Date0 + (min_lag:max_lead),
+      rel_day  = min_lag:max_lead
+    )
+  )) %>%
+  unnest(event_days) %>%
+  ungroup() %>%
+  select(
+    Date,
+    rel_day,
+    Storm_Name = NAME,
+    Storm_Category
+  )
+
+# Create event-time factors
+TIC.sf <- TIC.sf %>%
+  mutate(
+    rel_day_f = factor(rel_day)
+  )
+
+# Add month and year indicators change name of the geometry column (this is needed for spatial merges)
+TIC.sf <- TIC.sf |>
+  mutate(Month = lubridate::month(Date),
+         Year = lubridate::year(Date))
+storm_months <- unique(TIC.sf$Month)
+storm_year_range <- range(TIC.sf$Year)
+
+st_geometry(TIC.sf) <- "geom"
+```
+
+## Build a zip x date relative day calendar
+```{r}
+library(data.table)
+library(tigris)
+
+options(tigris_use_cache = TRUE)
+
+# --- ZCTAs for Florida (2020) ---
+zcta_us <- zctas(cb = TRUE, year = 2020) %>%
+  select(zip = ZCTA5CE20, geometry)
+
+fl <- states(cb = TRUE, year = 2020) %>%
+  filter(STUSPS == "FL") %>%
+  st_transform(st_crs(zcta_us))
+
+zctas_fl <- st_join(zcta_us, fl, join = st_intersects, left = FALSE) %>%
+  select(zip, geometry)
+
+# --- Align CRS ---
+tic_aligned <- st_transform(TIC.sf, st_crs(zctas_fl))
+
+# --- Keep only what we need from TIC: Date + rel_day (or rel_day_f) + geometry ---
+# Prefer storing numeric rel_day and constructing rel_day_f later.
+tic_keep <- tic_aligned %>%
+  select(Date, rel_day, geom)
+
+# --- Spatial join: which zips intersect a TIC polygon on that date ---
+zcta_date_rel_sf <- st_join(
+  zctas_fl,
+  tic_keep,
+  join = st_intersects,
+  left = FALSE
+)
+
+# --- Drop geometry and convert to data.table ---
+zcta_date_rel <- as.data.table(st_drop_geometry(zcta_date_rel_sf))
+setnames(zcta_date_rel, c("zip", "Date", "rel_day"), c("zip", "date", "rel_day"))
+
+# --- Normalize types ---
+zcta_date_rel[, `:=`(
+  zip     = as.character(zip),
+  date    = as.IDate(date),
+  rel_day = as.integer(rel_day)
+)]
+
+# --- Resolve multiple hits per ZIP–date ---
+# Rule: choose rel_day closest to 0 (impact). Tie-break: prefer negative (pre-impact).
+zcta_date_rel <- zcta_date_rel[
+  , .SD[order(abs(rel_day), rel_day)][1],
+  by = .(zip, date)
+]
+
+# --- Build full ZIP × date grid (choose your desired universe) ---
+all_zips <- sort(unique(zctas_fl$zip))
+all_dates <- as.IDate(seq(as.Date(begin_date), as.Date(end_date), by = "day"))
+grid <- CJ(zip = as.character(all_zips), date = all_dates)
+
+# --- Left-join observed rel_day onto full grid ---
+rel_calendar <- zcta_date_rel[grid, on = .(zip, date)]
+
+# --- Construct rel_day_f (factor) with "None" for non-storm days ---
+min_lag  <-  -8L
+max_lead <-  8L
+
+rel_levels <- c("None", as.character(min_lag:max_lead))
+
+rel_calendar[, rel_day_f := fifelse(is.na(rel_day), "None", as.character(rel_day))]
+rel_calendar[, rel_day_f := factor(rel_day_f, levels = rel_levels)]
+
+# --- Sanity checks ---
+stopifnot(rel_calendar[, .N, by = .(zip, date)][, all(N == 1)])
+rel_calendar[, table(rel_day_f)]
+```
+
+1046 zip codes
+
+64kt
+rel_day_f
+    None       -8       -7       -6       -5       -4       -3 
+14488092     1726     1726     1726     1726     1726     1726 
+      -2       -1        0        1        2        3        4 
+    1726     1726     1726     1726     1726     1726     1726 
+       5        6        7        8 
+    1726     1726     1726     1726
+    
+## Permute relative day within each date
+```{r}
+library(data.table)
+
+# rel_calendar: data.table with columns zip, date, rel_day (int, NA ok), rel_day_f (factor)
+
+placebo_permute_within_date <- function(rel_calendar, seed = 1L) {
+  stopifnot(is.data.table(rel_calendar))
+  stopifnot(all(c("zip","date","rel_day","rel_day_f") %in% names(rel_calendar)))
+
+  set.seed(seed)
+
+  dt <- copy(rel_calendar)
+
+  # Preserve original factor levels exactly
+  lv <- levels(dt$rel_day_f)
+  dt[, rel_day_f_pl := factor(rel_day_f, levels = lv)]
+
+  # Permute labels within each date across all zips
+  dt[, rel_day_f_pl := sample(rel_day_f_pl), by = date]
+
+  # Keep rel_day numeric consistent with the permuted factor
+  # This assumes your factor levels are like: "None", "-8", "-7", ..., "8" (or similar)
+  dt[, rel_day_pl := fifelse(as.character(rel_day_f_pl) == "None",
+                            NA_integer_,
+                            as.integer(as.character(rel_day_f_pl)))]
+
+  dt[]
+}
+
+# Example:
+rel_cal_placebo1 <- placebo_permute_within_date(rel_calendar, seed = 20260224L)
+```
+
+## Merge storms with death records
+~ 2 minutes
+```{r}
+start_time <- Sys.time()
+load("data/all_data.Rdata")
+
+Deaths.df <- all_data %>%   # Use for all deaths
+ mutate(Date = as_date(DATE_OF_DEATH)) %>%
+  filter(Date >= as.Date(begin_date)) %>% 
+  select(Death_ID = ID, Death_Date = Date, final_lon, final_lat)
+
+Deaths.sf <- Deaths.df %>%
+  st_as_sf(coords = c("final_lon", "final_lat"), crs = 4326)
+#rm(all_data, Deaths.df)
+Sys.time() - start_time
+```
+
+## Assign deaths to ZIP (ZCTA) once
+```{r}
+library(sf)
+library(data.table)
+
+sf_use_s2(FALSE)
+
+# zctas_fl: ZCTA polygons with a 'zip' column matching rel_calendar zip codes
+# Deaths.sf: points with Death_ID, Death_Date
+
+target_crs <- 5070
+zctas_proj    <- st_transform(zctas_fl,    target_crs)
+Deaths_proj <- st_transform(Deaths.sf, target_crs)
+
+Deaths_zip <- st_join(Deaths_proj, zctas_proj[, c("zip")], join = st_within, left = FALSE)
+
+Deaths_dt <- as.data.table(st_drop_geometry(Deaths_zip))
+setnames(Deaths_dt, c("Death_Date"), c("date"))  # for joining convenience
+```
+
+## Aggregate to ZIP x date
+```{r}
+deaths_zipday <- Deaths_dt[, .(deaths = .N), by = .(zip, date)]
+```
+
+## Join placebo calendar
+```{r}
+rel_pl <- rel_cal_placebo1[, .(zip, date, rel_day_f_pl)]  # already complete grid
+
+panel_pl <- merge(rel_pl, deaths_zipday, by = c("zip", "date"), all.x = TRUE)
+panel_pl[is.na(deaths), deaths := 0L]
+
+min_lag <- -8L
+max_lead <- 8L
+levels_main <- c("None", as.character(min_lag:max_lead))
+
+panel_pl[, rel_day_f_pl := factor(as.character(rel_day_f_pl), levels = levels_main)]
+```
+
+## Poisson model with stratum fixed effects
+
+Data table version
+```{r}
+library(data.table)
+library(fixest)
+library(lubridate)
+
+# panel_pl: data.table with zip (chr), date (IDate), rel_day_f_pl (factor), deaths (int)
+
+begin <- Sys.time()
+
+min_lag  <- -8L
+max_lead <-  8L
+levs <- c("None", as.character(min_lag:max_lead))
+
+DT <- copy(panel_pl)
+
+# 1) Hurricane season filter (May–Nov)
+DT <- DT[month(date) %in% 5:11]
+
+# 2) Ensure types + keep factor levels stable (important if some levels drop after filtering)
+DT[, zip := as.character(zip)]
+DT[, deaths := as.integer(deaths)]
+DT[, rel_day_f_pl := factor(as.character(rel_day_f_pl), levels = levs)]
+
+# 3) Strata / FE variables
+DT[, dow := factor(format(date, "%u"),
+                   levels = as.character(1:7),
+                   labels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun"))]
+
+DT[, ym := factor(format(date, "%Y-%m"))]
+
+# Match whatever you used in the main model. This is ISO week:
+DT[, yw := interaction(year(date), isoweek(date), drop = TRUE)]
+
+DT[, covid := as.integer(date >= as.IDate("2020-01-01") & date <= as.IDate("2022-12-31"))]
+
+# ZIP-specific COVID shift FE
+DT[, zip_covid := interaction(zip, covid, drop = TRUE)]
+
+# Optional: compress FE storage
+DT[, zip := factor(zip)]
+
+# 4) Model (placebo event-time)
+m_event_pl <- fepois(
+  deaths ~ i(rel_day_f_pl, ref = "None") | zip + yw + dow + zip_covid,
+  data    = DT,
+  cluster = ~ zip + yw,
+  notes   = TRUE
+)
+
+print(summary(m_event_pl))
+Sys.time() - begin
+```
+
+## Actual model run
+```{r}
+m_event_64kt <- readRDS("m_event_64kt.rds")
+
+# Helper: compute window average from a fixest model
+window_log_avg_from_model <- function(model, varname = "rel_day_f", days = -8:-1) {
+  b <- coef(model)
+  pat <- paste0("^", varname, "::")
+  idx <- grepl(pat, names(b))
+  nm  <- names(b)[idx]
+  day_chr <- sub(pat, "", nm)
+  day_int <- suppressWarnings(as.integer(day_chr))
+
+  keep <- day_int %in% days
+  mean(b[idx][keep])
+}
+
+obs_log_pre_near <- window_log_avg_from_model(
+  m_event_64kt,
+  varname = "rel_day_f",
+  days = -8:-1
+)
+
+obs_rr_pre_near <- exp(obs_log_pre_near)
+
+obs_log_pre_near
+obs_rr_pre_near
+```
+
+Multiple runs wrapper
+```{r}
+library(data.table)
+library(fixest)
+library(lubridate)
+
+run_placebo_zipperm_64kt <- function(panel_base,
+                                     observed_log_stat,
+                                     B = 200L,
+                                     seed = 1L,
+                                     window_days = -8:-1,
+                                     min_lag = -8L,
+                                     max_lead = 8L,
+                                     season_months = 5:11) {
+
+  levs <- c("None", as.character(min_lag:max_lead))
+
+  DT <- copy(panel_base)
+
+  # Hurricane season restriction
+  DT <- DT[month(date) %in% season_months]
+
+  # Stable levels
+  DT[, rel_day_f_pl := factor(as.character(rel_day_f_pl), levels = levs)]
+
+  # Fixed effects (match main model)
+  DT[, dow := factor(format(date, "%u"),
+                     levels = as.character(1:7),
+                     labels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun"))]
+
+  DT[, yw := interaction(year(date), isoweek(date), drop = TRUE)]
+  DT[, covid := as.integer(date >= as.IDate("2020-01-01") &
+                           date <= as.IDate("2022-12-31"))]
+  DT[, zip_covid := interaction(zip, covid, drop = TRUE)]
+  DT[, zip := factor(zip)]
+
+  # placeholder column used in i()
+  DT[, rel_evt := rel_day_f_pl]
+
+  set.seed(seed)
+  placebo_log_stats <- numeric(B)
+
+  for (b in seq_len(B)) {
+
+    set.seed(seed + b)
+
+    # Permute within date (core falsification)
+    DT[, rel_evt := sample(rel_evt), by = date]
+
+    m_pl <- fepois(
+      deaths ~ i(rel_evt, ref = "None") | zip + yw + dow + zip_covid,
+      data    = DT,
+      cluster = ~ zip + yw,
+      notes   = FALSE
+    )
+
+    # Extract window average
+    bb <- coef(m_pl)
+    nm <- names(bb)
+    idx <- grepl("^rel_evt::", nm)
+    day_chr <- sub("^rel_evt::", "", nm[idx])
+    day_int <- suppressWarnings(as.integer(day_chr))
+    keep <- day_int %in% window_days
+
+    placebo_log_stats[b] <- mean(bb[idx][keep])
+
+    if (b %% 5 == 0) cat("Completed", b, "of", B, "\n")
+  }
+
+  # One-sided empirical p-value
+  p_emp <- (1 + sum(placebo_log_stats >= observed_log_stat)) / (B + 1)
+
+  list(
+    observed_log = observed_log_stat,
+    observed_rr  = exp(observed_log_stat),
+    placebo_log  = placebo_log_stats,
+    placebo_rr   = exp(placebo_log_stats),
+    empirical_p  = p_emp
+  )
+}
+```
+
+## Run it
+```{r}
+res <- run_placebo_zipperm_64kt(
+  panel_base        = panel_pl,
+  observed_log_stat = obs_log_pre_near,
+  B = 200,
+  seed = 20260225
+)
+
+res$empirical_p
+
+saveRDS(res, file = "placebo_RR.rds")
+```
+
+
+## Plot results
+```{r}
+library(ggplot2)
+
+# Convert placebo RRs to data frame
+df_placebo <- data.frame(rr = res$placebo_rr)
+
+p <- ggplot(df_placebo, aes(x = rr)) +
+  geom_histogram(
+    bins = 20,
+    color = "black",
+    fill = "grey75"
+  ) +
+  geom_vline(
+    xintercept = res$observed_rr,
+    color = "red",
+    linewidth = 1.2
+  ) +
+  labs(
+    title = "Spatial Permutation Falsification",
+    subtitle = paste0(
+      "Observed pre-impact RR = ",
+      round(res$observed_rr, 3),
+      " (empirical p = ",
+      signif(res$empirical_p, 2),
+      ")"
+    ),
+    x = "Placebo Pre-Impact Window RR (−8…−1)",
+    y = "Frequency"
+  ) +
+  theme_minimal(base_size = 12)
+
+print(p)
+
+ggsave(
+  "figs/FigureS2_Spatial_Permutation_Placebo.png",
+  p,
+  width = 6,
+  height = 4.5,
+  dpi = 300
+)
+```
+
+
+

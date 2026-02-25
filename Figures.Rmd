@@ -424,9 +424,9 @@ ggsave("figs/Figure1_constructing_exposure_event_time.png", fig1, width = 8.5, h
 Read in model results
 ```{r}
 m_event_34kt <- readRDS("m_event_34kt.rds")
-m_event_34kt_placebo <- readRDS("m_event_34kt_placebo.rds")
+#m_event_34kt_placebo <- readRDS("m_event_34kt_placebo.rds")
 m_event_55kt <- readRDS("m_event_55kt.rds")
-m_event_55kt_placebo <- readRDS("m_event_55kt_placebo.rds")
+#m_event_55kt_placebo <- readRDS("m_event_55kt_placebo.rds")
 m_event_64kt <- readRDS("m_event_64kt.rds")
 m_event_64kt_placebo <- readRDS("m_event_64kt_placebo.rds")
 ```
@@ -673,7 +673,7 @@ pre_days  <- -8:-1
 post_days <-  1:8
 coef_prefix <- "rel_day_f::"
 
-res_main <- summarize_prepost(m_event_64kt, "Main (64kt)", pre_days, post_days)
+res_main <- summarize_prepost(m_event_64kt, "Main (33 m/s)", pre_days, post_days)
 
 res_days <- bind_rows(
   extract_days(m_event_64kt, "Pre",  pre_days,  prefix = coef_prefix),
@@ -700,10 +700,10 @@ panel_A <- plot_rr_event(m_event_64kt, ci = "ribbon", log_y = FALSE,
 panel_B <- plot_prepost_rr(res_days, res_main, log_y = FALSE, show_title = FALSE) +
   labs(title = "B. Average pre/post rate ratio")
 
-fig3 <- panel_A / panel_B + plot_layout(heights = c(1, 1)) &
+Fig2 <- panel_A / panel_B + plot_layout(heights = c(1, 1)) &
   theme_pub(10)
 
-ggsave("figs/Figure2_profile_pre_post_rr.png",  fig3, width = 4, height = 5, units = "in", dpi = 600)
+ggsave("figs/Figure2_profile_pre_post_rr.png", Fig2, width = 4, height = 5, units = "in", dpi = 600)
 ```
 
 ## Figure 3
@@ -778,12 +778,12 @@ coef_prefix <- "rel_day_f::"
 
 # Compute pre-impact averages for 34kt, 55kt, 64kt 
 res_pre <- bind_rows(
-  summarize_pre_only(m_event_34kt, "≥34 kt", pre_days),
-  summarize_pre_only(m_event_55kt, "≥55 kt", pre_days),
-  summarize_pre_only(m_event_64kt, "≥64 kt", pre_days)
+  summarize_pre_only(m_event_34kt, "≥ 17 m/s", pre_days),
+  summarize_pre_only(m_event_55kt, "≥ 28 m/s", pre_days),
+  summarize_pre_only(m_event_64kt, "≥ 33 m/s", pre_days)
 ) |>
   # Ensure left-to-right order: 34 -> 55 -> 64
-  mutate(group = factor(group, levels = c("≥34 kt", "≥55 kt", "≥64 kt")))
+  mutate(group = factor(group, levels = c("≥ 17 m/s", "≥ 28 m/s", "≥ 33 m/s")))
 
 extract_day_estimates <- function(m, label, days, prefix = "rel_day_f::") {
   beta <- coef(m)
@@ -797,21 +797,21 @@ extract_day_estimates <- function(m, label, days, prefix = "rel_day_f::") {
 }
 
 res_days <- bind_rows(
-  extract_day_estimates(m_event_34kt, "≥34 kt", pre_days, prefix = coef_prefix),
-  extract_day_estimates(m_event_55kt, "≥55 kt", pre_days, prefix = coef_prefix),
-  extract_day_estimates(m_event_64kt, "≥64 kt", pre_days, prefix = coef_prefix)
+  extract_day_estimates(m_event_34kt, "≥ 17 m/s", pre_days, prefix = coef_prefix),
+  extract_day_estimates(m_event_55kt, "≥ 28 m/s", pre_days, prefix = coef_prefix),
+  extract_day_estimates(m_event_64kt, "≥ 33 m/s", pre_days, prefix = coef_prefix)
 ) |>
   mutate(
-    group = factor(group, levels = c("≥34 kt", "≥55 kt", "≥64 kt")),
+    group = factor(group, levels = c("≥ 17 m/s", "≥ 28 m/s", "≥ 33 m/s")),
     # Map day to a 0..1 scale so -8 is light, -1 is dark
     day_rank = (day - min(pre_days)) / (max(pre_days) - min(pre_days))
   )
 
 res_pre <- res_pre |>
-  mutate(group = factor(group, levels = c("≥64 kt", "≥55 kt", "≥34 kt")))
+  mutate(group = factor(group, levels = c("≥ 17 m/s", "≥ 28 m/s", "≥ 33 m/s")))
 
 res_days <- res_days |>
-  mutate(group = factor(group, levels = c("≥64 kt", "≥55 kt", "≥34 kt")))
+  mutate(group = factor(group, levels = c("≥ 17 m/s", "≥ 28 m/s", "≥ 33 m/s")))
 
 set.seed(2026)
 
@@ -869,14 +869,14 @@ p <- ggplot() +
     panel.grid.minor = element_blank()
   )
 
-fig3 <- p
-print(fig3)
+Fig3 <- p
+print(Fig3)
 
-ggsave("figs/Figure3_preimpact_rr_by_threshold.png", fig3, width = 6, height = 4, units = "in", dpi = 600)
-# ggsave("preimpact_rr_by_threshold.pdf", fig3, width = 6.0, height = 4.0, units = "in")
+ggsave("figs/Figure3_preimpact_rr_by_threshold.png", Fig3, width = 6, height = 4, units = "in", dpi = 600)
+# ggsave("preimpact_rr_by_threshold.pdf", Fig3, width = 6.0, height = 4.0, units = "in")
 ```
 
-## Figure A
+## Figure S1
 ```{r}
 library(fixest)
 library(dplyr)
@@ -1052,16 +1052,63 @@ pre_days <- -8:-1
 out_64 <- plot_pre_placebo_comparison(
   main_model    = m_event_64kt,
   placebo_model = m_event_64kt_placebo,
-  main_label    = "≥64 kt",
+  main_label    = "≥ 33 m/s",
   pre_days      = pre_days,
   use_log_y     = FALSE  # set TRUE if you prefer log scale
 )
 
-FigA <- out_64$plot
-print(FigA)
+FigS1 <- out_64$plot
+print(FigS1)
 
 # ---- Optional: save a high-resolution export ----
-ggsave("figs/FigureA_placebo_pre_rr_64kt.png", FigA, width = 5.5, height = 4.0, units = "in", dpi = 600)
-# ggsave("placebo_pre_rr_64kt.pdf",  FigA, width = 5.5, height = 4.0, units = "in")
+ggsave("figs/FigureS1_placebo_pre_rr_64kt.png", FigS1, width = 5.5, height = 4.0, units = "in", dpi = 600)
+# ggsave("placebo_pre_rr_64kt.pdf", FigS1, width = 5.5, height = 4.0, units = "in")
 ```
+
+## Figure S2
+
+```{r}
+res <- readRDS("placebo_RR.rds")
+
+library(ggplot2)
+
+# Convert placebo RRs to data frame
+df_placebo <- data.frame(rr = res$placebo_rr)
+
+FigS2 <- ggplot(df_placebo, aes(x = rr)) +
+  geom_histogram(
+    bins = 20,
+    color = "black",
+    fill = "grey75"
+  ) +
+  geom_vline(
+    xintercept = res$observed_rr,
+    color = "grey35",
+    linewidth = 1.1
+  ) +
+  labs(
+    title = "Spatial Permutation Falsification",
+    subtitle = paste0(
+      "Observed pre-impact RR = ",
+      round(res$observed_rr, 3),
+      " (empirical p = ",
+      signif(res$empirical_p, 2),
+      ")"
+    ),
+    x = "Placebo Pre-Impact Window RR (−8…−1)",
+    y = "Frequency"
+  ) +
+  theme_minimal(base_size = 12)
+
+print(FigS2)
+
+ggsave(
+  "figs/FigureS2_Spatial_Permutation_Placebo.png",
+  FigS2,
+  width = 6,
+  height = 4.5,
+  dpi = 300
+)
+```
+
 

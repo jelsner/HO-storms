@@ -1,5 +1,5 @@
 ---
-title: "Daily death counts prior to storm impact"
+title: "Daily death counts prior to storm impact--sensitivity"
 output: html_document
 editor_options:
   chunk_output_type: console
@@ -34,13 +34,19 @@ Tracks.sf <- Tracks.sf |>
   filter(year >= begin_year & year <= end_year) |>
   filter(USA_WIND >= storm_intensity) |>
   select(SID, SEASON, year, month, day, hour, min,
-         NAME, SUBBASIN, ISO_TIME, USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
+         NAME, SUBBASIN, ISO_TIME, USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI,
+         USA_R50_NE, USA_R50_NW, USA_R50_SE, USA_R50_SW)
 
 Tracks.sf |>
   st_drop_geometry() |>
   summarize(avgRMW = mean(USA_RMW, na.rm = TRUE) * 1.852,
-                   avgEYE = mean(USA_EYE, na.rm = TRUE) * 1.852,
-                   avgROCI = mean(USA_ROCI, na.rm = TRUE) * 1.852)
+            avgEYE = mean(USA_EYE, na.rm = TRUE) * 1.852,
+            avgROCI = mean(USA_ROCI, na.rm = TRUE) * 1.852,
+            avgR50_NE = mean(USA_R50_NE, na.rm = TRUE) * 1.852,
+            avgR50_SE = mean(USA_R50_SE, na.rm = TRUE) * 1.852,
+            avgR50_SW = mean(USA_R50_SW, na.rm = TRUE) * 1.852,
+            avgR50_NW = mean(USA_R50_NW, na.rm = TRUE) * 1.852
+            )
 
 # Fill in missing RMW values. Start with pedigree, then use minimum pressure, and finish again with pedigree
 Tracks.sf <- Tracks.sf |>
@@ -57,7 +63,7 @@ Tracks.sf <- Tracks.sf |>
 
 #Add a buffer to the tracks to make segmented wind swaths
 Swaths.sf <- Tracks.sf |>
-  st_buffer(dist = Tracks.sf$USA_RMW * 1852) # 1852 converts to meters
+  st_buffer(dist = Tracks.sf$USA_RMW * 1852 * 2.5) # 1852 converts to meters # 2.5xRMW ~ R50
 
 # Wind swaths that cross Florida. `USAboundaries` package no longer maintained on CRAN
 #devtools::install_github("ropensci/USAboundariesData")
@@ -101,42 +107,22 @@ union_Swaths2.sfg <- Swaths.sf |>
 sum(table(Swaths.sf$Storm_Category))
 table(Swaths.sf$Storm_Category)
 ```
-77 / 45 / 24
 
- 0  1  2  3  4  5 
-52  8  6  6  2  3 
-
-0  1  2  3  4  5 
-21  7  6  6  2  3 
-
-1 2 3 4 5 
-7 6 6 2 3 
+Strafing storms now caught
+32
+ 1  2  3  4  5 
+12  8  7  2  3 
 
 ```{r}
 table(lubridate::year(Swaths.sf$Date0))
 ```
 
-34 kt
-1985 1987 1988 1990 1991 1992 1994 1995 1996 1997 1998 1999 
-   5    1    2    1    1    1    3    4    1    1    3    2 
-2000 2001 2002 2004 2005 2006 2007 2008 2009 2010 2011 2012 
-   2    3    3    5    6    2    1    1    2    2    1    3 
-2013 2016 2017 2018 2019 2020 2021 2022 
-   1    3    3    3    1    3    4    3 
-
-55 kt
-1985 1987 1988 1990 1992 1994 1995 1996 1997 1998 1999 2000 
-   4    1    1    1    1    2    3    1    1    3    1    1 
-2001 2004 2005 2006 2008 2012 2013 2016 2017 2018 2020 2021 
-   2    4    5    1    1    1    1    1    1    1    3    2 
-2022 
-   2 
 
 64 kt
-1985 1987 1992 1995 1997 1998 1999 2004 2005 2016 2017 
-   2    1    1    2    1    2    1    4    4    1    1 
-2018 2020 2022 
-   1    1    2 
+1985 1987 1992 1995 1997 1998 1999 2000 2004 2005 2012 2016 2017 
+   3    1    1    2    1    2    1    1    4    4    2    2    1 
+2018 2019 2020 2021 2022 
+   1    1    2    1    2 
 
 ## Expand `Swaths.sf` by adding rows based on the increment value of the attribute `Date0`
 ```{r}
@@ -254,70 +240,48 @@ stopifnot(rel_calendar[, .N, by = .(zip, date)][, all(N == 1)])
 rel_calendar[, table(rel_day_f)]
 ```
 
-34kt
-rel_day_f
-    None       -8       -7       -6       -5       -4       -3 
-14286431    13587    13587    13588    13589    13589    13589 
-      -2       -1        0        1        2        3        4 
-   13589    13589    13589    13589    13589    13589    13589 
-       5        6        7        8 
-   13589    13588    13587    13587 
-
-55kt
-rel_day_f
-    None       -8       -7       -6       -5       -4       -3 
-14445048     4258     4258     4258     4258     4258     4258 
-      -2       -1        0        1        2        3        4 
-    4258     4258     4258     4258     4258     4258     4258 
-       5        6        7        8 
-    4258     4258     4258     4258 
-    
 1046 zip codes
 
 64kt
 rel_day_f
     None       -8       -7       -6       -5       -4       -3 
-14488092     1726     1726     1726     1726     1726     1726 
+14427147     5311     5311     5311     5311     5311     5311 
       -2       -1        0        1        2        3        4 
-    1726     1726     1726     1726     1726     1726     1726 
+    5311     5311     5311     5311     5311     5311     5311 
        5        6        7        8 
-    1726     1726     1726     1726
+    5311     5311     5311     5311 
 
 ## Merge storms with death records
 Files received from Jihoon on November 27, 2025 
 ~ 2 minutes
 ```{r}
 start_time <- Sys.time()
-#load("data/all_data.Rdata")
+load("data/all_data.Rdata")
 
 #load("data/cardio_subset_all.Rdata")
 #load("data/respir_subset_all.Rdata")
 #load("data/injury_subset_all.Rdata")
-load("data/neuropsych_subset_all.Rdata")
+#load("data/neuropsych_subset_all.Rdata")
 
-Deaths.df <- neuropsych_subset_all %>% # Use for subsets
-  mutate(Date = as_date(DATE_OF_DEATH)) %>%
-  filter(Date >= as.Date(begin_date)) %>%
-  select(Death_ID = ID, Death_Date = Date, final_lon, final_lat)
+#Deaths.df <- neuropsych_subset_all %>% # Use for subsets
+#  mutate(Date = as_date(DATE_OF_DEATH)) %>%
+#  filter(Date >= as.Date(begin_date)) %>%
+#  select(Death_ID = ID, Death_Date = Date, final_lon, final_lat)
   
-#Deaths.df <- all_data %>%   # Use for all deaths
-# mutate(Date = as_date(DATE_OF_DEATH)) %>%
-#  filter(Date >= as.Date(begin_date)) %>% 
-#  select(Death_ID = ID, Death_Date = Date, final_lon, final_lat, 
-#         age = COMPUTED_AGE, white = RACE_WHITE, sex = SEX, 
-#         marital_code = MARITAL_CODE, army = ARMY_YESNO)
+Deaths.df <- all_data %>%   # Use for all deaths
+ mutate(Date = as_date(DATE_OF_DEATH)) %>%
+  filter(Date >= as.Date(begin_date)) %>% 
+  select(Death_ID = ID, Death_Date = Date, final_lon, final_lat, 
+         age = COMPUTED_AGE, white = RACE_WHITE, sex = SEX, 
+         marital_code = MARITAL_CODE, army = ARMY_YESNO)
 
 Deaths.sf <- Deaths.df %>%
   st_as_sf(coords = c("final_lon", "final_lat"), crs = 4326)
-#rm(all_data, Deaths.df)
+rm(all_data, Deaths.df)
 Sys.time() - start_time
 ```
 
 5,851,050 all deaths
-  478,814 cardio deaths
-  123,545 respir deaths
-  241,485 injury deaths
-  182,882 neuropsych deaths
 
 ## Filter deaths by date of death and storm effect zones
 ~ 10 minutes
@@ -464,26 +428,28 @@ death_rates <- total_deaths %>%
 
 print(n = 35, death_rates)
 ```
-   rel_day_f total_deaths num_days daily_death_rate
+
+  rel_day_f total_deaths num_days daily_death_rate
    <fct>            <int>    <int>            <dbl>
- 1 None           5823795    13127            444. 
- 2 -8                1650       43             38.4
- 3 -7                1595       43             37.1
- 4 -6                1601       43             37.2
- 5 -5                1638       45             36.4
- 6 -4                1610       45             35.8
- 7 -3                1564       45             34.8
- 8 -2                1518       45             33.7
- 9 -1                1659       45             36.9
-10 0                 1612       45             35.8
-11 1                 1664       45             37.0
-12 2                 1640       45             36.4
-13 3                 1557       45             34.6
-14 4                 1620       45             36  
-15 5                 1599       44             36.3
-16 6                 1619       43             37.7
-17 7                 1503       43             35.0
-18 8                 1606       43             37.3
+ 1 None           5812517    13348            435. 
+ 2 -8                2233       30             74.4
+ 3 -7                2242       30             74.7
+ 4 -6                2158       31             69.6
+ 5 -5                2203       31             71.1
+ 6 -4                2383       32             74.5
+ 7 -3                2178       32             68.1
+ 8 -2                2217       32             69.3
+ 9 -1                2244       32             70.1
+10 0                 2231       32             69.7
+11 1                 2401       32             75.0
+12 2                 2355       32             73.6
+13 3                 2289       32             71.5
+14 4                 2187       32             68.3
+15 5                 2343       31             75.6
+16 6                 2262       30             75.4
+17 7                 2267       30             75.6
+18 8                 2340       30             78
+
 
 ## Add zip codes to each death
 
