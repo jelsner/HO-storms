@@ -345,3 +345,9 @@ Log-Likelihood: -8,280,629.7   Adj. Pseudo R2: 0.605412
 
 
 * Use longer and shorter times (number of days) before (Threat) and after (Cleanup)
+
+## Weekly data (NOT USED)
+```{r}
+test <- readr::read_csv("data/Storm_aligned_Threat_Windows/ED_Cyclones_AllCause_by_County_34kt55kt_Threat4_Threat7_PostWeekly_2yr.csv")
+```
+
