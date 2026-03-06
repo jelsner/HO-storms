@@ -1,0 +1,304 @@
+```{r}
+library(sf)
+library(dplyr)
+library(data.table)
+library(tigris)
+library(lubridate)
+options(tigris_use_cache = TRUE)
+
+## Create an empirical storm effects model
+
+library(sf)
+library(dplyr)
+
+storm_intensity <- 34 # all tropical storms and hurricanes
+begin_year <- 2004
+end_year <- 2022
+
+L <- "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/IBTrACS.NA.list.v04r00.lines.zip"
+  
+if(!"IBTrACS.NA.list.v04r00.lines.zip" %in% list.files(here::here("data"))) {
+download.file(url = L,
+              destfile = here::here("data",
+                                    "IBTrACS.NA.list.v04r00.lines.zip"))
+unzip(here::here("data", "IBTrACS.NA.list.v04r00.lines.zip"),
+      exdir = here::here("data"))
+}
+
+Tracks.sf <- st_read(dsn = here::here("data"), 
+                     layer = "IBTrACS.NA.list.v04r00.lines") |>
+  st_transform(crs = 32616)
+
+Tracks.sf <- Tracks.sf |>
+  filter(year >= begin_year & year <= end_year) |>
+  filter(USA_WIND >= storm_intensity) |>
+  select(SID, SEASON, year, month, day, hour, min,
+         NAME, SUBBASIN, ISO_TIME, USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
+
+Tracks.sf |>
+  st_drop_geometry() |>
+  summarize(avgRMW = mean(USA_RMW, na.rm = TRUE) * 1.852,
+                   avgEYE = mean(USA_EYE, na.rm = TRUE) * 1.852,
+                   avgROCI = mean(USA_ROCI, na.rm = TRUE) * 1.852)
+
+# Fill in missing RMW values. Start with pedigree, then use minimum pressure, and finish again with pedigree
+Tracks.sf <- Tracks.sf |>
+  group_by(SID) |>  # pedigree
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+Tracks.sf <- Tracks.sf |>
+  group_by(USA_PRES) |> # minimum pressure
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+Tracks.sf <- Tracks.sf |>
+  group_by(SID) |> # pedigree
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+#Add a buffer to the tracks to make segmented wind swaths
+Swaths.sf <- Tracks.sf |>
+  st_buffer(dist = Tracks.sf$USA_RMW * 1852) # 1852 converts to meters
+
+Boundaries.sf <- USAboundaries::us_states(resolution = "low", states = "FL") |> 
+  st_transform(crs = 32616)
+
+X <- Swaths.sf |>
+  st_intersects(Boundaries.sf, sparse = FALSE) #Does the swath intersect the state border?
+Swaths.sf <- Swaths.sf[X, ]
+Swaths.sf <- Swaths.sf |>
+  mutate(Date = lubridate::as_date(ISO_TIME)) #Add a date column
+
+# Extract the boundaries of storm impacts by storm ID. Dissolve the overlap borders of the individual swaths by storm to create a single storm swath. Add the storm category (Saffir-Simpson) based on wind speed
+Swaths.sf <- Swaths.sf |>
+  group_by(SID) |>
+  summarize(Date0 = first(Date),
+            NAME = first(NAME),
+            Wind = max(USA_WIND),
+            geometry = st_union(geometry)) |>
+  mutate(Storm_Category = case_when(
+    Wind >= 34 & Wind <= 63 ~ 0,
+    Wind >= 64 & Wind <= 82 ~ 1,
+    Wind >= 83 & Wind <= 95 ~ 2,
+    Wind >= 96 & Wind <= 112 ~ 3,
+    Wind >= 113 & Wind <= 136 ~ 4,
+    Wind >= 137 ~ 5
+  ))
+
+# Transform the geometry to a geographic CRS (4326) and unionize the swaths
+sf_use_s2(TRUE)
+
+Swaths.sf <- Swaths.sf |>
+    st_transform(crs = 4326)
+union_Swaths2.sfg <- Swaths.sf |>
+  st_union()
+
+# Add a stable ID for each swath row
+Swaths.sf <- Swaths.sf %>% mutate(swath_id = dplyr::row_number())
+
+# --- ZCTAs for Florida (2020), as in your code ---
+zcta_us <- zctas(cb = TRUE, year = 2020) %>%
+  select(zip = ZCTA5CE20, geometry)
+
+fl <- states(cb = TRUE, year = 2020) %>%
+  filter(STUSPS == "FL") %>%
+  st_transform(st_crs(zcta_us))
+
+zctas_fl <- st_join(zcta_us, fl, join = st_intersects, left = FALSE) %>%
+  select(zip, geometry)
+
+# Align CRS with Swaths.sf
+zctas_fl <- st_transform(zctas_fl, st_crs(Swaths.sf))
+
+# --- Precompute ZIP ↔ swath intersections once ---
+ints <- st_intersects(zctas_fl, Swaths.sf)  # list: for each ZIP, which swath rows intersect
+
+# Build a long mapping table of (zip, swath_id)
+zcta_swath_map <- data.table(
+  zip      = rep(zctas_fl$zip, lengths(ints)),
+  swath_id = as.integer(unlist(ints))
+)
+
+# Keep only ZIPs that intersect at least one swath
+zcta_swath_map <- unique(zcta_swath_map)
+stopifnot(nrow(zcta_swath_map) > 0)
+
+# Precompute full date grid bounds (same as your code used)
+all_dates <- as.IDate(seq(as.Date("2004-12-31"), as.Date("2022-12-31"), by = "day"))
+
+# The set of ZIPs we care about = those that intersect at least one swath
+all_zips <- sort(unique(zcta_swath_map$zip))
+
+# Full grid (ZIP × date); we will left-join effects into this
+grid <- CJ(zip = as.character(all_zips), date = all_dates)
+```
+
+## Load & prep ER data
+
+```{r}
+ER_visits.dt <- data.table::fread(here::here("data", "Combined_ER_Data.csv"))
+ER_visits.df <- ER_visits.dt |>
+  as.data.frame()
+
+setDT(ER_visits.df)
+
+# Pad ZipCode to 5 chars; drop bad codes
+ER_visits.df[
+  , ZipCode := fifelse(ZipCode > 0 & ZipCode < 1e6, sprintf("%05d", ZipCode), NA_character_)
+]
+ER_visits.df[, Date := as.IDate(Date)]
+ER_visits_clean <- ER_visits.df[!is.na(ZipCode) & nchar(ZipCode) == 5]
+
+# Standardize names; optionally collapse duplicates
+setnames(ER_visits_clean, c("ZipCode","Date","Total_Visits"),
+                           c("zip",    "date","er_visits"))
+ER_visits_clean <- ER_visits_clean[, .(er_visits = sum(er_visits, na.rm = TRUE)),
+                                   by = .(zip, date)]
+```
+
+### Functions for randomization and one-run pipeline
+
+```{r}
+library(fixest)
+library(dplyr)
+library(lubridate)
+library(data.table)
+
+# --- Parameters ---
+deltaT <- 1L    # one-day increment
+n_new  <- 8L    # days before & after "impact"
+min_diff_days <- 16L  # minimum abs difference from original date
+models_to_run <- c("logit", "poisson")
+base_seed <- 123  # reproducible randomness
+n_iter <- 200L    # how many randomized runs
+
+# Randomize to a hurricane-season date (May 1–Nov 30 of the same year) >= min_diff_days from date0
+sample_hurr_date <- function(date0, min_diff = 16L) {
+  if (is.na(date0)) return(as.Date(NA))
+  date0 <- as.Date(date0)
+
+  yr <- year(date0)
+  season_start <- as.Date(sprintf("%d-05-01", yr))
+  season_end   <- as.Date(sprintf("%d-11-30", yr))
+  candidates <- seq(season_start, season_end, by = "day")
+
+  if (date0 >= season_start && date0 <= season_end) {
+    diffs <- abs(as.integer(candidates - date0))
+    candidates <- candidates[diffs >= min_diff]
+  }
+  if (!length(candidates)) candidates <- seq(season_start, season_end, by = "day")
+
+  sample(candidates, size = 1)
+}
+
+# Helper to safely retrieve the 3 coefficients (returns NA if a term isn't estimated)
+get_effect_coefs <- function(mod, want = c("effect::Cleanup", "effect::Threat", "effect::Impact")) {
+  b <- coef(mod)
+  out <- setNames(rep(NA_real_, length(want)), want)
+  nm <- intersect(names(b), want)
+  out[nm] <- b[nm]
+  data.table(coef = names(out), estimate = as.numeric(out))
+}
+
+run_one_randomization <- function(iter) {
+  set.seed(base_seed + iter)
+
+  # Randomize Date0 per swath (vectorized)
+  Date0_random <- vapply(Swaths.sf$Date0, sample_hurr_date, as.Date(NA), min_diff = min_diff_days)
+
+  # Expand per swath: dates from -n_new : +n_new around Date0_random
+  reps <- rep(seq_len(nrow(Swaths.sf)), each = 2L * n_new + 1L)
+  dd <- data.table(
+    swath_id = Swaths.sf$swath_id[reps],
+    date     = as.IDate(rep(Date0_random, each = 2L * n_new + 1L) + rep((-n_new):n_new, times = nrow(Swaths.sf)))
+  )
+
+  # Assign effect labels in order: Threat (before), Impact (at 0), Cleanup (after)
+  dd[, effect := rep(c(rep("Threat", n_new), "Impact", rep("Cleanup", n_new)), times = nrow(Swaths.sf))]
+
+  # Join ZIPs via precomputed (zip, swath_id) map — no spatial ops in the loop
+  zde <- merge(zcta_swath_map, dd, by = "swath_id", allow.cartesian = TRUE)[, .(zip, date, effect)]
+
+  # Keep the single most-severe effect per ZIP–date
+  sev <- data.table(effect = c("None", "Cleanup", "Threat", "Impact"), rank = 0:3)
+  zde <- sev[zde, on = "effect"]
+  zde <- zde[, .SD[which.max(rank)], by = .(zip, date)][, .(zip, date, effect)]
+
+  # Build full calendar over (ZIP × all_dates), fill NA → "None"
+  effect_calendar <- zde[grid, on = .(zip, date)]
+  effect_calendar[is.na(effect), effect := "None"]
+  effect_calendar[, effect := factor(effect, levels = c("None","Cleanup","Threat","Impact"))]
+
+  # Merge with ER, add controls
+  merged <- merge(effect_calendar, ER_visits_clean, by = c("zip", "date"), all.x = TRUE)
+  merged[is.na(er_visits), er_visits := 0L]
+  merged[, dow := lubridate::wday(date, label = TRUE, abbr = TRUE)]
+  merged[, year_month := as.IDate(floor_date(date, unit = "month"))]
+
+  # Hurricane season only
+  dat <- as.data.frame(merged) %>%
+    mutate(is_le6 = as.integer(er_visits == 6L)) %>%
+    filter(lubridate::month(date) %in% 5:11)
+
+  out_list <- list()
+
+  if ("logit" %in% models_to_run) {
+    mA <- feglm(
+      is_le6 ~ i(effect, ref = "None") | zip + year_month + dow,
+      data   = dat,
+      family = binomial("logit"),
+      cluster = ~ zip + year_month
+    )
+    outA <- get_effect_coefs(mA)[, `:=`(iter = iter, model = "logit")]
+    out_list[["A"]] <- outA
+  }
+
+  if ("poisson" %in% models_to_run) {
+    d_gt6 <- dplyr::filter(dat, er_visits > 6L)
+    mB <- fepois(
+      er_visits ~ i(effect, ref = "None") | zip + year_month + dow,
+      data = d_gt6, 
+      cluster = ~ zip + year_month
+    )
+    outB <- get_effect_coefs(mB)[, `:=`(iter = iter, model = "poisson")]
+    out_list[["B"]] <- outB
+  }
+
+  rbindlist(out_list, use.names = TRUE)
+}
+```
+
+### Run 200 randomizations and save the coefficients
+
+```{r}
+# Run with a simple progress bar
+pb <- txtProgressBar(min = 0, max = n_iter, style = 3)
+coef_runs <- rbindlist(lapply(seq_len(n_iter), function(it) {
+  res <- run_one_randomization(it)
+  setTxtProgressBar(pb, it)
+  res
+}), use.names = TRUE)
+close(pb)
+
+# Reorder columns nicely
+setcolorder(coef_runs, c("iter", "model", "coef", "estimate"))
+
+head(coef_runs)
+```
+
+```{r}
+library(dplyr)
+
+coef_summary <- coef_runs %>%
+  group_by(model, coef) %>%
+  summarise(
+    mean_est = mean(estimate, na.rm = TRUE),
+    sd_est   = sd(estimate, na.rm = TRUE),
+    n        = sum(!is.na(estimate)),
+    se_est   = sd_est / sqrt(n),
+    ci_lower = mean_est - 1.96 * se_est,
+    ci_upper = mean_est + 1.96 * se_est,
+    .groups = "drop"
+  )
+
+coef_summary
+```
+

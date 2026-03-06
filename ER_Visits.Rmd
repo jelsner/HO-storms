@@ -211,6 +211,10 @@ stopifnot(effect_calendar[, .N, by = .(zip, date)][, all(N == 1)])
 effect_calendar[, table(effect)]
 ```
 
+effect
+   None Cleanup  Threat  Impact 
+6740950   64230   64240    8030 
+
 ## Merge with emergency room visits
 
 Data received from David Hsu on October 16, 2025 via email
@@ -218,10 +222,7 @@ Data received from David Hsu on October 16, 2025 via email
 ER_visits.dt <- data.table::fread(here::here("data", "Combined_ER_Data.csv"))
 ER_visits.df <- ER_visits.dt |>
   as.data.frame()
-```
 
-Clean and merge
-```{r}
 setDT(ER_visits.df)
 
 # Pad ZipCode to 5 chars; drop non-sensical codes (0/NA/too short/too big)
@@ -355,11 +356,260 @@ effect::Impact  -0.235362   0.077399 -3.040881 0.0023589 **
 Log-Likelihood: -8,280,629.7   Adj. Pseudo R2: 0.605412
            BIC: 16,576,477.7     Squared Cor.: 0.880557
 
+## Function: two‑part g‑computation with clustered bootstrap + figure
 
-* Use longer and shorter times (number of days) before (Threat) and after (Cleanup)
-
-## Weekly data (NOT USED)
 ```{r}
-test <- readr::read_csv("data/Storm_aligned_Threat_Windows/ED_Cyclones_AllCause_by_County_34kt55kt_Threat4_Threat7_PostWeekly_2yr.csv")
+# --- Packages ---
+library(data.table)
+library(dplyr)
+library(lubridate)
+library(fixest)
+library(ggplot2)
+
+two_part_gcomp_bootstrap <- function(
+  df,
+  effect_levels = c("None", "Cleanup", "Threat", "Impact"),
+  season_months = 5:11,          # May–Nov
+  mean_le6      = 6,             # expected visits for the <=6 group (top-coded as 6)
+  ref_level     = "None",
+  n_boot        = 500L,          # bootstrap replicates
+  cluster       = c("zip", "zip_year_month"),
+  seed          = 123,
+  verbose       = TRUE
+) {
+  cluster <- match.arg(cluster)
+
+  # ---- 0) Prep data ----
+  dat <- as.data.table(df)
+
+  # Ensure types
+  dat[, date := as.IDate(date)]
+  dat[, zip  := as.character(zip)]
+
+  # Recreate fixed effects (safe even if present already)
+  dat[, dow        := lubridate::wday(date, label = TRUE, abbr = TRUE)]
+  dat[, year_month := as.IDate(floor_date(date, unit = "month"))]
+
+  # Hurricane season filter
+  dat <- dat[month(date) %in% season_months]
+
+  # Outcome helpers
+  dat[, is_le6 := as.integer(er_visits == 6L)]
+  dat[, effect := factor(effect, levels = effect_levels)]
+
+  # Housekeeping id
+  dat[, row_id := .I]
+
+  # ---- 1) Fit two-part models on full sample ----
+  # (Use i(effect, ref="None") + FE: zip + year_month + dow)
+  fA <- as.formula(paste0(
+    "is_le6 ~ i(effect, ref='", ref_level, "') | zip + year_month + dow"
+  ))
+  fB <- as.formula(paste0(
+    "er_visits ~ i(effect, ref='", ref_level, "') | zip + year_month + dow"
+  ))
+
+  # Part A: logit for being <=6
+  mA <- feglm(
+    fA, data = dat,
+    family = binomial("logit"),
+    cluster = ~ zip + year_month
+  )
+
+  # Part B: Poisson on Y>6 (fit on the subset, but we'll predict on full)
+  d_gt6 <- dat[er_visits > 6L]
+  mB <- fepois(
+    fB, data = d_gt6,
+    cluster = ~ zip + year_month
+  )
+
+  # ---- 2) Counterfactual predictions on full data (point estimates) ----
+  counterfactual_mean <- function(effect_level, modelA, modelB) {
+    newdat <- copy(dat)
+    newdat[, effect := factor(effect_level, levels = effect_levels)]
+    # Predictions
+    newdat[, prob_le6 := predict(modelA, type = "response", newdata = newdat)]
+    newdat[, mu_gt6   := predict(modelB, type = "response", newdata = newdat)]
+    # Combined expected ER visits
+    newdat[, EY := prob_le6 * mean_le6 + (1 - prob_le6) * mu_gt6]
+    mean(newdat$EY, na.rm = TRUE)
+  }
+
+  cf_levels <- effect_levels
+  set.seed(seed)
+  cf_point <- sapply(cf_levels, counterfactual_mean, modelA = mA, modelB = mB)
+  names(cf_point) <- cf_levels
+
+  # Differences vs reference ("None")
+  diff_point <- cf_point - cf_point[ref_level]
+
+  # ---- 3) Clustered bootstrap ----
+  # Define bootstrap clusters
+  if (cluster == "zip") {
+    dat[, boot_cluster := zip]
+  } else {
+    dat[, boot_cluster := interaction(zip, year_month, drop = TRUE)]
+  }
+
+  unique_clusters <- unique(dat$boot_cluster)
+  n_clusters <- length(unique_clusters)
+
+  if (verbose) {
+    message(sprintf("Bootstrap clustering on '%s' with %d clusters.", cluster, n_clusters))
+  }
+
+  # Function: one bootstrap replicate
+  do_one_boot <- function(b) {
+    # Resample clusters with replacement
+    set.seed(seed + b)
+    clust_draw <- sample(unique_clusters, size = n_clusters, replace = TRUE)
+    dat_b <- dat[boot_cluster %in% clust_draw]
+    # Keep all rows from each selected cluster (with multiplicity)
+    # Implement multiplicity by binding copies when clusters repeat
+    if (any(duplicated(clust_draw))) {
+      # Count multiplicities
+      mult <- as.data.table(table(clust_draw))
+      setnames(mult, c("clust_draw", "n"))
+      dat_b <- rbindlist(lapply(seq_len(nrow(mult)), function(i) {
+        c_id <- as.character(mult$clust_draw[i])
+        k    <- as.integer(mult$n[i])
+        rbindlist(rep(list(dat[boot_cluster == c_id]), k))
+      }), use.names = TRUE)
+    }
+
+    # Refit models
+    # Guard in case some effect levels drop: keep factor levels fixed
+    dat_b[, effect := factor(effect, levels = effect_levels)]
+    d_gt6_b <- dat_b[er_visits > 6L]
+
+    # If a replicate has no >6 rows (very unlikely), skip with NA
+    if (nrow(d_gt6_b) == 0) {
+      return(list(cf = rep(NA_real_, length(cf_levels))))
+    }
+
+    mA_b <- tryCatch(
+      feglm(fA, data = dat_b, family = binomial("logit"), cluster = ~ zip + year_month),
+      error = function(e) NULL
+    )
+    mB_b <- tryCatch(
+      fepois(fB, data = d_gt6_b, cluster = ~ zip + year_month),
+      error = function(e) NULL
+    )
+
+    if (is.null(mA_b) || is.null(mB_b)) {
+      return(list(cf = rep(NA_real_, length(cf_levels))))
+    }
+
+    # Counterfactual means for this replicate
+    cf_b <- sapply(cf_levels, counterfactual_mean, modelA = mA_b, modelB = mB_b)
+    list(cf = cf_b)
+  }
+
+  if (verbose) message(sprintf("Running %d bootstrap replicates…", n_boot))
+  boot_list <- lapply(seq_len(n_boot), do_one_boot)
+
+  # Stack bootstrap results
+  boot_cf <- rbindlist(lapply(boot_list, function(x) as.list(x$cf)), fill = TRUE)
+  setnames(boot_cf, cf_levels)
+
+  # Drop replicates that failed (all NA)
+  boot_cf <- boot_cf[rowSums(is.na(boot_cf)) < length(cf_levels)]
+
+  # Bootstrap diffs vs None
+  boot_diff <- boot_cf[, lapply(.SD, function(col) col - boot_cf[[ref_level]])]
+
+  # ---- 4) Build tidy outputs with 95% CIs (percentile) ----
+  pct <- function(x, p) as.numeric(quantile(x, probs = p, na.rm = TRUE))
+  ci_tbl_means <- data.table(
+    effect   = cf_levels,
+    estimate = as.numeric(cf_point),
+    ci_lo    = sapply(cf_levels, function(k) pct(boot_cf[[k]], 0.025)),
+    ci_hi    = sapply(cf_levels, function(k) pct(boot_cf[[k]], 0.975))
+  )
+
+  diff_levels <- setdiff(cf_levels, ref_level)
+  ci_tbl_diffs <- data.table(
+    effect   = diff_levels,
+    estimate = as.numeric(diff_point[diff_levels]),
+    ci_lo    = sapply(diff_levels, function(k) pct(boot_diff[[k]], 0.025)),
+    ci_hi    = sapply(diff_levels, function(k) pct(boot_diff[[k]], 0.975))
+  )
+
+  # ---- 5) Publication-ready figure: differences vs "None" ----
+plot_df <- ci_tbl_diffs %>%
+  dplyr::mutate(effect = factor(effect, levels = c("Threat", "Impact", "Cleanup"))) %>%
+  dplyr::arrange(effect)
+
+fig <- ggplot(plot_df, aes(x = effect, y = estimate)) +
+  geom_hline(yintercept = 0, linewidth = 0.6, color = "grey50") +
+  geom_pointrange(aes(ymin = ci_lo, ymax = ci_hi),
+                  linewidth = 0.6, fatten = 2, color = "#2C3E50") +
+  labs(
+    x = NULL,
+    y = "Difference in expected ER visits vs None",
+    title = "Combined Effect of Storm Phases on Expected ER Visits",
+    subtitle = sprintf(
+      "Two‑part model combined via g‑computation; %d bootstrap replicates (clustered by %s)",
+      n_boot, ifelse(cluster == "zip","ZIP","ZIP×Year‑Month")
+    ),
+    caption = "Points: bootstrap means; bars: 95% percentile CIs"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title.position = "plot",
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(size = 11)
+  )
+
+  # Return everything
+  list(
+    models = list(mA = mA, mB = mB),
+    point_estimates = list(
+      expected_visits = ci_tbl_means,
+      diff_vs_none    = ci_tbl_diffs
+    ),
+    bootstrap = list(
+      cf = boot_cf,
+      diff = boot_diff
+    ),
+    figure = fig
+  )
+}
 ```
+
+## Combine models and create figure
+
+```{r}
+# Build the modeling dataset by joining:
+dat_model <- merge(
+  effect_calendar[, .(zip, date, effect)],
+  ER_visits_clean[, .(zip, date, er_visits)],
+  by = c("zip","date"),
+  all.x = TRUE
+)
+dat_model[is.na(er_visits), er_visits := 0L]
+
+# Run (ZIP-clustered bootstrap)
+res <- two_part_gcomp_bootstrap(
+  df        = dat_model,
+  n_boot    = 10,          # increase to 500–1000 for publication
+  cluster   = "zip",
+  seed      = 123
+)
+
+# View the unified, combined effect (expected ER visits) with CIs
+res$point_estimates$expected_visits
+
+# View the key plot (differences vs "None")
+print(res$figure)
+
+# Save outputs
+data.table::fwrite(res$point_estimates$expected_visits,
+                   here::here("output","expected_visits_by_effect.csv"))
+data.table::fwrite(res$point_estimates$diff_vs_none,
+                   here::here("output","diff_vs_none_by_effect.csv"))
+ggplot2::ggsave(filename = here::here("figs","combined_effect_diffs_vs_none.png"),
+                plot = res$figure, width = 7, height = 4.5, dpi = 300)
+```
+
 

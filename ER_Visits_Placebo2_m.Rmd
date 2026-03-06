@@ -94,47 +94,6 @@ Swaths.sf <- Swaths.sf |>
     st_transform(crs = 4326)
 union_Swaths2.sfg <- Swaths.sf |>
   st_union()
-
-sum(table(Swaths.sf$Storm_Category))
-table(Swaths.sf$Storm_Category)
-table(lubridate::year(Swaths.sf$Date0))
-```
-
-## Randomize the dates
-```{r}
-library(dplyr)
-library(lubridate)
-
-# Minimum absolute difference in days from the original date
-min_diff_days <- 16L
-
-sample_hurr_date <- function(date0, min_diff = 16L) {
-  if (is.na(date0)) return(as.Date(NA))
-
-  date0 <- as.Date(date0)
-
-  yr <- year(date0)
-  season_start <- as.Date(sprintf("%d-05-01", yr))
-  season_end   <- as.Date(sprintf("%d-11-30", yr))
-  candidates <- seq(season_start, season_end, by = "day")
-
-  if (date0 >= season_start && date0 <= season_end) {
-    diffs <- abs(as.integer(candidates - date0))
-    candidates <- candidates[diffs >= min_diff]
-  }
-  if (!length(candidates)) candidates <- seq(season_start, season_end, by = "day")
-
-  sample(candidates, size = 1)
-}
-
-# Optional: set a seed for reproducibility of the randomization
-set.seed(123)
-
-# Apply row-wise so geometry is preserved and function is evaluated per feature
-Swaths.sf <- Swaths.sf %>%
-  rowwise() %>%
-  mutate(Date0_random = sample_hurr_date(as.Date(Date0), min_diff_days)) %>%
-  ungroup()
 ```
 
 Expand `Swaths.sf` by adding rows
@@ -148,7 +107,7 @@ n_new <- 8    # Number of days before & after impact
 TIC.sf <- Swaths.sf |>
     rowwise() |>
     mutate(new_features = list(tidyr::tibble(
-           Date = Date0_random + (-n_new:n_new) * deltaT))) |>
+           Date = Date0 + (-n_new:n_new) * deltaT))) |>
     unnest(new_features) |>
     ungroup() |>
     select(Date, Storm_Name = NAME, Storm_Category)
@@ -242,15 +201,12 @@ effect_calendar[, table(effect)]
 
 ## Merge with emergency room visits
 
-Data received from David Hsu on October 16, 2025 via email
 ```{r}
 ER_visits.dt <- data.table::fread(here::here("data", "Combined_ER_Data.csv"))
 ER_visits.df <- ER_visits.dt |>
   as.data.frame()
-```
 
-Clean and merge
-```{r}
+# Clean and merge
 setDT(ER_visits.df)
 
 # Pad ZipCode to 5 chars; drop non-sensical codes (0/NA/too short/too big)
@@ -270,7 +226,7 @@ ER_visits_clean <- ER_visits_clean[, .(er_visits = sum(er_visits, na.rm = TRUE))
                                    by = .(zip, date)]
 
 merged <- merge(
-  effect_calendar,
+  effect_calendar_zipmonth_random,
   ER_visits_clean,
   by = c("zip", "date"),
   all.x = TRUE  # keep all ZIP–dates from the calendar
@@ -288,58 +244,139 @@ merged[, dow := lubridate::wday(date, label = TRUE, abbr = TRUE)]
 merged[, year_month := as.IDate(floor_date(date, unit = "month"))]
 ```
 
-## Model using logit and Poisson separately
-
-A two-part “threshold (≤6) + truncated count (>6)” approximation (stays in `fixest`). The process is modeled as: Part A (logit): probability the true count is ≤6 (we observe 6) and part B (Poisson on truncated support): conditional mean for counts >6
+## Precompute a reusable base (no randomization here)
 
 ```{r}
+library(data.table)
+library(lubridate)
 library(fixest)
 
-dat <- merged %>% mutate(
-  is_le6 = as.integer(er_visits == 6L)) %>% # proxy for "true ≤ 6"
-  filter(month(date) %in% 5:11)  # hurricane season only
+# Ensure expected types/levels
+effect_calendar <- as.data.table(effect_calendar)
+effect_calendar[, effect := factor(effect, levels = c("None","Cleanup","Threat","Impact"))]
+ER_visits_clean <- as.data.table(ER_visits_clean)
 
-# Part A: logistic model for being ≤ 6
-mA <- feglm(
-  is_le6 ~ i(effect, ref="None") | zip + year_month + dow,
-  data = dat, family = binomial("logit"),
-  cluster = ~ zip + year_month
+# Build a stable base with ER visits and fixed controls; effect will be joined per iteration
+base <- merge(
+  unique(effect_calendar[, .(zip, date)]),
+  ER_visits_clean,
+  by = c("zip","date"),
+  all.x = TRUE
 )
 
-# Part B: Poisson on Y>6 (treat observed counts >6 as exact)
-d_gt6 <- filter(dat, er_visits > 6L)
-mB <- fepois(
-  er_visits ~ i(effect, ref="None") | zip + year_month + dow,
-  data = d_gt6, cluster = ~ zip + year_month
-)
-
-summary(mA); summary(mB)
+base[is.na(er_visits), er_visits := 0L]
+base[, dow := lubridate::wday(date, label = TRUE, abbr = TRUE)]
+base[, year_month := as.IDate(floor_date(date, unit = "month"))]
 ```
 
-Binomial model:
-GLM estimation, family = binomial, Dep. Var.: is_le6
-Observations: 2,588,544
-Fixed-effects: zip: 672,  year_month: 126,  dow: 7
-Standard-errors: Clustered (zip & year_month) 
-                 Estimate Std. Error   z value   Pr(>|z|)    
-effect::Cleanup  0.007657   0.027531  0.278111 7.8093e-01    
-effect::Threat  -0.004921   0.030158 -0.163164 8.7039e-01    
-effect::Impact   0.194508   0.047288  4.113296 3.9005e-05 ***
----
-Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-Log-Likelihood: -406,796.1   Adj. Pseudo R2: 0.150202
-           BIC:  825,494.1     Squared Cor.: 0.052679
+## Helper functions
 
-Poisson model
-Poisson estimation, Dep. Var.: er_visits
-Observations: 2,722,224
-Fixed-effects: zip: 912,  year_month: 126,  dow: 7
-Standard-errors: Clustered (zip & year_month) 
-                 Estimate Std. Error  z value  Pr(>|z|)    
-effect::Cleanup  0.023700   0.008545  2.77347 0.0055461 ** 
-effect::Threat   0.018231   0.008404  2.16917 0.0300695 *  
-effect::Impact  -0.085411   0.026034 -3.28079 0.0010352 ** 
----
-Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-Log-Likelihood: -8,500,999.7   Adj. Pseudo R2: 0.604913
-           BIC: 17,017,498.0     Squared Cor.: 0.880416
+```{r}
+# Shuffle effect labels within ZIP × month (month = first-of-month date)
+randomize_effect_within_zip_month <- function(ec_dt) {
+  ec <- data.table::copy(ec_dt)
+  ec[, year_month := as.IDate(floor_date(as.Date(date), unit = "month"))]
+  ec[, effect := sample(effect), by = .(zip, year_month)]
+  ec[, year_month := NULL]
+  # keep factor levels stable
+  ec[, effect := factor(effect, levels = c("None","Cleanup","Threat","Impact"))]
+  ec[]
+}
+
+# Extract the three effect coefficients; return NA if a term was not estimated
+get_effect_coefs <- function(mod, want = c("effect::Cleanup", "effect::Threat", "effect::Impact")) {
+  b <- coef(mod)
+  out <- setNames(rep(NA_real_, length(want)), want)
+  nm <- intersect(names(b), want)
+  out[nm] <- b[nm]
+  data.table(coef = names(out), estimate = as.numeric(out))
+}
+```
+
+## One randomized run → fit both models → return 6 coefficients
+
+```{r}
+run_one_zipmonth_randomization <- function(iter, effect_calendar, base, base_seed = 123) {
+  set.seed(base_seed + iter)
+
+  # 1) Randomize effects within ZIP × month
+  ec_rand <- randomize_effect_within_zip_month(effect_calendar)[, .(zip, date, effect)]
+
+  # 2) Join randomized effects onto the fixed base
+  dat <- merge(base, ec_rand, by = c("zip","date"), all.x = TRUE)
+  # Safety: replace any accidental NA with "None"
+  if (anyNA(dat$effect)) {
+    dat[is.na(effect), effect := factor("None", levels = c("None","Cleanup","Threat","Impact"))]
+  }
+
+  # 3) Hurricane season only, and build two-part modeling vars
+  dat_season <- dat[month(date) %in% 5:11]
+  dat_season[, is_le6 := as.integer(er_visits == 6L)]
+
+  # 4) Models
+  # Part A: logistic for being ≤ 6
+  mA <- feglm(
+    is_le6 ~ i(effect, ref = "None") | zip + year_month + dow,
+    data    = dat_season,
+    family  = binomial("logit"),
+    cluster = ~ zip + year_month
+  )
+
+  # Part B: Poisson for counts > 6
+  d_gt6 <- dat_season[er_visits > 6L]
+  mB <- fepois(
+    er_visits ~ i(effect, ref = "None") | zip + year_month + dow,
+    data    = d_gt6,
+    cluster = ~ zip + year_month
+  )
+
+  # 5) Collect the three effect coefficients from both models
+  outA <- get_effect_coefs(mA)[, `:=`(iter = iter, model = "logit")]
+  outB <- get_effect_coefs(mB)[, `:=`(iter = iter, model = "poisson")]
+
+  rbind(outA, outB, use.names = TRUE)
+}
+```
+
+## Run 200 iterations and save
+
+```{r}
+library(data.table)
+
+n_iter    <- 200L
+base_seed <- 123
+
+pb <- txtProgressBar(min = 0, max = n_iter, style = 3)
+coef_runs <- rbindlist(lapply(seq_len(n_iter), function(it) {
+  res <- run_one_zipmonth_randomization(it, effect_calendar, base, base_seed)
+  setTxtProgressBar(pb, it)
+  res
+}), use.names = TRUE)
+close(pb)
+
+setcolorder(coef_runs, c("iter", "model", "coef", "estimate"))
+
+# Save to disk
+out_path <- here::here("data", "effect_coefficients_zipmonth_randomizations.csv")
+fwrite(coef_runs, out_path)
+
+# Peek
+head(coef_runs)
+```
+
+## Quick diagnostics
+
+```{r}
+# Check that each iteration returns 6 coefficients
+stopifnot(coef_runs[, .N, by = iter][, all(N == 6)])
+
+# Summarize the randomized coefficient distribution
+coef_summary <- coef_runs[
+  , .(mean = mean(estimate, na.rm = TRUE),
+      sd   = sd(estimate,   na.rm = TRUE),
+      n    = .N),
+  by = .(model, coef)
+]
+coef_summary
+```
+

@@ -100,43 +100,6 @@ table(Swaths.sf$Storm_Category)
 table(lubridate::year(Swaths.sf$Date0))
 ```
 
-## Randomize the dates
-```{r}
-library(dplyr)
-library(lubridate)
-
-# Minimum absolute difference in days from the original date
-min_diff_days <- 16L
-
-sample_hurr_date <- function(date0, min_diff = 16L) {
-  if (is.na(date0)) return(as.Date(NA))
-
-  date0 <- as.Date(date0)
-
-  yr <- year(date0)
-  season_start <- as.Date(sprintf("%d-05-01", yr))
-  season_end   <- as.Date(sprintf("%d-11-30", yr))
-  candidates <- seq(season_start, season_end, by = "day")
-
-  if (date0 >= season_start && date0 <= season_end) {
-    diffs <- abs(as.integer(candidates - date0))
-    candidates <- candidates[diffs >= min_diff]
-  }
-  if (!length(candidates)) candidates <- seq(season_start, season_end, by = "day")
-
-  sample(candidates, size = 1)
-}
-
-# Optional: set a seed for reproducibility of the randomization
-set.seed(123)
-
-# Apply row-wise so geometry is preserved and function is evaluated per feature
-Swaths.sf <- Swaths.sf %>%
-  rowwise() %>%
-  mutate(Date0_random = sample_hurr_date(as.Date(Date0), min_diff_days)) %>%
-  ungroup()
-```
-
 Expand `Swaths.sf` by adding rows
 ```{r}
 library(tidyr)
@@ -148,7 +111,7 @@ n_new <- 8    # Number of days before & after impact
 TIC.sf <- Swaths.sf |>
     rowwise() |>
     mutate(new_features = list(tidyr::tibble(
-           Date = Date0_random + (-n_new:n_new) * deltaT))) |>
+           Date = Date0 + (-n_new:n_new) * deltaT))) |>
     unnest(new_features) |>
     ungroup() |>
     select(Date, Storm_Name = NAME, Storm_Category)
@@ -240,6 +203,23 @@ stopifnot(effect_calendar[, .N, by = .(zip, date)][, all(N == 1)])
 effect_calendar[, table(effect)]
 ```
 
+## Randomize zip x month
+```{r}
+library(dplyr)
+library(lubridate)
+library(data.table)
+
+set.seed(123)   # for reproducibility
+
+effect_calendar_zipmonth_random <- effect_calendar %>%
+  mutate(month = floor_date(as.Date(date), unit = "month")) %>%  # create month block
+  group_by(zip, month) %>%
+  mutate(effect = sample(effect)) %>%      # shuffle effect within ZIP × month
+  ungroup() %>%
+  select(-month) %>%
+  as.data.table()
+```
+
 ## Merge with emergency room visits
 
 Data received from David Hsu on October 16, 2025 via email
@@ -270,7 +250,7 @@ ER_visits_clean <- ER_visits_clean[, .(er_visits = sum(er_visits, na.rm = TRUE))
                                    by = .(zip, date)]
 
 merged <- merge(
-  effect_calendar,
+  effect_calendar_zipmonth_random,
   ER_visits_clean,
   by = c("zip", "date"),
   all.x = TRUE  # keep all ZIP–dates from the calendar
@@ -315,31 +295,3 @@ mB <- fepois(
 
 summary(mA); summary(mB)
 ```
-
-Binomial model:
-GLM estimation, family = binomial, Dep. Var.: is_le6
-Observations: 2,588,544
-Fixed-effects: zip: 672,  year_month: 126,  dow: 7
-Standard-errors: Clustered (zip & year_month) 
-                 Estimate Std. Error   z value   Pr(>|z|)    
-effect::Cleanup  0.007657   0.027531  0.278111 7.8093e-01    
-effect::Threat  -0.004921   0.030158 -0.163164 8.7039e-01    
-effect::Impact   0.194508   0.047288  4.113296 3.9005e-05 ***
----
-Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-Log-Likelihood: -406,796.1   Adj. Pseudo R2: 0.150202
-           BIC:  825,494.1     Squared Cor.: 0.052679
-
-Poisson model
-Poisson estimation, Dep. Var.: er_visits
-Observations: 2,722,224
-Fixed-effects: zip: 912,  year_month: 126,  dow: 7
-Standard-errors: Clustered (zip & year_month) 
-                 Estimate Std. Error  z value  Pr(>|z|)    
-effect::Cleanup  0.023700   0.008545  2.77347 0.0055461 ** 
-effect::Threat   0.018231   0.008404  2.16917 0.0300695 *  
-effect::Impact  -0.085411   0.026034 -3.28079 0.0010352 ** 
----
-Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-Log-Likelihood: -8,500,999.7   Adj. Pseudo R2: 0.604913
-           BIC: 17,017,498.0     Squared Cor.: 0.880416
