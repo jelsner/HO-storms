@@ -10,7 +10,7 @@ editor_options:
 library(sf)
 library(dplyr)
 
-storm_intensity <- 64
+storm_intensity <- 34
 begin_year <- 1985 
 end_year <- 2022
 begin_date <- paste0(begin_year, "-01-01")
@@ -177,6 +177,11 @@ storm_months <- unique(TIC.sf$Month)
 storm_year_range <- range(TIC.sf$Year)
 
 st_geometry(TIC.sf) <- "geom"
+```
+
+## Write out TIC data frame
+```{r}
+saveRDS(TIC.sf, "data/outputs/Results/TIC_34kt.rds")
 ```
 
 ## Build a zip x date relative day calendar

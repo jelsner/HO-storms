@@ -1,0 +1,239 @@
+---
+title: "ThreatDays_ExcessMortality"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Read the population data, TIC model data, and Poisson model output (Zip_Population & ThreatDays)
+```{r}
+# Load population
+zip_pop <- readRDS(
+  "data/population/florida_zip_population_1985_2022.rds"
+)
+
+TIC.sf <- readRDS(
+  "data/outputs/Results/TIC_34kt.rds"
+)
+
+# Add storm id
+
+library(dplyr)
+
+TIC <- TIC.sf %>%
+  st_drop_geometry() %>%   # geometry not needed for ID assignment
+  mutate(
+    storm_id = paste0(Storm_Name, "_", Year)
+  )
+
+# Load statistical model results
+m_event <- readRDS(
+  "models/m_event_34kt.rds"
+)
+
+# Sanity checks
+stopifnot(all(c("year", "zip_code", "population") %in% names(zip_pop)))
+stopifnot(is.numeric(zip_pop$population))
+stopifnot(nchar(zip_pop$zip_code[!is.na(zip_pop$zip_code)][1]) == 5)
+
+# Store model coefficients separately for quick access:
+library(broom)
+coef_event <- tidy(m_event)
+saveRDS(
+  coef_event,
+  "models/m_event_34kt_tidy.rds"
+)
+```
+
+Read in the daily panel data. Make sure columns have same type
+```{r}
+panel_zip_day <- readr::read_csv("data/outputs/Deaths/daily_panel_34kt.csv")
+
+library(dplyr)
+library(stringr)
+
+panel_zip_day <- panel_zip_day %>%
+  mutate(
+    zip  = sprintf("%05d", zip),  # numeric → character ZIP
+    year = as.integer(format(date, "%Y"))
+  )
+```
+
+Merge population onto ZIP–day panel
+```{r}
+library(stringr)
+
+panel_zip_day <- panel_zip_day %>%
+  mutate(
+    zip  = str_pad(zip, width = 5, side = "left", pad = "0"),
+    year = as.integer(format(date, "%Y"))
+  ) %>%
+  left_join(
+    zip_pop,
+    by = c("zip" = "zip_code", "year" = "year")
+  ) %>%
+  mutate(
+    population = if_else(is.na(population), 0, population)
+  )
+
+# Sanity checks
+stopifnot(all(nchar(panel_zip_day$zip) == 5))
+stopifnot(all(panel_zip_day$population >= 0))
+```
+
+Add storm IDs to the panel_zip_day
+```{r}
+TIC_join <- TIC %>%
+  select(Date, rel_day, storm_id)
+
+# Ensure types match
+panel_zip_day <- panel_zip_day %>%
+  mutate(
+    date    = as.Date(date),
+    rel_day = as.integer(rel_day)
+  )
+
+# Join
+panel_zip_day <- panel_zip_day %>%
+  left_join(
+    TIC_join,
+    by = c("date" = "Date", "rel_day" = "rel_day")
+  )
+
+# Sanity check (should be zeros)
+
+panel_zip_day %>%
+  filter(rel_day_f != "None", is.na(storm_id)) %>%
+  nrow()
+panel_zip_day %>%
+  filter(rel_day_f == "None", !is.na(storm_id)) %>%
+  nrow()
+
+# One storm ID per storm window (all ones)
+TIC %>%
+  distinct(Storm_Name, Year, storm_id) %>%
+  count(storm_id) %>%
+  summary()
+```
+
+Extract event‑time excess fractions from the model output
+```{r}
+library(dplyr)
+library(stringr)
+
+beta_hat <- stats::coef(m_event)
+
+event_effects <- tibble(
+  term = names(beta_hat),
+  beta = beta_hat
+) %>%
+  filter(str_detect(term, "^rel_day_f::")) %>%
+  mutate(
+    rel_day = as.integer(str_remove(term, "rel_day_f::")),
+    rr = exp(beta),
+    excess_frac = rr - 1
+  ) %>%
+  select(rel_day, excess_frac)
+```
+
+Panel excess
+```{r}
+panel_excess <- panel_zip_day %>%
+  left_join(event_effects, by = "rel_day") %>%
+  mutate(
+    excess_frac = if_else(is.na(excess_frac), 0, excess_frac),
+    baseline_deaths = deaths / (1 + excess_frac),
+    excess_deaths   = baseline_deaths * excess_frac
+  )
+```
+
+Aggregate ZIP–day → ZIP–storm
+```{r}
+zip_storm_excess <- panel_excess %>%
+#  filter(rel_day_f != "None") %>%
+  filter(rel_day %in% -8:-1) %>%
+  group_by(storm_id, zip) %>%
+  summarise(
+    excess_deaths_zip = sum(excess_deaths, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+Aggregate ZIP–storm → storm 
+```{r}
+storm_excess <- zip_storm_excess %>%
+  group_by(storm_id) %>%
+  summarise(
+    excess_deaths = round(sum(excess_deaths_zip, na.rm = TRUE)),
+    .groups = "drop"
+  )
+```
+
+Summary statistics
+```{r}
+storm_excess %>%
+  summarise(
+    mean_excess   = mean(excess_deaths),
+    median_excess = median(excess_deaths),
+#    sd_excess     = sd(excess_deaths),
+    n_storms      = n()
+  )
+```
+
+Include storm meta data
+```{r}
+storm_meta <- TIC.sf %>%
+  st_drop_geometry() %>%
+  filter(rel_day == 0) %>%
+  transmute(
+    storm_id = paste0(Storm_Name, "_", Year),
+    storm_name = Storm_Name,
+    storm_category = Storm_Category,
+    impact_date = Date
+  )
+
+storm_excess_chrono <- storm_excess %>%
+  left_join(storm_meta, by = "storm_id") %>%
+  arrange(impact_date)
+```
+
+Normalize per 100,000 people
+```{r}
+storm_population <- panel_excess %>%
+  filter(rel_day %in% -8:-1) %>%      # same window as excess
+  group_by(storm_id, zip) %>%
+  summarise(
+    zip_population = max(population, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  group_by(storm_id) %>%
+  summarise(
+    exposed_population = sum(zip_population, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+storm_excess_norm <- storm_excess_chrono %>%
+  left_join(storm_population, by = "storm_id") %>%
+  mutate(
+    excess_per_100k = 1e5 * excess_deaths / exposed_population
+  ) %>%
+  arrange(impact_date)
+```
+
+Plot over time
+```{r}
+library(ggplot2)
+
+ggplot(storm_excess_norm,
+       aes(x = impact_date, y = excess_per_100k)) +
+  geom_line(color = "steelblue", linewidth = 0.7) +
+  geom_point(color = "steelblue", size = 1.8) +
+  labs(
+    x = "Storm impact date",
+    y = "Excess deaths per 100,000 (days −8 to −1)",
+    title = "Pre‑impact excess mortality per storm",
+    subtitle = "Normalized by exposed ZIP‑code population"
+  ) +
+  theme_minimal(base_size = 13)
+```
+

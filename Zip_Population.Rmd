@@ -1,0 +1,381 @@
+---
+title: "Zip_Population"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+# Florida Zip Code Population Data (1985-2022) with State-Level Scaling
+
+library(tidyverse)
+library(tidycensus)
+library(zoo)
+
+# Load Census API key
+#census_api_key("YOUR_CENSUS_API_KEY")
+
+state_abbr <- "FL"
+
+# Function to get ACS population data
+get_zip_population_acs <- function(year) {
+  tryCatch({
+    population_data <- get_acs(
+      geography = "zip code tabulation area",
+      variables = "B01003_001",
+      year = year,
+      state = state_abbr,
+      survey = "acs5"
+    )
+    
+    population_data <- population_data %>%
+      select(GEOID, NAME, estimate) %>%
+      rename(
+        zip_code = GEOID,
+        zip_name = NAME,
+        population = estimate
+      ) %>%
+      mutate(year = year, data_source = "ACS 5-year")
+    
+    return(population_data)
+  }, error = function(e) {
+    message(paste("Error retrieving ACS data for year", year, ":", e$message))
+    return(NULL)
+  })
+}
+
+# Function to get Decennial Census data
+get_zip_population_decennial <- function(year) {
+  tryCatch({
+    if (year == 2000) {
+      var_name <- "P001001"
+    } else if (year == 2010) {
+      var_name <- "P001001"
+    } else {
+      stop("Only 2000 and 2010 are supported for zip code data")
+    }
+    
+    population_data <- get_decennial(
+      geography = "zip code tabulation area",
+      variables = var_name,
+      year = year,
+      state = state_abbr
+    )
+    
+    population_data <- population_data %>%
+      select(GEOID, NAME, value) %>%
+      rename(
+        zip_code = GEOID,
+        zip_name = NAME,
+        population = value
+      ) %>%
+      mutate(year = year, data_source = paste("Decennial Census", year))
+    
+    return(population_data)
+  }, error = function(e) {
+    message(paste("Error retrieving Decennial data for year", year, ":", e$message))
+    return(NULL)
+  })
+}
+
+# Function to get state-level population from Census API
+get_state_population_api <- function(year) {
+  tryCatch({
+    if (year == 2000) {
+      var_name <- "P001001"
+      data_source <- "Decennial Census 2000"
+    } else if (year == 2010) {
+      var_name <- "P001001"
+      data_source <- "Decennial Census 2010"
+    } else if (year == 2020) {
+      var_name <- "P1_001N"
+      data_source <- "Decennial Census 2020"
+    } else {
+      return(NA)
+    }
+    
+    state_pop <- get_decennial(
+      geography = "state",
+      variables = var_name,
+      year = year,
+      state = state_abbr
+    ) %>%
+      pull(value)
+    
+    message(paste("✓ State population for", year, ":", state_pop, "-", data_source))
+    return(state_pop)
+  }, error = function(e) {
+    message(paste("✗ Error retrieving state population for year", year, ":", e$message))
+    return(NA)
+  })
+}
+
+# Try ACS years - test which ones work
+message("Testing ACS years to find what works...")
+test_years <- c(2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019)
+working_years <- c()
+
+for (year in test_years) {
+  test_result <- get_zip_population_acs(year)
+  if (!is.null(test_result) && nrow(test_result) > 0) {
+    working_years <- c(working_years, year)
+    message(paste("✓ Year", year, "works"))
+  }
+}
+
+message(paste("\nWorking ACS years:", paste(working_years, collapse = ", ")))
+
+# Retrieve ACS data for working years only
+if (length(working_years) > 0) {
+  message("\nRetrieving ACS 5-year estimates...")
+  acs_data <- map_df(working_years, get_zip_population_acs)
+} else {
+  message("No ACS data retrieved. Will use Decennial Census only.")
+  acs_data <- NULL
+}
+
+# Attempt to retrieve Decennial Census data for 2000, 2010
+message("\nAttempting to retrieve Decennial Census zip-level data...")
+decennial_list <- list()
+
+message("Attempting 2000 Decennial Census...")
+decennial_2000 <- get_zip_population_decennial(2000)
+if (!is.null(decennial_2000) && nrow(decennial_2000) > 0) {
+  message("✓ Successfully retrieved 2000 data")
+  decennial_list[[length(decennial_list) + 1]] <- decennial_2000
+} else {
+  message("⚠ 2000 data not available via API")
+}
+
+message("Attempting 2010 Decennial Census...")
+decennial_2010 <- get_zip_population_decennial(2010)
+if (!is.null(decennial_2010) && nrow(decennial_2010) > 0) {
+  message("✓ Successfully retrieved 2010 data")
+  decennial_list[[length(decennial_list) + 1]] <- decennial_2010
+} else {
+  message("⚠ 2010 data not available via API")
+}
+
+# Combine decennial data
+if (length(decennial_list) > 0) {
+  decennial_data <- bind_rows(decennial_list)
+} else {
+  message("ERROR: No Decennial Census data retrieved!")
+  decennial_data <- NULL
+}
+
+# Combine all observed data
+if (!is.null(acs_data) && !is.null(decennial_data)) {
+  florida_zip_observed <- bind_rows(acs_data, decennial_data) %>%
+    arrange(zip_code, year) %>%
+    distinct(zip_code, year, .keep_all = TRUE) %>%
+    mutate(zip_code = as.character(zip_code))
+} else if (!is.null(decennial_data)) {
+  florida_zip_observed <- decennial_data %>%
+    arrange(zip_code, year) %>%
+    distinct(zip_code, year, .keep_all = TRUE) %>%
+    mutate(zip_code = as.character(zip_code))
+} else if (!is.null(acs_data)) {
+  florida_zip_observed <- acs_data %>%
+    arrange(zip_code, year) %>%
+    distinct(zip_code, year, .keep_all = TRUE) %>%
+    mutate(zip_code = as.character(zip_code))
+} else {
+  stop("No data retrieved from any source!")
+}
+
+# ============================================
+# Step 2: Get State-Level Population Trends
+# ============================================
+
+message("\nRetrieving state-level population data from Census API...")
+
+# Get from API for years 2000, 2010, 2020
+state_pop_data <- tibble(
+  year = c(2000, 2010, 2020),
+  state_population = NA_real_
+)
+
+for (i in 1:nrow(state_pop_data)) {
+  year <- state_pop_data$year[i]
+  pop <- get_state_population_api(year)
+  state_pop_data$state_population[i] <- pop
+}
+
+state_pop_data <- state_pop_data %>% 
+  filter(!is.na(state_population)) %>%
+  arrange(year)
+
+message("\nState population data (observed from Census API):")
+print(state_pop_data)
+
+# ============================================
+# Step 2.5: Interpolate and Extrapolate State Population
+# ============================================
+
+message("\nInterpolating and extrapolating state population...")
+
+# Calculate growth rates for extrapolation
+pop_2000 <- state_pop_data$state_population[state_pop_data$year == 2000]
+pop_2010 <- state_pop_data$state_population[state_pop_data$year == 2010]
+pop_2020 <- state_pop_data$state_population[state_pop_data$year == 2020]
+
+# Growth rate from 2000 to 2010
+growth_rate_2000_2010 <- (pop_2010 / pop_2000) ^ (1/10) - 1
+
+# Growth rate from 2010 to 2020
+growth_rate_2010_2020 <- (pop_2020 / pop_2010) ^ (1/10) - 1
+
+message(paste("Growth rate 2000-2010:", round(growth_rate_2000_2010 * 100, 3), "% per year"))
+message(paste("Growth rate 2010-2020:", round(growth_rate_2010_2020 * 100, 3), "% per year"))
+
+# Create state population for all years
+state_population <- tibble(year = 1985:2022) %>%
+  mutate(
+    state_population = case_when(
+      # 1985-1999: Extrapolate backward from 2000 using 2000-2010 growth rate
+      year < 2000 ~ pop_2000 / ((1 + growth_rate_2000_2010) ^ (2000 - year)),
+      # 2000: Actual Census data
+      year == 2000 ~ pop_2000,
+      # 2001-2009: Linear interpolation between 2000 and 2010
+      year > 2000 & year < 2010 ~ pop_2000 + (pop_2010 - pop_2000) * (year - 2000) / (2010 - 2000),
+      # 2010: Actual Census data
+      year == 2010 ~ pop_2010,
+      # 2011-2019: Linear interpolation between 2010 and 2020
+      year > 2010 & year < 2020 ~ pop_2010 + (pop_2020 - pop_2010) * (year - 2010) / (2020 - 2010),
+      # 2020: Actual Census data
+      year == 2020 ~ pop_2020,
+      # 2021-2022: Extrapolate forward from 2020 using 2010-2020 growth rate
+      year > 2020 ~ pop_2020 * ((1 + growth_rate_2010_2020) ^ (year - 2020))
+    )
+  )
+
+message("\nState population estimates for all years (1985-2022):")
+print(state_population)
+
+# ============================================
+# Step 3: Calculate Zip Code Fractions
+# ============================================
+
+message("\nCalculating zip code population fractions...")
+
+# For each zip code, calculate average fraction across observed years
+zip_fractions <- florida_zip_observed %>%
+  left_join(
+    state_population %>% rename(state_pop_at_year = state_population),
+    by = "year"
+  ) %>%
+  mutate(
+    population_fraction = population / state_pop_at_year
+  ) %>%
+  group_by(zip_code) %>%
+  summarise(
+    zip_name = first(zip_name),
+    avg_population_fraction = mean(population_fraction, na.rm = TRUE),
+    min_year_observed = min(year),
+    max_year_observed = max(year),
+    .groups = "drop"
+  )
+
+message(paste("Calculated fractions for", n_distinct(zip_fractions$zip_code), "zip codes"))
+message("Sample fractions:")
+print(head(zip_fractions, 10))
+
+# Verify the join will work
+message("\nVerifying zip_fractions has the required columns:")
+message(paste("Columns:", paste(names(zip_fractions), collapse = ", ")))
+
+# ============================================
+# Step 4: Scale State Population to Zip Codes
+# ============================================
+
+message("\nScaling state population to zip code level...")
+
+# Build the complete dataset step by step to debug
+temp1 <- expand_grid(
+  year = 1985:2022,
+  zip_code = unique(florida_zip_observed$zip_code)
+)
+
+message(paste("After expand_grid: nrow =", nrow(temp1)))
+
+temp2 <- temp1 %>%
+  left_join(state_population, by = "year")
+
+message(paste("After joining state_population: nrow =", nrow(temp2)))
+message(paste("NAs in state_population:", sum(is.na(temp2$state_population))))
+
+temp3 <- temp2 %>%
+  left_join(zip_fractions, by = "zip_code")
+
+message(paste("After joining zip_fractions: nrow =", nrow(temp3)))
+message(paste("Columns in temp3:", paste(names(temp3), collapse = ", ")))
+message(paste("NAs in avg_population_fraction:", sum(is.na(temp3$avg_population_fraction))))
+
+temp4 <- temp3 %>%
+  mutate(
+    # Scale state population by zip code's average fraction
+    population_estimated = state_population * avg_population_fraction
+  )
+
+message(paste("After calculating population_estimated: nrow =", nrow(temp4)))
+message(paste("NAs in population_estimated:", sum(is.na(temp4$population_estimated))))
+message(paste("Sample population_estimated values:"))
+print(head(temp4 %>% select(year, zip_code, state_population, avg_population_fraction, population_estimated), 10))
+
+# Add observed data where available
+temp5 <- temp4 %>%
+  left_join(
+    florida_zip_observed %>% select(zip_code, year, population) %>% mutate(is_observed = TRUE),
+    by = c("zip_code", "year")
+  )
+
+message(paste("After joining observed data: nrow =", nrow(temp5)))
+
+library(dplyr)
+library(tidyr)
+library(stringr)
+
+florida_zip_complete <- temp5 %>%
+  mutate(
+    # Clean ZIP: digits only, last 5
+    zip_code = str_sub(str_replace_all(zip_code, "\\D", ""), -5, -1),
+
+    # Decide population source correctly
+    population_final = case_when(
+      is_observed == TRUE & !is.na(population) & population > 0 ~ population,
+      TRUE ~ population_estimated
+    ),
+
+    population_final = round(population_final)
+  ) %>%
+  filter(
+    !is.na(zip_code),
+    nchar(zip_code) == 5
+  ) %>%
+  select(year, zip_code, population = population_final) %>%
+  # Collapse duplicates safely
+  group_by(year, zip_code) %>%
+  summarise(
+    population = max(population, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(zip_code, year)
+```
+
+Export the ZIP–year population panel
+```{r}
+dir.create("data/population", recursive = TRUE, showWarnings = FALSE)
+
+attr(florida_zip_complete, "source") <- "Census ZCTA + ACS 5-year, interpolated"
+attr(florida_zip_complete, "created_on") <- Sys.time()
+attr(florida_zip_complete, "notes") <- "Observed population used when available; otherwise estimated. Zeros retained for pre-existence ZCTAs."
+saveRDS(florida_zip_complete,  "data/population/florida_zip_population_1985_2022.rds")
+
+saveRDS(
+  florida_zip_complete,
+  file = "data/population/florida_zip_population_1985_2022.rds"
+)
+``
+```
+
