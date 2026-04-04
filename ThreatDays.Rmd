@@ -293,24 +293,24 @@ Files received from Jihoon on November 27, 2025
 ~ 2 minutes
 ```{r}
 start_time <- Sys.time()
-#load("data/all_data.Rdata")
+load("data/all_data.Rdata")
 
 #load("data/cardio_subset_all.Rdata")
 #load("data/respir_subset_all.Rdata")
 #load("data/injury_subset_all.Rdata")
-load("data/neuropsych_subset_all.Rdata")
+#load("data/neuropsych_subset_all.Rdata")
 
-Deaths.df <- neuropsych_subset_all %>% # Use for subsets
-  mutate(Date = as_date(DATE_OF_DEATH)) %>%
-  filter(Date >= as.Date(begin_date)) %>%
-  select(Death_ID = ID, Death_Date = Date, final_lon, final_lat)
+#Deaths.df <- neuropsych_subset_all %>% # Use for subsets
+#  mutate(Date = as_date(DATE_OF_DEATH)) %>%
+#  filter(Date >= as.Date(begin_date)) %>%
+#  select(Death_ID = ID, Death_Date = Date, final_lon, final_lat)
   
-#Deaths.df <- all_data %>%   # Use for all deaths
-# mutate(Date = as_date(DATE_OF_DEATH)) %>%
-#  filter(Date >= as.Date(begin_date)) %>% 
-#  select(Death_ID = ID, Death_Date = Date, final_lon, final_lat, 
-#         age = COMPUTED_AGE, white = RACE_WHITE, sex = SEX, 
-#         marital_code = MARITAL_CODE, army = ARMY_YESNO)
+Deaths.df <- all_data %>%   # Use for all deaths
+ mutate(Date = as_date(DATE_OF_DEATH)) %>%
+ filter(Date >= as.Date(begin_date)) %>% 
+ select(Death_ID = ID, Death_Date = Date, final_lon, final_lat, 
+         age = COMPUTED_AGE, white = RACE_WHITE, sex = SEX, 
+         marital_code = MARITAL_CODE, army = ARMY_YESNO)
 
 Deaths.sf <- Deaths.df %>%
   st_as_sf(coords = c("final_lon", "final_lat"), crs = 4326)

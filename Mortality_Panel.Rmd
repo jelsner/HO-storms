@@ -1,0 +1,633 @@
+---
+title: "Mortality_Panel"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Create an empirical storm threat model
+```{r}
+library(sf)
+library(dplyr)
+
+storm_intensity <- 34
+begin_year <- 1985 
+end_year <- 2022
+begin_date <- paste0(begin_year, "-01-01")
+end_date <- paste0(end_year, "-12-31")
+
+L <- "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/IBTrACS.NA.list.v04r00.lines.zip"
+  
+if(!"IBTrACS.NA.list.v04r00.lines.zip" %in% list.files(here::here("data"))) {
+download.file(url = L,
+              destfile = here::here("data",
+                                    "IBTrACS.NA.list.v04r00.lines.zip"))
+unzip(here::here("data", "IBTrACS.NA.list.v04r00.lines.zip"),
+      exdir = here::here("data"))
+}
+
+Tracks.sf <- st_read(dsn = here::here("data"), 
+                     layer = "IBTrACS.NA.list.v04r00.lines") |>
+  st_transform(crs = 32616)
+
+Tracks.sf <- Tracks.sf |>
+  filter(year >= begin_year & year <= end_year) |>
+  filter(USA_WIND >= storm_intensity) |>
+  select(SID, SEASON, year, month, day, hour, min,
+         NAME, SUBBASIN, ISO_TIME, USA_WIND, USA_PRES, USA_RMW, USA_EYE, USA_ROCI)
+
+Tracks.sf |>
+  st_drop_geometry() |>
+  summarize(avgRMW = mean(USA_RMW, na.rm = TRUE) * 1.852,
+                   avgEYE = mean(USA_EYE, na.rm = TRUE) * 1.852,
+                   avgROCI = mean(USA_ROCI, na.rm = TRUE) * 1.852)
+
+# Fill in missing RMW values. Start with pedigree, then use minimum pressure, and finish again with pedigree
+Tracks.sf <- Tracks.sf |>
+  group_by(SID) |>  # pedigree
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+Tracks.sf <- Tracks.sf |>
+  group_by(USA_PRES) |> # minimum pressure
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+Tracks.sf <- Tracks.sf |>
+  group_by(SID) |> # pedigree
+  mutate(USA_RMW = ifelse(is.na(USA_RMW), mean(USA_RMW, na.rm = TRUE), USA_RMW))
+
+#Add a buffer to the tracks to make segmented wind swaths
+Swaths.sf <- Tracks.sf |>
+  st_buffer(dist = Tracks.sf$USA_RMW * 1852) # 1852 converts to meters
+
+# Wind swaths that cross Florida. `USAboundaries` package no longer maintained on CRAN
+#devtools::install_github("ropensci/USAboundariesData")
+#devtools::install_github("ropensci/USAboundaries", force = TRUE)
+#install.packages("USAboundariesData", repos = "https://ropensci.r-universe.dev", type = "source")
+Boundaries.sf <- USAboundaries::us_states(resolution = "low", states = "FL") |> 
+  st_transform(crs = 32616)
+
+X <- Swaths.sf |>
+  st_intersects(Boundaries.sf, sparse = FALSE) #Does the swath intersect the state border?
+Swaths.sf <- Swaths.sf[X, ]
+Swaths.sf <- Swaths.sf |>
+  mutate(Date = lubridate::as_date(ISO_TIME)) #Add a date column
+
+# Extract the boundaries of storm impacts by storm ID. Dissolve the overlap borders of the individual swaths by storm to create a single storm swath. Add the storm category (Saffir-Simpson) based on wind speed
+Swaths.sf <- Swaths.sf |>
+  group_by(SID) |>
+  summarize(Date0 = first(Date),
+            NAME = first(NAME),
+            Wind = max(USA_WIND),
+            geometry = st_union(geometry)) |>
+  mutate(Storm_Category = case_when(
+    Wind >= 34 & Wind <= 63 ~ 0,
+    Wind >= 64 & Wind <= 82 ~ 1,
+    Wind >= 83 & Wind <= 95 ~ 2,
+    Wind >= 96 & Wind <= 112 ~ 3,
+    Wind >= 113 & Wind <= 136 ~ 4,
+    Wind >= 137 ~ 5
+  ))
+
+# Transform the geometry to a geographic CRS (4326) and unionize the swaths
+sf_use_s2(TRUE)
+
+Swaths.sf <- Swaths.sf |>
+    st_transform(crs = 4326)
+union_Swaths2.sfg <- Swaths.sf |>
+  st_union()
+```
+
+```{r}
+sum(table(Swaths.sf$Storm_Category))
+table(Swaths.sf$Storm_Category)
+table(lubridate::year(Swaths.sf$Date0))
+```
+
+## Expand `Swaths.sf` by adding rows based on the increment value of the attribute `Date0`
+```{r}
+library(tidyr)
+library(lubridate)
+
+min_lag  <- -8   # days before impact
+max_lead <- 8   # days after impact
+
+TIC.sf <- Swaths.sf %>%
+  rowwise() %>%
+  mutate(event_days = list(
+    tibble(
+      Date     = Date0 + (min_lag:max_lead),
+      rel_day  = min_lag:max_lead
+    )
+  )) %>%
+  unnest(event_days) %>%
+  ungroup() %>%
+  select(
+    Date,
+    rel_day,
+    Storm_Name = NAME,
+    Storm_Category
+  )
+
+# Create event-time factors
+TIC.sf <- TIC.sf %>%
+  mutate(
+    rel_day_f = factor(rel_day)
+  )
+
+# Add month and year indicators change name of the geometry column (this is needed for spatial merges)
+TIC.sf <- TIC.sf |>
+  mutate(Month = lubridate::month(Date),
+         Year = lubridate::year(Date))
+storm_months <- unique(TIC.sf$Month)
+storm_year_range <- range(TIC.sf$Year)
+
+st_geometry(TIC.sf) <- "geom"
+```
+
+## Merge storms with death records
+Files received from Jihoon on November 27, 2025 
+~ 2 minutes
+```{r}
+start_time <- Sys.time()
+load("data/all_data.Rdata")
+load("data/cardio_subset_all.Rdata")
+load("data/respir_subset_all.Rdata")
+
+#load("data/injury_subset_all.Rdata")
+#load("data/neuropsych_subset_all.Rdata")
+
+#Deaths.df <- neuropsych_subset_all %>% # Use for subsets
+#  mutate(Date = as_date(DATE_OF_DEATH)) %>%
+#  filter(Date >= as.Date(begin_date)) %>%
+#  select(Death_ID = ID, Death_Date = Date, final_lon, final_lat)
+  
+Deaths.df <- all_data %>% 
+ mutate(Date = as_date(DATE_OF_DEATH)) %>%
+ filter(Date >= as.Date(begin_date)) %>% 
+ transmute(Death_ID = ID, Death_Date = Date, final_lon, final_lat, 
+         age = as.integer(COMPUTED_AGE), white = RACE_WHITE, sex = SEX, 
+         marital_code = MARITAL_CODE)
+
+Deaths.sf <- Deaths.df %>%
+  st_as_sf(coords = c("final_lon", "final_lat"), crs = 4326)
+#rm(all_data, Deaths.df)
+Sys.time() - start_time
+```
+
+## Filter deaths by date of death and storm effect zones
+~ 10 minutes
+```{r}
+library(sf)
+library(dplyr)
+
+start_time <- Sys.time()
+
+target_crs <- 5070
+sf_use_s2(FALSE)
+
+# IMPORTANT: set window here
+min_lag  <-  -8L
+max_lead <-  8L
+
+TIC_proj    <- st_transform(TIC.sf,    target_crs)
+Deaths_proj <- st_transform(Deaths.sf, target_crs)
+
+num_obs <- nrow(Deaths_proj)
+chunk_size <- 50000
+num_chunks <- ceiling(num_obs / chunk_size)
+print(paste("Number of chunks to process", num_chunks))
+
+results_list <- vector("list", num_chunks)
+
+for (i in seq(1, num_obs, by = chunk_size)) {
+  chunk_index <- (i - 1) / chunk_size + 1
+  chunk_indices <- i:min(i + chunk_size - 1, num_obs)
+
+  print(paste("Processing chunk", chunk_index))
+
+  chunk.sf <- Deaths_proj[chunk_indices, ]
+
+  chunk_dates <- unique(chunk.sf$Death_Date)
+  TIC_chunk <- TIC_proj %>% filter(Date %in% chunk_dates)
+
+  if (nrow(TIC_chunk) == 0) {
+    results_list[[chunk_index]] <- NULL
+    gc()
+    next
+  }
+
+  deaths_joined <- st_join(chunk.sf, TIC_chunk, join = st_within, left = FALSE) %>%
+    filter(Date == Death_Date) %>%                 # enforce same-day
+    mutate(rel_day = as.integer(rel_day)) %>%
+    filter(rel_day >= min_lag, rel_day <= max_lead)
+
+  if (nrow(deaths_joined) == 0) {
+    results_list[[chunk_index]] <- NULL
+    gc()
+    next
+  }
+
+  mortality_panel <- deaths_joined %>%
+    group_by(Death_ID, Death_Date) %>%
+    arrange(abs(rel_day), rel_day) %>%             # tie-break toward pre-impact
+    slice(1) %>%
+    ungroup() %>%
+    transmute(
+      Death_ID, Death_Date,
+      Storm_Name, Storm_Category,
+      rel_day,
+      rel_day_f = factor(as.character(rel_day), levels = as.character(min_lag:max_lead)),
+      age, white, sex, marital_code,
+      geometry
+    ) %>%
+    distinct()
+
+  results_list[[chunk_index]] <- deaths_with_impacts
+  gc()
+}
+
+mortality_panel <- do.call(rbind, results_list)
+Sys.time() - start_time
+```
+
+Demographic table only
+```{r}
+library(sf)
+library(dplyr)
+library(data.table)
+start_time <- Sys.time()
+
+# Often faster for large point-in-polygon workloads in lon/lat
+# If you need true spherical geometry, set TRUE instead.
+sf_use_s2(FALSE)
+
+#----------------------------
+# 1) Build one (constant) impact polygon per storm from rel_day == 0
+#    If there happen to be multiple rel_day==0 rows per storm, union them.
+#----------------------------
+impact_poly <- TIC.sf %>%
+  filter(rel_day == 0) %>%
+  group_by(Storm_Name) %>%
+  summarise(
+    impact_date   = min(Date),
+    Storm_Category = suppressWarnings(max(Storm_Category, na.rm = TRUE)),
+    geom          = st_union(geom),
+    .groups = "drop"
+  ) %>%
+  st_as_sf(sf_column_name = "geom", crs = st_crs(TIC.sf))
+
+#----------------------------
+# 2) CRS alignment
+#----------------------------
+if (st_crs(Deaths.sf) != st_crs(impact_poly)) {
+  Deaths.sf <- st_transform(Deaths.sf, st_crs(impact_poly))
+}
+
+#----------------------------
+# 3) Prep deaths as a keyed data.table for fast date-range filtering
+#    Keep only needed columns to reduce memory footprint.
+#----------------------------
+Deaths_dt <- as.data.table(Deaths.sf)[
+  , .(Death_ID, Death_Date, age, white, sex, geometry)
+]
+setkey(Deaths_dt, Death_Date)
+
+# 10-year age groups: 0-9, 10-19, ..., 90+
+Deaths_dt[, age_group := cut(
+  age,
+  breaks = c(seq(0, 90, by = 10), Inf),
+  right = FALSE,
+  include.lowest = TRUE,
+  labels = c("0-9","10-19","20-29","30-39","40-49",
+             "50-59","60-69","70-79","80-89","90+")
+)]
+
+# Race: White vs not (your variable is 'white' == "Y")
+Deaths_dt[, race := fifelse(white == "Y", "White", "Non-White")]
+
+# Birth sex (as recorded)
+Deaths_dt[, sex_birth := fifelse(is.na(sex) | sex == "", NA_character_, sex)]
+
+#----------------------------
+# 4) Helper: summarize one storm
+#----------------------------
+summarize_one_storm <- function(storm_nm, impact_poly, Deaths_dt, deaths_crs) {
+
+  poly_row <- impact_poly[impact_poly$Storm_Name == storm_nm, ]
+  if (nrow(poly_row) == 0L) {
+    return(data.table(
+      Storm_Name = storm_nm, Storm_Category = NA_real_, impact_date = as.Date(NA),
+      total_deaths = 0L, dimension = character(), level = character(),
+      n = integer(), prop = numeric()
+    ))
+  }
+
+  d0 <- poly_row$impact_date[1]
+  start_date <- d0 - 8
+  end_date   <- d0 + 8
+
+  # Fast temporal filter (17 days)
+  dsub <- Deaths_dt[Death_Date >= start_date & Death_Date <= end_date]
+  if (nrow(dsub) == 0L) {
+    return(data.table(
+      Storm_Name = storm_nm,
+      Storm_Category = poly_row$Storm_Category[1],
+      impact_date = d0,
+      total_deaths = 0L,
+      dimension = character(), level = character(),
+      n = integer(), prop = numeric()
+    ))
+  }
+
+  # Convert this storm's 17-day deaths subset to sf (usually a few thousand points)
+  dsub_sf <- st_as_sf(dsub, sf_column_name = "geometry", crs = deaths_crs)
+
+  # Spatial filter: inside constant impact polygon
+  inside <- lengths(st_intersects(dsub_sf, st_geometry(poly_row))) > 0L
+  if (!any(inside)) {
+    return(data.table(
+      Storm_Name = storm_nm,
+      Storm_Category = poly_row$Storm_Category[1],
+      impact_date = d0,
+      total_deaths = 0L,
+      dimension = character(), level = character(),
+      n = integer(), prop = numeric()
+    ))
+  }
+
+  hits <- dsub[inside, .(Death_ID, age_group, race, sex_birth)]
+  total <- uniqueN(hits$Death_ID)
+
+  # Marginal distributions
+  
+  out_age <- hits[
+  , .(n = .N),
+  by = .(level = as.character(age_group))
+][, dimension := "age_group"]
+
+out_race <- hits[
+  , .(n = .N),
+  by = .(level = race)
+][, dimension := "race"]
+
+out_sex <- hits[
+  , .(n = .N),
+  by = .(level = sex_birth)
+][, dimension := "sex"]
+
+  out <- rbindlist(list(out_age, out_race, out_sex), use.names = TRUE, fill = TRUE)
+  out[, `:=`(
+    Storm_Name = storm_nm,
+    Storm_Category = poly_row$Storm_Category[1],
+    impact_date = d0,
+    total_deaths = total,
+    prop = n / total
+  )]
+
+  setcolorder(out, c("Storm_Name","Storm_Category","impact_date","total_deaths",
+                     "dimension","level","n","prop"))
+  out[]
+}
+
+#----------------------------
+# 5) Run for all storms
+#----------------------------
+storms <- sort(unique(impact_poly$Storm_Name))
+deaths_crs <- st_crs(impact_poly)
+
+storm_demog <- rbindlist(
+  lapply(storms, summarize_one_storm,
+         impact_poly = impact_poly,
+         Deaths_dt = Deaths_dt,
+         deaths_crs = deaths_crs),
+  fill = TRUE
+)
+
+# Save a tidy output
+fwrite(storm_demog, "data/outputs/storm_deaths_demographics_impactpoly_17day.csv")
+
+# Example: view a single storm
+storm_demog[Storm_Name == storms[1]][order(dimension, level)]
+start_time - Sys.time()
+```
+
+Add causal variables
+```{r}
+library(sf)
+library(dplyr)
+library(data.table)
+
+sf_use_s2(FALSE)
+
+impact_poly <- TIC.sf %>%
+  filter(rel_day == 0) %>%
+  group_by(Storm_Name) %>%
+  summarise(
+    impact_date    = min(Date),
+    Storm_Category = suppressWarnings(max(Storm_Category, na.rm = TRUE)),
+    geom           = st_union(geom),
+    .groups = "drop"
+  ) %>%
+  st_as_sf(crs = st_crs(TIC.sf))
+
+Deaths.sf <- st_transform(Deaths.sf, st_crs(impact_poly))
+
+Deaths_dt <- as.data.table(Deaths.sf)[
+  , .(Death_ID, Death_Date, age, white, sex, geometry)
+]
+setkey(Deaths_dt, Death_Date)
+
+Deaths_dt[, age_group := cut(
+  age,
+  breaks = c(seq(0, 90, 10), Inf),
+  right = FALSE,
+  include.lowest = TRUE,
+  labels = c("0-9","10-19","20-29","30-39","40-49",
+             "50-59","60-69","70-79","80-89","90+")
+)]
+
+Deaths_dt[, race := fifelse(white == "Y", "White", "Non-White")]
+Deaths_dt[, sex_birth := fifelse(is.na(sex) | sex == "", NA_character_, sex)]
+
+cardio_sf <- st_as_sf(
+  cardio_subset_all,
+  coords = c("final_lon", "final_lat"),
+  crs = 4326,
+  remove = FALSE
+) %>%
+  transmute(Death_Date = as.Date(DATE_OF_DEATH),
+            geometry) %>%
+  st_transform(st_crs(impact_poly))
+
+respir_sf <- st_as_sf(
+  respir_subset_all,
+  coords = c("final_lon", "final_lat"),
+  crs = 4326,
+  remove = FALSE
+) %>%
+  transmute(Death_Date = as.Date(DATE_OF_DEATH),
+            geometry) %>%
+  st_transform(st_crs(impact_poly))
+
+summarize_one_storm <- function(storm_nm) {
+
+  poly <- impact_poly[impact_poly$Storm_Name == storm_nm, ]
+  d0   <- poly$impact_date
+  win  <- c(d0 - 8, d0 + 8)
+
+  # ---- all deaths (denominator)
+  dsub <- Deaths_dt[Death_Date >= win[1] & Death_Date <= win[2]]
+  if (nrow(dsub) == 0) return(NULL)
+
+  dsub_sf <- st_as_sf(dsub, sf_column_name = "geometry",
+                      crs = st_crs(impact_poly))
+
+  inside_all <- lengths(st_intersects(dsub_sf, poly)) > 0
+  hits_sf <- dsub_sf[inside_all, ]
+
+  total <- nrow(hits_sf)
+  if (total == 0) return(NULL)
+
+  # ---- cardiovascular
+  cardio_sub <- cardio_sf %>%
+    filter(Death_Date >= win[1], Death_Date <= win[2])
+  n_cardio <- sum(lengths(st_intersects(cardio_sub, poly)) > 0)
+
+  # ---- respiratory
+  respir_sub <- respir_sf %>%
+    filter(Death_Date >= win[1], Death_Date <= win[2])
+  n_respir <- sum(lengths(st_intersects(respir_sub, poly)) > 0)
+
+  # ---- demographics
+  hits_dt <- as.data.table(hits_sf)
+
+  out_age <- hits_dt[
+  , .(n = .N),
+  by = .(level = age_group)
+][, dimension := "age_group"]
+
+out_race <- hits_dt[
+  , .(n = .N),
+  by = .(level = race)
+][, dimension := "race"]
+
+out_sex <- hits_dt[
+  , .(n = .N),
+  by = .(level = sex_birth)
+][, dimension := "sex"]
+
+out_demo <- rbindlist(list(out_age, out_race, out_sex), fill = TRUE)
+
+  out_cause <- data.table(
+    dimension = "cause",
+    level = c("cardiovascular", "respiratory"),
+    n = c(n_cardio, n_respir)
+  )
+
+  out <- rbindlist(list(out_demo, out_cause), fill = TRUE)
+
+  out[, `:=`(
+    Storm_Name = storm_nm,
+    Storm_Category = poly$Storm_Category,
+    impact_date = d0,
+    total_deaths = total,
+    prop = n / total
+  )]
+
+  out[]
+}
+
+storm_demog <- rbindlist(
+  lapply(unique(impact_poly$Storm_Name), summarize_one_storm),
+  fill = TRUE
+)
+
+fwrite(storm_demog,
+       "data/outputs/storm_deaths_demographics_impactpoly_17day.csv")
+```
+
+Sanity checks
+```{r}
+stopifnot(nrow(impact_poly) == length(unique(impact_poly$Storm_Name)))
+stopifnot(!any(duplicated(impact_poly$Storm_Name)))
+stopifnot(!any(is.na(impact_poly$impact_date)))
+stopifnot(all(storm_demog$total_deaths >= 0))
+stopifnot(all(is.finite(storm_demog$total_deaths)))
+
+stopifnot(
+  all(storm_demog$n <= storm_demog$total_deaths)
+)
+
+stopifnot(
+  all(storm_demog$prop >= 0 & storm_demog$prop <= 1)
+)
+
+storm_demog[
+  dimension %in% c("age_group","race","sex"),
+  .(prop_sum = sum(prop, na.rm = TRUE)),
+  by = .(Storm_Name, dimension)
+][, summary(prop_sum)]
+
+storm_demog[
+  dimension == "cause",
+  stopifnot(all(n <= total_deaths))
+]
+
+storm_demog[dimension == "cause",
+            summary(prop)]
+
+storm_demog[
+  dimension == "cause",
+  dcast(.SD, Storm_Name ~ level, value.var = "prop")
+][, summary(cardiovascular + respiratory)]
+```
+
+```{r}
+s <- sample(unique(impact_poly$Storm_Name), 1)
+
+plot(st_geometry(impact_poly[impact_poly$Storm_Name == s, ]),
+     main = s)
+plot(st_geometry(Deaths.sf), add = TRUE, pch = ".", col = "grey")
+
+test_storm <- storms[1]
+storm_demog[Storm_Name == test_storm & dimension == "cause"]
+
+sapply(storms, function(s) {
+  d0 <- impact_poly$impact_date[impact_poly$Storm_Name == s]
+  length(seq(d0 - 8, d0 + 8, by = "1 day"))
+}) |> unique()
+
+storm_demog[
+  , .(total_deaths = unique(total_deaths)),
+  by = .(Storm_Name, Storm_Category)
+][, summary(total_deaths), by = Storm_Category]
+```
+
+Write out
+```{r}
+library(data.table)
+
+# Ensure impact_date is Date
+storm_demog[, impact_date := as.Date(impact_date)]
+
+# Order chronologically by storm impact date
+setorder(
+  storm_demog,
+  impact_date,
+  Storm_Name,
+  dimension,
+  level
+)
+
+# Write to CSV
+fwrite(
+  storm_demog,
+  "data/outputs/storm_demog_chrono.csv"
+)
+
+# Optional: quick check
+storm_demog[1:10]
+```
+
+
+
