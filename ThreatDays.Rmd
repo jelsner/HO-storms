@@ -1013,12 +1013,12 @@ print(p)
 
 ## Compare all deaths with subgroups
 ```{r}
-# --- Compute pre-impact average (lag -8:-1) for All vs Age ≥65 at ≥34 kt ---
+# --- Compute pre-impact average (lag -8:-1) for All vs Age ≥60 at ≥34 kt ---
 res_pre_34kt_groups <- bind_rows(
   summarize_pre_only(m_event_34kt,      "All ages", pre_days),
-  summarize_pre_only(m_event_34kt_age,  "Age ≥ 65", pre_days)
+  summarize_pre_only(m_event_34kt_age,  "Age ≥ 60", pre_days)
 ) |>
-  mutate(group = factor(group, levels = c("All ages", "Age ≥ 65")))
+  mutate(group = factor(group, levels = c("All ages", "Age ≥ 60")))
 
 # Inspect (optional)
 res_pre_34kt_groups
@@ -1033,7 +1033,7 @@ p_subgroup <- ggplot(res_pre_34kt_groups, aes(x = group, y = RR)) +
   labs(
     x = "Population subgroup",
     y = "Pre-impact average RR (95% CI)",
-    title = "Pre-impact average rate ratio for ≥34 kt: All ages vs Age ≥ 65",
+    title = "Pre-impact average rate ratio for ≥34 kt: All ages vs Age ≥ 60",
     subtitle = "Window: rel_day_f −8 to −1; missing day terms counted as zero effect"
   ) +
   theme_minimal()
