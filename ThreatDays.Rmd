@@ -530,7 +530,7 @@ sum(is.na(deaths_with_zip$zip))
 Save
 ```{r}
 saveRDS(deaths_with_zip, "data/outputs/Results/deaths_with_zip_34kt.rds")
-deaths_with_zip<- readRDS("data/outputs/Results/deaths_with_zip_64kt.rds")
+deaths_with_zip<- readRDS("data/outputs/Results/deaths_with_zip_34kt.rds")
 ```
 
 ## Panel-ready daily counts
@@ -546,13 +546,14 @@ daily_deaths <- deaths_with_zip %>%
   transmute(
     zip  = as.character(zip),
     date = as.IDate(Death_Date),
-#    age = as.integer(age),
+    age = as.integer(age),
 #    sex = sex,
 #    white = white,
 #    marital_code = marital_code
   ) %>%
 # add subgroup filters here if needed
 #  filter(age >= 60) %>%
+  filter(age >= 70) %>%
 #  filter(sex == "M") %>%
 #  filter(white == "Y") %>%
 #  filter(marital_code == 2) %>%
@@ -588,8 +589,8 @@ Sys.time() - begin
 
 Export (optional)
 ```{r}
-readr::write_csv(panel, "data/outputs/Deaths/daily_panel_34kt.csv")
-panel <- readr::read_csv("data/outputs/Deaths/daily_panel_55kt.csv")
+readr::write_csv(panel, "data/outputs/Deaths/daily_panel_34kt_age70.csv")
+# panel <- readr::read_csv("data/outputs/Deaths/daily_panel_34kt_age70.csv")
 ```
 
 ## Poisson model with stratum fixed effects
@@ -644,12 +645,13 @@ Sys.time() - begin
 ```
 
 ```{r}
-saveRDS(m_event, file = "m_event_34kt.rds")
+saveRDS(m_event, file = "m_event_34kt_age70.rds")
 ```
 
 ## Read in model results
 ```{r}
 m_event_34kt <- readRDS("m_event_34kt.rds")
+m_event_34kt_age70 <- readRDS("m_event_34kt_age70.rds")
 m_event_34kt_placebo <- readRDS("m_event_34kt_placebo.rds")
 m_event_55kt <- readRDS("m_event_55kt.rds")
 m_event_55kt_placebo <- readRDS("m_event_55kt_placebo.rds")
@@ -1013,12 +1015,12 @@ print(p)
 
 ## Compare all deaths with subgroups
 ```{r}
-# --- Compute pre-impact average (lag -8:-1) for All vs Age ≥60 at ≥34 kt ---
+# --- Compute pre-impact average (lag -8:-1) for All vs Age ≥70 at ≥34 kt ---
 res_pre_34kt_groups <- bind_rows(
   summarize_pre_only(m_event_34kt,      "All ages", pre_days),
-  summarize_pre_only(m_event_34kt_age,  "Age ≥ 60", pre_days)
+  summarize_pre_only(m_event_34kt_age70,  "Age ≥ 70", pre_days)
 ) |>
-  mutate(group = factor(group, levels = c("All ages", "Age ≥ 60")))
+  mutate(group = factor(group, levels = c("All ages", "Age ≥ 70")))
 
 # Inspect (optional)
 res_pre_34kt_groups
@@ -1033,7 +1035,7 @@ p_subgroup <- ggplot(res_pre_34kt_groups, aes(x = group, y = RR)) +
   labs(
     x = "Population subgroup",
     y = "Pre-impact average RR (95% CI)",
-    title = "Pre-impact average rate ratio for ≥34 kt: All ages vs Age ≥ 60",
+    title = "Pre-impact average rate ratio for ≥34 kt: All ages vs Age ≥ 70",
     subtitle = "Window: rel_day_f −8 to −1; missing day terms counted as zero effect"
   ) +
   theme_minimal()
