@@ -552,8 +552,7 @@ daily_deaths <- deaths_with_zip %>%
 #    marital_code = marital_code
   ) %>%
 # add subgroup filters here if needed
-#  filter(age >= 60) %>%
-  filter(age >= 80) %>%
+  filter(age >= 50) %>%
 #  filter(sex == "M") %>%
 #  filter(white == "Y") %>%
 #  filter(marital_code == 2) %>%
@@ -589,7 +588,7 @@ Sys.time() - begin
 
 Export (optional)
 ```{r}
-readr::write_csv(panel, "data/outputs/Deaths/daily_panel_64kt_age80.csv")
+readr::write_csv(panel, "data/outputs/Deaths/daily_panel_64kt_age50.csv")
 # panel <- readr::read_csv("data/outputs/Deaths/daily_panel_34kt_age70.csv")
 ```
 
@@ -645,12 +644,13 @@ Sys.time() - begin
 ```
 
 ```{r}
-saveRDS(m_event, file = "models/m_event_64kt_age80.rds")
+saveRDS(m_event, file = "models/m_event_64kt_age50.rds")
 ```
 
 ## Read in model results
 ```{r}
 m_event_64kt <- readRDS("models/m_event_64kt.rds")
+m_event_64kt_age50 <- readRDS("models/m_event_64kt_age50.rds")
 m_event_64kt_age60 <- readRDS("models/m_event_64kt_age60.rds")
 m_event_64kt_age70 <- readRDS("models/m_event_64kt_age70.rds")
 m_event_64kt_age80 <- readRDS("models/m_event_64kt_age80.rds")
@@ -1021,9 +1021,9 @@ print(p)
 # --- Compute pre-impact average (lag -8:-1) for All vs Age ≥60 at ≥64 kt ---
 res_pre_64kt_groups <- bind_rows(
   summarize_pre_only(m_event_64kt,      "All ages", pre_days),
-  summarize_pre_only(m_event_64kt_age80,  "Age ≥ 80", pre_days)
+  summarize_pre_only(m_event_64kt_age50,  "Age ≥ 50", pre_days)
 ) |>
-  mutate(group = factor(group, levels = c("All ages", "Age ≥ 80")))
+  mutate(group = factor(group, levels = c("All ages", "Age ≥ 50")))
 
 # Inspect (optional)
 res_pre_34kt_groups
