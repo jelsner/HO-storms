@@ -9,3 +9,4 @@ data.zip
 deploy.R
 *.html
 rsconnect/
+.positai
