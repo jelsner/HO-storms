@@ -18,12 +18,14 @@ end_date <- paste0(end_year, "-12-31")
 
 L <- "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/shapefile/IBTrACS.NA.list.v04r00.lines.zip"
   
-if(!"IBTrACS.NA.list.v04r00.lines.zip" %in% list.files(here::here("data"))) {
-download.file(url = L,
-              destfile = here::here("data",
-                                    "IBTrACS.NA.list.v04r00.lines.zip"))
-unzip(here::here("data", "IBTrACS.NA.list.v04r00.lines.zip"),
-      exdir = here::here("data"))
+if (!"IBTrACS.NA.list.v04r00.lines.shp" %in% list.files(here::here("data"))) {
+  if (!"IBTrACS.NA.list.v04r00.lines.zip" %in% list.files(here::here("data"))) {
+    download.file(url = L,
+                  destfile = here::here("data",
+                                        "IBTrACS.NA.list.v04r00.lines.zip"))
+  }
+  unzip(here::here("data", "IBTrACS.NA.list.v04r00.lines.zip"),
+        exdir = here::here("data"))
 }
 
 Tracks.sf <- st_read(dsn = here::here("data"), 
@@ -246,6 +248,32 @@ arrow_df <- data.frame(
   yend = coords[idx_maxY, "Y"] + arrow_len * v_norm[2]
 )
 
+track_daily_points <- do.call(
+  rbind,
+  lapply(seq_len(nrow(tracks_ex)), function(i) {
+    xy <- st_coordinates(tracks_ex[i, ])[1, c("X", "Y")]
+    data.frame(
+      ISO_TIME = tracks_ex$ISO_TIME[i],
+      date = as.Date(tracks_ex$ISO_TIME[i]),
+      x = xy["X"],
+      y = xy["Y"]
+    )
+  })
+) %>%
+  filter(x >= xlim[1], x <= xlim[2],
+         y >= ylim[1], y <= ylim[2]) %>%
+  arrange(ISO_TIME) %>%
+  group_by(date) %>%
+  slice(1) %>%
+  ungroup() %>%
+  mutate(date_lab = format(date, "%b %d"),
+         label_dx = 45000,
+         label_dy = case_when(
+           date_lab == "Oct 09" ~  28000,
+           date_lab == "Oct 10" ~  12000,
+           TRUE                 ~  26000
+         ))
+
 # ======================
 # Panel A: Main map
 # ======================
@@ -253,6 +281,16 @@ pA <- ggplot() +
   geom_sf(data = fl_utm,  fill = "grey98", color = "grey40", linewidth = 0.25) +
   geom_sf(data = swath_ex, fill = "#F8766D", color = NA, alpha = 0.30) +
   geom_sf(data = tracks_ex, color = "#2C3E50", linewidth = 0.8) +
+  geom_point(data = track_daily_points,
+             aes(x = x, y = y),
+             inherit.aes = FALSE,
+             color = "#2C3E50", fill = "white",
+             shape = 21, size = 1.6, stroke = 0.45) +
+  geom_text(data = track_daily_points,
+            aes(x = x + label_dx, y = y + label_dy, label = date_lab),
+            inherit.aes = FALSE,
+            hjust = 0, vjust = 0.5,
+            size = 2.1, color = "#2C3E50") +
   # Start/end markers (optional)
   geom_sf(data = tracks_ex %>% slice(1),   color = "#2C3E50", size = 2) +
   geom_sf(data = tracks_ex %>% slice(n()), color = "#2C3E50", size = 2, shape = 17) +
@@ -276,10 +314,10 @@ pA <- ggplot() +
   )
 
 # ======================
-# Panel B: Inset as a full panel to the right (ZIP outlines that intersect swath)
+# Panel B: Inset as a full panel to the right (ZCTA outlines that intersect swath)
 # ======================
 
-# Compute intersecting ZIPs (in UTM)
+# Compute intersecting ZCTAs (in UTM)
 zctas_fl_m <- st_transform(zctas_fl, crs_m)
 swath_ex_m <- st_transform(swath_ex,  crs_m)
 
@@ -288,7 +326,7 @@ zip_michael <- st_intersection(zctas_fl_m, swath_ex_m) %>%
 
 zips_touch <- zctas_fl_m %>% filter(zip %in% zip_michael)
 
-# Tight bbox around the intersecting ZIPs with ~20 km padding
+# Tight bbox around the intersecting ZCTAs with ~20 km padding
 bbox_zip   <- sf::st_bbox(sf::st_union(zips_touch))
 pad_inset  <- 20000  # meters
 xlim_inset <- c(bbox_zip["xmin"] - pad_inset, bbox_zip["xmax"] + pad_inset)
@@ -299,7 +337,7 @@ pB <- ggplot() +
   geom_sf(data = swath_ex_m, fill = "#F8766D", color = NA, alpha = 0.35) +
   coord_sf(xlim = xlim_inset, ylim = ylim_inset, expand = FALSE) +
   labs(
-    title = "B. ZIP exposures",
+    title = "B. ZCTA exposures",
 #    subtitle = "Outlines only; swath overlaid",
     x = NULL, y = NULL
   ) +
@@ -311,10 +349,10 @@ pB <- ggplot() +
   )
 
 # ======================
-# Panel C: ZIP × day calendar (Michael-only), full width below
+# Panel C: ZCTA × day calendar (Michael-only), full width below
 # ======================
 
-# Build ZIP × date grid for ±8 days around Date0 (only intersecting ZIPs)
+# Build ZCTA × date grid for ±8 days around Date0 (only intersecting ZCTAs)
 win_dates <- seq(as.Date(example_date0) + min_lag,
                  as.Date(example_date0) + max_lead, by = "1 day")
 
@@ -328,7 +366,7 @@ cal_michael[, rel_day := as.integer(date - as.Date(example_date0))]
 cal_michael[, rel_day_f := factor(as.character(rel_day),
                                   levels = as.character(min_lag:max_lead))]
 
-# Reduce to a readable number of ZIP rows (ordered north→south)
+# Reduce to a readable number of ZCTA rows (ordered north→south)
 max_rows <- 60L
 cent <- st_coordinates(st_centroid(zctas_fl_m)) %>% as.data.frame()
 cent$zip <- zctas_fl_m$zip
@@ -374,8 +412,8 @@ pC <- ggplot(cal_michael) +
   ) +
   scale_x_date(date_breaks = "2 day", date_labels = "%b %d", expand = c(0.01, 0.01)) +
   labs(
-    title = "C. ZIP × day exposure calendar",
-    x = NULL, y = "ZIP"
+    title = "C. ZCTA × day exposure calendar",
+    x = NULL, y = "ZCTA"
   ) +
   theme(
     plot.title      = element_text(face = "bold"),
@@ -1110,5 +1148,3 @@ ggsave(
   dpi = 300
 )
 ```
-
-
