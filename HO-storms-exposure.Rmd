@@ -1,0 +1,788 @@
+---
+title: "Validated storm-time-specific tropical cyclone exposure for Florida births"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+params:
+  study_start: !r as.Date("2000-01-01")
+  study_end: !r as.Date("2022-12-31")
+  window_days: 7L
+  chunk_size: 50000L
+  progress_every: 1L
+  rebuild_ibtracs: false
+  write_outputs: true
+---
+
+## Purpose
+
+This workflow replaces the storm-wide, three-day exposure assignment in
+`HO-storms.Rmd`. It uses individual IBTrACS storm observations and
+quadrant-specific wind radii. A birth is exposed only when the residence at
+delivery falls inside the wind field of the *same storm observation* used to
+define the local impact date.
+
+The primary direct-hazard threshold is 34 kt. A 55 kt sensitivity footprint is
+estimated from the reported 34, 50, and 64 kt quadrant radii because IBTrACS
+does not publish 55 kt radii. For each birth-storm pair, the local impact time
+is the closest storm-center observation among observations whose wind field
+contains the residence. The analysis window is `r params$window_days` days
+before through `r params$window_days` days after that local impact date.
+
+This is a residence-at-delivery environmental proxy. It does not establish the
+mother's actual location, evacuation, displacement, flooding, power loss, or
+personal storm experience.
+
+## Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(here)
+library(lubridate)
+library(sf)
+
+options(stringsAsFactors = FALSE)
+sf::sf_use_s2(TRUE)
+
+dir.create(here("data", "derived"), recursive = TRUE, showWarnings = FALSE)
+dir.create(here("data", "outputs"), recursive = TRUE, showWarnings = FALSE)
+dir.create(here("figs", "exposure-validation"), recursive = TRUE,
+           showWarnings = FALSE)
+
+study_start <- as.Date(params$study_start)
+study_end <- as.Date(params$study_end)
+window_days <- as.integer(params$window_days)
+chunk_size <- as.integer(params$chunk_size)
+progress_every <- as.integer(params$progress_every)
+stopifnot(
+  study_start <= study_end, window_days >= 0L, chunk_size > 0L,
+  progress_every > 0L
+)
+
+progress_file <- here("data", "derived", "birth-exposure-progress.log")
+if (file.exists(progress_file)) file.remove(progress_file)
+
+log_progress <- function(stage, detail) {
+  line <- sprintf(
+    "%s | %-24s | %s",
+    format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"), stage, detail
+  )
+  message(line, appendLF = TRUE)
+  write(line, file = progress_file, append = TRUE)
+  invisible(line)
+}
+
+format_duration <- function(seconds) {
+  if (!is.finite(seconds)) return("calculating")
+  seconds <- max(0, round(seconds))
+  sprintf(
+    "%02d:%02d:%02d",
+    seconds %/% 3600,
+    (seconds %% 3600) %/% 60,
+    seconds %% 60
+  )
+}
+
+log_progress("setup", "workflow started")
+```
+
+## Download NOAA IBTrACS point observations
+
+The point shapefile is required. The storm-level line shapefile already in the
+repository cannot represent a time-varying wind field.
+
+```{r ibtracs-download}
+ibtracs_version <- "v04r01"
+ibtracs_base <- paste0(
+  "https://www.ncei.noaa.gov/data/",
+  "international-best-track-archive-for-climate-stewardship-ibtracs/",
+  ibtracs_version, "/access/shapefile"
+)
+ibtracs_zip_name <- paste0("IBTrACS.NA.list.", ibtracs_version, ".points.zip")
+ibtracs_zip <- here("data", ibtracs_zip_name)
+ibtracs_dir <- here("data", paste0("ibtracs-na-points-", ibtracs_version))
+
+if (!file.exists(ibtracs_zip) || isTRUE(params$rebuild_ibtracs)) {
+  download.file(
+    paste(ibtracs_base, ibtracs_zip_name, sep = "/"),
+    ibtracs_zip,
+    mode = "wb"
+  )
+}
+
+if (!dir.exists(ibtracs_dir) || isTRUE(params$rebuild_ibtracs)) {
+  dir.create(ibtracs_dir, recursive = TRUE, showWarnings = FALSE)
+  unzip(ibtracs_zip, exdir = ibtracs_dir)
+}
+
+ibtracs_shp <- list.files(
+  ibtracs_dir, pattern = "[.]shp$", full.names = TRUE, ignore.case = TRUE
+)
+stopifnot(length(ibtracs_shp) == 1L)
+```
+
+## Read and validate births
+
+Trimester definitions are weeks 1-13, weeks 14-28, and week 29 through
+delivery. The supplied trimester dates are retained, rather than reconstructed
+from delivery date, but their ordering and consistency are checked.
+
+```{r births-read}
+birth_file <- here("data", "all_births_hurricane.csv")
+stopifnot(file.exists(birth_file))
+
+births <- fread(
+  birth_file,
+  select = c(
+    "ID", "DATE_OF_BIRTH", "final_lat", "final_lon",
+    "trimester1_s_date", "trimester1_e_date",
+    "trimester2_s_date", "trimester2_e_date",
+    "trimester3_s_date"
+  )
+)
+
+date_columns <- c(
+  "DATE_OF_BIRTH", "trimester1_s_date", "trimester1_e_date",
+  "trimester2_s_date", "trimester2_e_date", "trimester3_s_date"
+)
+births[, (date_columns) := lapply(.SD, as.IDate), .SDcols = date_columns]
+births <- births[
+  DATE_OF_BIRTH >= as.IDate(study_start) &
+    DATE_OF_BIRTH <= as.IDate(study_end)
+]
+
+stopifnot(!anyNA(births$ID), uniqueN(births$ID) == nrow(births))
+
+births[, valid_coordinates :=
+         is.finite(final_lon) & is.finite(final_lat) &
+         between(final_lon, -88.0, -79.0) &
+         between(final_lat, 24.0, 32.0)]
+births[, valid_gestation_dates :=
+         !is.na(trimester1_s_date) & !is.na(trimester1_e_date) &
+         !is.na(trimester2_s_date) & !is.na(trimester2_e_date) &
+         !is.na(trimester3_s_date) &
+         trimester1_s_date <= trimester1_e_date &
+         trimester1_e_date < trimester2_s_date &
+         trimester2_s_date <= trimester2_e_date &
+         trimester2_e_date < trimester3_s_date &
+         trimester3_s_date <= DATE_OF_BIRTH]
+
+birth_qa <- births[, .(
+  n_births = .N,
+  n_invalid_coordinates = sum(!valid_coordinates),
+  n_invalid_gestation_dates = sum(!valid_gestation_dates)
+)]
+print(birth_qa)
+
+births_valid <- births[valid_coordinates & valid_gestation_dates]
+birth_points <- st_as_sf(
+  births_valid,
+  coords = c("final_lon", "final_lat"),
+  crs = 4326,
+  remove = FALSE
+)
+```
+
+## Read storm observations and calculate 55 kt radii
+
+IBTrACS directly reports quadrant radii for 34, 50, and 64 kt winds. Within a
+quadrant, the 55 kt radius is linearly interpolated between 50 and 64 kt when
+both are available. If the 64 kt radius is unavailable, it is linearly
+extrapolated inward from the 34-to-50 kt radial gradient. No RMW imputation or
+storm-average radius is used.
+
+```{r storms-read}
+storm_points_raw <- st_read(ibtracs_shp, quiet = TRUE)
+log_progress("storms", sprintf("read %s IBTrACS observations",
+                                format(nrow(storm_points_raw), big.mark = ",")))
+
+required_storm_columns <- c(
+  "SID", "NAME", "ISO_TIME", "USA_WIND",
+  paste0("USA_R34_", c("NE", "SE", "SW", "NW")),
+  paste0("USA_R50_", c("NE", "SE", "SW", "NW")),
+  paste0("USA_R64_", c("NE", "SE", "SW", "NW"))
+)
+missing_storm_columns <- setdiff(required_storm_columns, names(storm_points_raw))
+stopifnot(length(missing_storm_columns) == 0L)
+
+storm_points <- storm_points_raw |>
+  select(all_of(required_storm_columns)) |>
+  mutate(
+    observation_time = ymd_hms(ISO_TIME, tz = "UTC", quiet = TRUE),
+    observation_date = as.Date(observation_time),
+    USA_WIND = as.numeric(USA_WIND)
+  ) |>
+  filter(
+    observation_date >= study_start - days(window_days + 2L),
+    observation_date <= study_end + days(window_days + 2L),
+    USA_WIND >= 34
+  )
+
+radius_columns <- grep("^USA_R(34|50|64)_(NE|SE|SW|NW)$",
+                       names(storm_points), value = TRUE)
+storm_points[radius_columns] <- lapply(
+  storm_points[radius_columns],
+  function(x) {
+    x <- as.numeric(x)
+    x[!is.finite(x) | x <= 0 | x >= 999] <- NA_real_
+    x
+  }
+)
+
+for (quadrant in c("NE", "SE", "SW", "NW")) {
+  r34 <- storm_points[[paste0("USA_R34_", quadrant)]]
+  r50 <- storm_points[[paste0("USA_R50_", quadrant)]]
+  r64 <- storm_points[[paste0("USA_R64_", quadrant)]]
+
+  r55_candidate <- ifelse(
+    !is.na(r50) & !is.na(r64),
+    r50 + (55 - 50) / (64 - 50) * (r64 - r50),
+    ifelse(
+      !is.na(r34) & !is.na(r50),
+      pmax(0, r50 - (55 - 50) / (50 - 34) * (r34 - r50)),
+      NA_real_
+    )
+  )
+  # A 55 kt footprint cannot be more extensive than the observed 34 kt
+  # footprint. Requiring R34 also guarantees that the sensitivity population
+  # is nested within the primary exposure population.
+  storm_points[[paste0("USA_R55_", quadrant)]] <- ifelse(
+    is.na(r34) | is.na(r55_candidate), NA_real_, pmin(r34, r55_candidate)
+  )
+}
+
+stopifnot(all(vapply(c("NE", "SE", "SW", "NW"), function(quadrant) {
+  r34 <- storm_points[[paste0("USA_R34_", quadrant)]]
+  r55 <- storm_points[[paste0("USA_R55_", quadrant)]]
+  all(is.na(r55) | (!is.na(r34) & r55 <= r34))
+}, logical(1))))
+
+storm_radius_coverage <- rbindlist(lapply(c(34L, 55L), function(threshold) {
+  columns <- paste0("USA_R", threshold, "_", c("NE", "SE", "SW", "NW"))
+  data.table(
+    threshold_kt = threshold,
+    n_observations = nrow(storm_points),
+    n_any_quadrant = sum(rowSums(!is.na(st_drop_geometry(storm_points)[columns])) > 0),
+    n_all_quadrants = sum(rowSums(!is.na(st_drop_geometry(storm_points)[columns])) == 4)
+  )
+}))
+storm_radius_coverage[, `:=`(
+  pct_any_quadrant = 100 * n_any_quadrant / n_observations,
+  pct_all_quadrants = 100 * n_all_quadrants / n_observations
+)]
+print(storm_radius_coverage)
+```
+
+## Construct storm-time-specific quadrant wind fields
+
+Quadrants with missing radii remain missing; they are not silently treated as
+zero-radius winds. The geometry uses a Florida-centered Albers equal-area CRS.
+Each polygon retains its storm ID and observation timestamp.
+
+```{r wind-field-functions}
+analysis_crs <- 3086
+nautical_mile_m <- 1852
+
+sector_polygon <- function(center_xy, radius_m, bearing_start, bearing_end,
+                           n = 36L) {
+  if (!is.finite(radius_m) || radius_m <= 0) return(NULL)
+  bearings <- seq(bearing_start, bearing_end, length.out = n + 1L)
+  radians <- bearings * pi / 180
+  arc <- cbind(
+    center_xy[1] + radius_m * sin(radians),
+    center_xy[2] + radius_m * cos(radians)
+  )
+  st_polygon(list(rbind(center_xy, arc, center_xy)))
+}
+
+make_wind_fields <- function(points_sf, threshold_kt) {
+  projected <- st_transform(points_sf, analysis_crs)
+  coordinates <- st_coordinates(projected)
+  quadrant_spec <- data.table(
+    quadrant = c("NE", "SE", "SW", "NW"),
+    bearing_start = c(0, 90, 180, 270),
+    bearing_end = c(90, 180, 270, 360)
+  )
+
+  geometries <- vector("list", nrow(projected))
+  n_quadrants <- integer(nrow(projected))
+
+  for (i in seq_len(nrow(projected))) {
+    sectors <- vector("list", 0L)
+    for (q in seq_len(nrow(quadrant_spec))) {
+      radius_nm <- projected[[paste0(
+        "USA_R", threshold_kt, "_", quadrant_spec$quadrant[q]
+      )]][i]
+      sector <- sector_polygon(
+        coordinates[i, ], radius_nm * nautical_mile_m,
+        quadrant_spec$bearing_start[q], quadrant_spec$bearing_end[q]
+      )
+      if (!is.null(sector)) sectors[[length(sectors) + 1L]] <- sector
+    }
+
+    n_quadrants[i] <- length(sectors)
+    if (length(sectors) > 0L) {
+      geometries[[i]] <- st_union(st_sfc(sectors, crs = analysis_crs))[[1]]
+    } else {
+      geometries[[i]] <- st_geometrycollection()
+    }
+  }
+
+  st_sf(
+    st_drop_geometry(projected) |>
+      transmute(
+        SID, NAME, observation_time, observation_date, USA_WIND,
+        threshold_kt = as.integer(threshold_kt),
+        observed_quadrants = n_quadrants
+      ),
+    geometry = st_sfc(geometries, crs = analysis_crs)
+  ) |>
+    filter(observed_quadrants > 0L, !st_is_empty(geometry))
+}
+```
+
+Only observations whose coarse maximum-radius buffer could reach the study
+residences are passed to the more expensive quadrant construction.
+
+```{r wind-fields-build}
+birth_extent <- st_bbox(st_transform(birth_points, analysis_crs))
+birth_extent_polygon <- st_as_sfc(birth_extent) |> st_buffer(250 * 1000)
+
+storm_points_projected <- st_transform(storm_points, analysis_crs)
+near_florida <- lengths(st_intersects(storm_points_projected,
+                                      birth_extent_polygon)) > 0L
+storm_points_near <- storm_points[near_florida, ]
+
+wind_fields_34 <- make_wind_fields(storm_points_near, 34L)
+log_progress("wind fields", sprintf("built %s primary 34 kt observations",
+                                     format(nrow(wind_fields_34), big.mark = ",")))
+wind_fields_55 <- make_wind_fields(
+  storm_points_near |> filter(USA_WIND >= 55), 55L
+)
+log_progress("wind fields", sprintf("built %s sensitivity 55 kt observations",
+                                     format(nrow(wind_fields_55), big.mark = ",")))
+wind_fields <- rbind(wind_fields_34, wind_fields_55) |>
+  st_make_valid()
+
+stopifnot(
+  all(wind_fields$threshold_kt %in% c(34L, 55L)),
+  !anyNA(wind_fields$SID),
+  !anyNA(wind_fields$observation_time),
+  all(!st_is_empty(wind_fields))
+)
+```
+
+## Assign direct hazard and local impact time
+
+The spatial join is performed against storm-time-specific polygons. Within
+each birth, storm, and threshold, local impact is the closest storm-center
+observation among the observations whose wind field contains the residence.
+
+```{r exposure-assign}
+storm_centers <- storm_points_near |>
+  st_transform(analysis_crs) |>
+  select(SID, observation_time, center_geometry = geometry)
+storm_center_key <- paste(storm_centers$SID, storm_centers$observation_time)
+
+assign_exposure_chunk <- function(index) {
+  births_chunk <- st_transform(birth_points[index, ], analysis_crs) |>
+    select(ID)
+
+  matched <- st_join(
+    births_chunk,
+    wind_fields |>
+      select(SID, NAME, observation_time, observation_date, USA_WIND,
+             threshold_kt, observed_quadrants),
+    join = st_within,
+    left = FALSE
+  )
+  if (nrow(matched) == 0L) return(NULL)
+
+  matched_key <- paste(matched$SID, matched$observation_time)
+  center_index <- match(matched_key, storm_center_key)
+  stopifnot(!anyNA(center_index))
+  matched$center_distance_km <- as.numeric(
+    st_distance(matched, storm_centers[center_index, ], by_element = TRUE)
+  ) / 1000
+
+  matched_dt <- matched |>
+    st_drop_geometry() |>
+    as.data.table()
+  setorder(
+    matched_dt, ID, SID, threshold_kt, center_distance_km,
+    -USA_WIND, observation_time
+  )
+  matched_dt[, .SD[1L], by = .(ID, SID, threshold_kt)]
+}
+
+chunk_starts <- seq.int(1L, nrow(birth_points), by = chunk_size)
+exposure_chunks <- vector("list", length(chunk_starts))
+assignment_started <- Sys.time()
+log_progress(
+  "birth assignment",
+  sprintf(
+    "starting %s eligible births in %s chunks",
+    format(nrow(birth_points), big.mark = ","),
+    format(length(chunk_starts), big.mark = ",")
+  )
+)
+for (j in seq_along(chunk_starts)) {
+  chunk_started <- Sys.time()
+  index <- chunk_starts[j]:min(
+    chunk_starts[j] + chunk_size - 1L,
+    nrow(birth_points)
+  )
+  exposure_chunks[[j]] <- assign_exposure_chunk(index)
+  chunk_seconds <- as.numeric(difftime(Sys.time(), chunk_started, units = "secs"))
+  elapsed_seconds <- as.numeric(
+    difftime(Sys.time(), assignment_started, units = "secs")
+  )
+  completed_births <- max(index)
+  completion_fraction <- j / length(chunk_starts)
+  eta_seconds <- elapsed_seconds / completion_fraction - elapsed_seconds
+
+  if (j == 1L || j %% progress_every == 0L || j == length(chunk_starts)) {
+    log_progress(
+      "birth assignment",
+      sprintf(
+        paste0(
+          "chunk %s/%s | %s/%s births | %.1f%% | chunk %s | ",
+          "elapsed %s | ETA %s | matched event rows %s"
+        ),
+        j, length(chunk_starts),
+        format(completed_births, big.mark = ","),
+        format(nrow(birth_points), big.mark = ","),
+        100 * completion_fraction,
+        format_duration(chunk_seconds),
+        format_duration(elapsed_seconds),
+        format_duration(eta_seconds),
+        format(
+          if (is.null(exposure_chunks[[j]])) 0L else nrow(exposure_chunks[[j]]),
+          big.mark = ","
+        )
+      )
+    )
+  }
+  gc()
+}
+
+birth_storm_events <- rbindlist(exposure_chunks, use.names = TRUE, fill = TRUE)
+birth_storm_events[, `:=`(
+  local_impact_date = as.IDate(observation_date),
+  window_start = as.IDate(observation_date) - window_days,
+  window_end = as.IDate(observation_date) + window_days
+)]
+
+stopifnot(
+  birth_storm_events[, .N, by = .(ID, SID, threshold_kt)][, all(N == 1L)],
+  all(birth_storm_events$window_start <= birth_storm_events$local_impact_date),
+  all(birth_storm_events$local_impact_date <= birth_storm_events$window_end)
+)
+```
+
+## Assign each event window to gestational periods
+
+An event is assigned to a trimester when its residence-specific ±7-day window
+overlaps that trimester. `acute_direct_*` separately indicates that the local
+impact date itself occurred during the trimester.
+
+```{r trimester-assign}
+gestation_intervals <- rbindlist(list(
+  births_valid[, .(ID, trimester = "T1", period_start = trimester1_s_date,
+                   period_end = trimester1_e_date)],
+  births_valid[, .(ID, trimester = "T2", period_start = trimester2_s_date,
+                   period_end = trimester2_e_date)],
+  births_valid[, .(ID, trimester = "T3", period_start = trimester3_s_date,
+                   period_end = DATE_OF_BIRTH)]
+))
+
+event_windows <- merge(
+  birth_storm_events,
+  gestation_intervals,
+  by = "ID",
+  allow.cartesian = TRUE
+)[window_start <= period_end & window_end >= period_start]
+
+event_windows[, acute_direct :=
+                local_impact_date >= period_start &
+                local_impact_date <= period_end]
+
+event_summary <- event_windows[, .(
+  exposed_window = 1L,
+  acute_direct = as.integer(any(acute_direct)),
+  n_storms = uniqueN(SID),
+  max_storm_wind_kt = max(USA_WIND, na.rm = TRUE),
+  first_window_date = min(window_start),
+  last_window_date = max(window_end)
+), by = .(ID, trimester, threshold_kt)]
+
+metric_columns <- c(
+  "exposed_window", "acute_direct", "n_storms", "max_storm_wind_kt",
+  "first_window_date", "last_window_date"
+)
+exposure_wide <- dcast(
+  event_summary,
+  ID ~ trimester + threshold_kt,
+  value.var = metric_columns,
+  sep = "_"
+)
+
+binary_count_columns <- grep(
+  "^(exposed_window|acute_direct|n_storms)_", names(exposure_wide), value = TRUE
+)
+for (column in binary_count_columns) {
+  set(exposure_wide, which(is.na(exposure_wide[[column]])), column, 0L)
+}
+```
+
+## Merge by birth ID and add fixed-effect variables
+
+This is a keyed merge, not an ordered column bind. `birth_year_fe` and
+`conception_season_fe` are model-ready fixed effects. Calendar month is also
+provided for a stricter seasonality specification.
+
+```{r analytic-merge}
+all_files <- list.files(
+  here("data", "21_definition_final_re"),
+  pattern = "[.]Rdata$", full.names = TRUE
+)
+stopifnot(length(all_files) > 0L)
+
+load_one_object <- function(path) {
+  environment <- new.env(parent = emptyenv())
+  object_names <- load(path, envir = environment)
+  stopifnot(length(object_names) == 1L)
+  as.data.table(environment[[object_names]])
+}
+
+analytic_births <- rbindlist(
+  lapply(all_files, load_one_object), use.names = TRUE, fill = TRUE
+)
+stopifnot(!anyNA(analytic_births$ID), uniqueN(analytic_births$ID) == nrow(analytic_births))
+
+analytic_births[, DATE_OF_BIRTH := as.IDate(DATE_OF_BIRTH)]
+analytic_births <- analytic_births[
+  DATE_OF_BIRTH >= as.IDate(study_start) &
+    DATE_OF_BIRTH <= as.IDate(study_end)
+]
+analytic_births[, conception_date := as.IDate(MENSES_DATE)]
+if ("GESTATION_WEEKS" %in% names(analytic_births)) {
+  analytic_births[
+    is.na(conception_date) & is.finite(GESTATION_WEEKS),
+    conception_date := DATE_OF_BIRTH - as.integer(round(GESTATION_WEEKS * 7))
+  ]
+}
+
+analytic_births[, `:=`(
+  birth_year = year(DATE_OF_BIRTH),
+  birth_month = month(DATE_OF_BIRTH),
+  conception_year = year(conception_date),
+  conception_month = month(conception_date),
+  conception_season = fcase(
+    conception_month %in% c(12L, 1L, 2L), "DJF",
+    conception_month %in% 3:5, "MAM",
+    conception_month %in% 6:8, "JJA",
+    conception_month %in% 9:11, "SON",
+    default = NA_character_
+  )
+)]
+
+birth_exposure_eligibility <- births[, .(
+  ID,
+  exposure_eligible = valid_coordinates & valid_gestation_dates
+)]
+
+analytic_corrected <- merge(
+  analytic_births,
+  birth_exposure_eligibility,
+  by = "ID",
+  all.x = TRUE,
+  sort = FALSE
+)
+analytic_corrected[is.na(exposure_eligible), exposure_eligible := FALSE]
+
+analytic_corrected <- merge(
+  analytic_corrected,
+  exposure_wide,
+  by = "ID",
+  all.x = TRUE,
+  sort = FALSE
+)
+
+expected_exposure_columns <- as.vector(outer(
+  c("exposed_window", "acute_direct", "n_storms"),
+  as.vector(outer(c("T1", "T2", "T3"), c(34L, 55L), paste, sep = "_")),
+  paste, sep = "_"
+))
+for (column in expected_exposure_columns) {
+  if (!column %in% names(analytic_corrected)) {
+    analytic_corrected[, (column) := NA_integer_]
+  }
+  set(
+    analytic_corrected,
+    which(analytic_corrected$exposure_eligible &
+            is.na(analytic_corrected[[column]])),
+    column,
+    0L
+  )
+}
+
+analytic_corrected[, `:=`(
+  birth_year_fe = factor(birth_year),
+  conception_season_fe = factor(
+    conception_season, levels = c("DJF", "MAM", "JJA", "SON")
+  ),
+  birth_month_fe = factor(birth_month)
+)]
+
+stopifnot(
+  nrow(analytic_corrected) == nrow(analytic_births),
+  uniqueN(analytic_corrected$ID) == nrow(analytic_corrected),
+  all(analytic_corrected$ID %in% analytic_births$ID)
+)
+
+for (trimester in c("T1", "T2", "T3")) {
+  primary <- analytic_corrected[[paste0("exposed_window_", trimester, "_34")]]
+  sensitivity <- analytic_corrected[[paste0("exposed_window_", trimester, "_55")]]
+  stopifnot(all(is.na(sensitivity) | is.na(primary) | sensitivity <= primary))
+}
+```
+
+## Validation outputs
+
+```{r validation}
+exposure_prevalence <- melt(
+  analytic_corrected,
+  id.vars = c("ID", "birth_year"),
+  measure.vars = patterns(exposed = "^exposed_window_T[123]_(34|55)$"),
+  variable.name = "exposure_variable",
+  value.name = "exposed"
+)[, .(
+  eligible_births = sum(!is.na(exposed)),
+  exposed_births = sum(exposed, na.rm = TRUE),
+  prevalence = mean(exposed, na.rm = TRUE)
+), by = .(birth_year, exposure_variable)]
+
+storm_event_qa <- event_windows[, .(
+  exposed_births = uniqueN(ID),
+  local_impact_start = min(local_impact_date),
+  local_impact_end = max(local_impact_date),
+  median_center_distance_km = median(center_distance_km, na.rm = TRUE),
+  min_observed_quadrants = min(observed_quadrants),
+  max_observed_quadrants = max(observed_quadrants)
+), by = .(SID, NAME, threshold_kt, trimester)]
+
+print(exposure_prevalence)
+print(storm_event_qa[order(-exposed_births)][1:min(.N, 30L)])
+
+prevalence_plot <- ggplot(
+  exposure_prevalence,
+  aes(birth_year, prevalence, color = exposure_variable)
+) +
+  geom_line() +
+  geom_point(size = 1) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    x = "Birth year", y = "Exposure prevalence",
+    color = "Trimester / threshold",
+    title = "Corrected residence-based TC exposure prevalence"
+  ) +
+  theme_minimal()
+print(prevalence_plot)
+
+ggsave(
+  here("figs", "exposure-validation", "exposure-prevalence-by-year.png"),
+  prevalence_plot, width = 10, height = 6, dpi = 300
+)
+
+stopifnot(
+  all(exposure_prevalence$prevalence >= 0 &
+        exposure_prevalence$prevalence <= 1),
+  all(event_windows$threshold_kt %in% c(34L, 55L)),
+  all(event_windows$window_start <= event_windows$period_end),
+  all(event_windows$window_end >= event_windows$period_start)
+)
+```
+
+## Save corrected birth data
+
+The event-level file is retained for auditability. The analytic file contains
+one row per birth and is the input for refitting all birth-outcome models.
+
+```{r write-output}
+if (isTRUE(params$write_outputs)) {
+  fwrite(
+    birth_storm_events,
+    here("data", "derived", "birth-storm-events-time-specific.csv")
+  )
+  fwrite(
+    storm_radius_coverage,
+    here("data", "derived", "storm-wind-radius-coverage.csv")
+  )
+  fwrite(
+    storm_event_qa,
+    here("data", "derived", "birth-storm-exposure-validation.csv")
+  )
+  saveRDS(
+    analytic_corrected,
+    here("data", "outputs", "All_Births_Corrected_Storm_Exposure.rds"),
+    compress = "xz"
+  )
+}
+log_progress("complete", "corrected birth exposure workflow finished")
+```
+
+## Required model specification
+
+All previously reported birth-outcome models must be refit. The 34 kt
+`exposed_window` variable is primary; the corresponding 55 kt variable is the
+sensitivity exposure. Every model must include calendar-year and season fixed
+effects. The existing substantive covariates should be added to `covariates`
+after their coding and missing-data strategy are finalized.
+
+```{r model-template, eval=FALSE}
+covariates <- c(
+  "Mother_CalculatedRace", "Mother_CalculatedHisp", "MOTHER_EDCODE",
+  "Father_CalculatedRace", "Father_CalculatedHisp", "FATHER_EDCODE"
+)
+
+fit_birth_model <- function(data, outcome, trimester = "T1",
+                            threshold_kt = 34L) {
+  exposure <- paste0("exposed_window_", trimester, "_", threshold_kt)
+  model_formula <- reformulate(
+    c(
+      exposure,
+      covariates,
+      "birth_year_fe",
+      "conception_season_fe"
+      # Prefer birth_month_fe instead of conception_season_fe in a stricter
+      # seasonality sensitivity model; do not include both simultaneously.
+    ),
+    response = outcome
+  )
+  glm(model_formula, data = data, family = binomial())
+}
+
+ptb_t1_primary <- fit_birth_model(
+  analytic_corrected, outcome = "PTB", trimester = "T1", threshold_kt = 34L
+)
+ptb_t1_sensitivity <- fit_birth_model(
+  analytic_corrected, outcome = "PTB", trimester = "T1", threshold_kt = 55L
+)
+```
+
+## Interpretation constraints
+
+1. The ±7-day variable represents a direct-wind event window around local
+   impact, not 15 days of continuous wind exposure.
+2. The 55 kt footprint is an empirical interpolation and must be labeled as a
+   sensitivity analysis.
+3. Missing wind radii can cause under-ascertainment; report the coverage table
+   by threshold and study period.
+4. Residence at delivery may differ from residence or actual location at
+   impact. Evacuation and out-migration remain unmeasured.
+5. Rainfall, flooding, storm surge, outages, and healthcare disruption are not
+   represented by this direct-wind measure.
