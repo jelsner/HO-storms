@@ -8,9 +8,9 @@ output:
 params:
   study_start: !r as.Date("2000-01-01")
   study_end: !r as.Date("2022-12-31")
-  window_days: 7L
-  chunk_size: 50000L
-  progress_every: 5L
+  window_days: 7
+  chunk_size: 50000
+  progress_every: 5
   rebuild_ibtracs: false
   write_outputs: true
 ---
@@ -54,9 +54,18 @@ dir.create(here("figs", "exposure-validation"), recursive = TRUE,
 
 study_start <- as.Date(params$study_start)
 study_end <- as.Date(params$study_end)
-window_days <- as.integer(params$window_days)
-chunk_size <- as.integer(params$chunk_size)
-progress_every <- as.integer(params$progress_every)
+
+as_integer_parameter <- function(value, name) {
+  parsed <- suppressWarnings(as.integer(sub("[Ll]$", "", as.character(value))))
+  if (length(parsed) != 1L || is.na(parsed)) {
+    stop("Parameter `", name, "` must be a single integer.", call. = FALSE)
+  }
+  parsed
+}
+
+window_days <- as_integer_parameter(params$window_days, "window_days")
+chunk_size <- as_integer_parameter(params$chunk_size, "chunk_size")
+progress_every <- as_integer_parameter(params$progress_every, "progress_every")
 stopifnot(
   study_start <= study_end, window_days >= 0L, chunk_size > 0L,
   progress_every > 0L
