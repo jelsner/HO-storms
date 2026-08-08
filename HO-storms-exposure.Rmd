@@ -10,7 +10,7 @@ params:
   study_end: !r as.Date("2022-12-31")
   window_days: 7L
   chunk_size: 50000L
-  progress_every: 1L
+  progress_every: 5L
   rebuild_ibtracs: false
   write_outputs: true
 ---
