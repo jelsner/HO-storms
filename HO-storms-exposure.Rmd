@@ -232,14 +232,11 @@ storm_points <- storm_points_raw |>
 
 radius_columns <- grep("^USA_R(34|50|64)_(NE|SE|SW|NW)$",
                        names(storm_points), value = TRUE)
-storm_points[radius_columns] <- lapply(
-  storm_points[radius_columns],
-  function(x) {
-    x <- as.numeric(x)
-    x[!is.finite(x) | x <= 0 | x >= 999] <- NA_real_
-    x
-  }
-)
+for (column in radius_columns) {
+  radius <- as.numeric(storm_points[[column]])
+  radius[!is.finite(radius) | radius <= 0 | radius >= 999] <- NA_real_
+  storm_points[[column]] <- radius
+}
 
 for (quadrant in c("NE", "SE", "SW", "NW")) {
   r34 <- storm_points[[paste0("USA_R34_", quadrant)]]
@@ -479,6 +476,50 @@ for (j in seq_along(chunk_starts)) {
 }
 
 birth_storm_events <- rbindlist(exposure_chunks, use.names = TRUE, fill = TRUE)
+
+# Define local impact once from the primary 34 kt field. The 55 kt sensitivity
+# indicates whether the residence also entered the stronger wind field, but it
+# uses the same primary impact time. Threshold-specific impact times can differ
+# by one or more IBTrACS observations and create artificial non-nesting at a
+# trimester boundary.
+primary_anchors <- birth_storm_events[
+  threshold_kt == 34L,
+  .(
+    ID, SID,
+    primary_observation_time = observation_time,
+    primary_observation_date = observation_date,
+    primary_center_distance_km = center_distance_km
+  )
+]
+
+sensitivity_events <- merge(
+  birth_storm_events[threshold_kt == 55L],
+  primary_anchors,
+  by = c("ID", "SID"),
+  all.x = TRUE,
+  sort = FALSE
+)
+stopifnot(
+  !anyNA(sensitivity_events$primary_observation_time),
+  !anyNA(sensitivity_events$primary_observation_date)
+)
+sensitivity_events[, `:=`(
+  observation_time = primary_observation_time,
+  observation_date = primary_observation_date,
+  center_distance_km = primary_center_distance_km,
+  primary_observation_time = NULL,
+  primary_observation_date = NULL,
+  primary_center_distance_km = NULL
+)]
+
+birth_storm_events <- rbindlist(
+  list(
+    birth_storm_events[threshold_kt == 34L],
+    sensitivity_events
+  ),
+  use.names = TRUE,
+  fill = TRUE
+)
 birth_storm_events[, `:=`(
   local_impact_date = as.IDate(observation_date),
   window_start = as.IDate(observation_date) - window_days,
@@ -572,12 +613,79 @@ analytic_births <- rbindlist(
 )
 stopifnot(!anyNA(analytic_births$ID), uniqueN(analytic_births$ID) == nrow(analytic_births))
 
-analytic_births[, DATE_OF_BIRTH := as.IDate(DATE_OF_BIRTH)]
+# Approved analytic columns sent by Jessica Broach on April 14, 2025. The
+# corrected exposure variables, eligibility flag, and temporal fixed-effect
+# variables are appended later in this workflow.
+approved_birth_columns <- c(
+  "ID", "final_lat", "final_lon", "ALCOHOL_DRINKS", "ALCOHOL_USE",
+  "BIRTH_WEIGHT_GRAMS", "CalculatedGestationalAge", "DATE_OF_BIRTH",
+  "GESTATION_WEEKS", "FATHER_AGE", "FATHER_EDCODE",
+  "Father_CalculatedHisp", "Father_CalculatedRace", "MENSES_DATE",
+  "MOTHER_AGE", "Mother_CalculatedHisp", "Mother_CalculatedRace",
+  "MOTHER_EDCODE", "MOTHER_MARRIED", "MOTHER_RES_COUNTY",
+  "MOTHER_WIC_YESNO", "MR_DIAB", "MR_DIAB_GEST", "MR_HYPERT_CHRONIC",
+  "MR_HYPERT_ECLAMPSIA", "MR_HYPERT_PREG", "MR_PREV_PRETERM", "PLURALITY_CODE",
+  "PrePregnancy_BMI", "PRINCIPAL_SOURCE_PAY", "PRINCIPAL_SRCPAY_CODE",
+  "SEX", "m28_temperature", "lat_pm25", "lon_pm25", "date_pm25",
+  "loc_data_pm25", "m28_pm25", "m21_pm25", "m14_pm25", "m7_pm25",
+  "dday_pm25", "p7_pm25", "p14_pm25", "p21_pm25", "p28_pm25",
+  "m20_pm25", "m19_pm25", "m18_pm25", "m17_pm25", "m16_pm25",
+  "m15_pm25", "m14_pm25.1", "m13_pm25", "m12_pm25", "m11_pm25",
+  "m10_pm25", "m9_pm25", "m8_pm25", "m7_pm25.1", "m6_pm25",
+  "m5_pm25", "m4_pm25", "m3_pm25", "m2_pm25", "m1_pm25", "m0_pm25",
+  "year_pm25r", "d_1_13_wk_90_1", "d_14_28_wk_90_1",
+  "d_from29_wk_90_1", "d_1_13_wk_95_1", "d_14_28_wk_95_1",
+  "d_from29_wk_95_1", "d_1_13_wk_98_1", "d_14_28_wk_98_1",
+  "d_from29_wk_98_1", "d_1_13_wk_90_2", "d_14_28_wk_90_2",
+  "d_from29_wk_90_2", "d_1_13_wk_95_2", "d_14_28_wk_95_2",
+  "d_from29_wk_95_2", "d_1_13_wk_98_2", "d_14_28_wk_98_2",
+  "d_from29_wk_98_2", "d_1_13_wk_90_3", "d_14_28_wk_90_3",
+  "d_from29_wk_90_3", "d_1_13_wk_95_3", "d_14_28_wk_95_3",
+  "d_from29_wk_95_3", "d_1_13_wk_98_3", "d_14_28_wk_98_3",
+  "d_from29_wk_98_3", "trimester1_length", "trimester2_length",
+  "trimester3_length"
+)
+
+missing_approved_columns <- setdiff(approved_birth_columns, names(analytic_births))
+if (length(missing_approved_columns) > 0L) {
+  stop(
+    "Approved birth columns missing from the yearly files: ",
+    paste(missing_approved_columns, collapse = ", "),
+    call. = FALSE
+  )
+}
+analytic_births <- analytic_births[, ..approved_birth_columns]
+log_progress(
+  "analytic merge",
+  sprintf("retained %s approved/model-required source columns",
+          format(length(approved_birth_columns), big.mark = ","))
+)
+
+parse_mixed_idate <- function(x) {
+  # Year-specific files can store dates as POSIXct, Date, IDate, or character.
+  # Normalize through an ISO date string and suppress low-level POSIX warnings;
+  # unparseable values remain NA and are counted below.
+  if (inherits(x, "POSIXt")) {
+    text <- suppressWarnings(format(x, "%Y-%m-%d", tz = "UTC"))
+  } else {
+    text <- substr(as.character(x), 1L, 10L)
+  }
+  suppressWarnings(as.IDate(text, format = "%Y-%m-%d"))
+}
+
+analytic_births[, DATE_OF_BIRTH := parse_mixed_idate(DATE_OF_BIRTH)]
+missing_birth_dates <- analytic_births[is.na(DATE_OF_BIRTH), .N]
+log_progress(
+  "analytic merge",
+  sprintf("%s records have an unparseable birth date and will be excluded",
+          format(missing_birth_dates, big.mark = ","))
+)
 analytic_births <- analytic_births[
+  !is.na(DATE_OF_BIRTH) &
   DATE_OF_BIRTH >= as.IDate(study_start) &
     DATE_OF_BIRTH <= as.IDate(study_end)
 ]
-analytic_births[, conception_date := as.IDate(MENSES_DATE)]
+analytic_births[, conception_date := parse_mixed_idate(MENSES_DATE)]
 if ("GESTATION_WEEKS" %in% names(analytic_births)) {
   analytic_births[
     is.na(conception_date) & is.finite(GESTATION_WEEKS),
@@ -589,14 +697,14 @@ analytic_births[, `:=`(
   birth_year = year(DATE_OF_BIRTH),
   birth_month = month(DATE_OF_BIRTH),
   conception_year = year(conception_date),
-  conception_month = month(conception_date),
-  conception_season = fcase(
-    conception_month %in% c(12L, 1L, 2L), "DJF",
-    conception_month %in% 3:5, "MAM",
-    conception_month %in% 6:8, "JJA",
-    conception_month %in% 9:11, "SON",
-    default = NA_character_
-  )
+  conception_month = month(conception_date)
+)]
+analytic_births[, conception_season := fcase(
+  conception_month %in% c(12L, 1L, 2L), "DJF",
+  conception_month %in% 3:5, "MAM",
+  conception_month %in% 6:8, "JJA",
+  conception_month %in% 9:11, "SON",
+  default = NA_character_
 )]
 
 birth_exposure_eligibility <- births[, .(
