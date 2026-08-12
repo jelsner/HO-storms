@@ -42,8 +42,9 @@ The manuscript describes:
 
 For reproducibility, this refit uses `r params$imputations` imputed datasets and
 `r params$mice_iterations` MICE iterations. In response to the reviewer concern
-about temporal confounding, every corrected primary model includes birth-year
-and conception-season fixed effects. The 34 kt ±7-day exposure is primary; the
+about temporal and spatial confounding, every corrected primary model includes
+birth-year, conception-season, and residence-county fixed effects, with
+standard errors clustered by county. The 34 kt ±7-day exposure is primary; the
 55 kt nested exposure is a sensitivity analysis.
 
 Alcohol was listed among measured covariates in the manuscript's Covariates
@@ -115,7 +116,13 @@ source_columns <- c(
   "Father_CalculatedRace", "Father_CalculatedHisp", "FATHER_EDCODE",
   "MOTHER_AGE", "PrePregnancy_BMI", "MR_PREV_PRETERM",
   "MOTHER_WIC_YESNO", "PRINCIPAL_SRCPAY_CODE",
-  "birth_year", "conception_season", "exposure_eligible"
+  "birth_year", "conception_season", "county_geoid", "county_name",
+  "county_demo_year_lag1", "county_total_pop_lag1",
+  "county_median_age_lag1", "county_poverty_rate_lag1",
+  "county_median_hh_income_lag1", "county_median_home_value_lag1",
+  "county_pct_white_lag1", "county_pct_black_lag1",
+  "county_pct_asian_lag1", "county_pct_hispanic_lag1",
+  "exposure_eligible"
 )
 exposure_columns <- as.vector(outer(
   paste0("exposed_window_T", 1:3), c(34L, 55L), paste, sep = "_"
@@ -258,7 +265,8 @@ births[, `:=`(
   birth_year = suppressWarnings(as.integer(birth_year)),
   conception_season = factor(
     conception_season, levels = c("DJF", "MAM", "JJA", "SON")
-  )
+  ),
+  county_geoid = factor(county_geoid)
 )]
 
 # Manuscript base cohort: accurate coordinates, singleton birth, and nonmissing
@@ -267,7 +275,7 @@ births[, `:=`(
 model_births <- births[
   exposure_eligible %in% TRUE & singleton %in% TRUE &
     !is.na(gest_weeks) & !is.na(birthweight_g) &
-    !is.na(birth_year) & !is.na(conception_season)
+    !is.na(birth_year) & !is.na(conception_season) & !is.na(county_geoid)
 ]
 model_births[, complication_eligible :=
                !is.na(GDM) & !is.na(HDP) &
@@ -281,6 +289,7 @@ covariates <- c(
 
 sample_qa <- model_births[, .(
   births = .N,
+  counties = uniqueN(county_geoid),
   term_births = sum(gest_weeks >= 37),
   complication_eligible = sum(complication_eligible %in% TRUE),
   PTB_pct = 100 * mean(PTB),
@@ -332,7 +341,7 @@ health-outcome models continue to use the complete eligible cohort.
 ```{r imputation}
 imputation_predictors <- c(
   "birthweight_g", "gest_weeks", exposure_columns,
-  "birth_year", "conception_season"
+  "birth_year", "conception_season", "county_geoid"
 )
 imputation_columns <- unique(c(covariates, imputation_predictors))
 imputation_data <- as.data.frame(model_births[, ..imputation_columns])
@@ -423,8 +432,9 @@ print(model_plan)
 ## Fit imputed logistic models
 
 `fixest::feglm` fits the same binomial-logit likelihood as ordinary logistic
-regression while absorbing birth-year and conception-season fixed effects
-efficiently.
+regression while absorbing birth-year, conception-season, and county fixed
+effects efficiently. County-clustered standard errors allow residual
+correlation among births assigned to the same county.
 
 ```{r fit-models}
 fit_one_model <- function(data, outcome, exposure, sample) {
@@ -435,10 +445,14 @@ fit_one_model <- function(data, outcome, exposure, sample) {
   analysis <- data[keep & !is.na(data[[outcome]]) & !is.na(data[[exposure]])]
   rhs <- paste(c(exposure, covariates), collapse = " + ")
   formula <- as.formula(paste0(
-    outcome, " ~ ", rhs, " | birth_year + conception_season"
+    outcome, " ~ ", rhs,
+    " | birth_year + conception_season + county_geoid"
   ))
-  fit <- fixest::feglm(formula, data = analysis, family = "binomial")
-  variance <- fixest::vcov(fit)[exposure, exposure]
+  fit <- fixest::feglm(
+    formula, data = analysis, family = "binomial",
+    vcov = ~county_geoid
+  )
+  variance <- stats::vcov(fit)[exposure, exposure]
 
   data.table(
     beta = unname(coef(fit)[exposure]),
@@ -457,7 +471,7 @@ for (imp in seq_len(params$imputations)) {
                                   imp, params$imputations))
   completed_covariates <- as.data.table(mice::complete(imputed, imp))
   completed <- copy(model_births)
-  completed[, (covariates) := completed_covariates[, ..covariates]]
+  completed[, (covariates) := completed_covariates[, covariates, with = FALSE]]
 
   for (j in seq_len(nrow(model_plan))) {
     result_index <- result_index + 1L
@@ -628,7 +642,8 @@ plot_data <- rbindlist(list(
   pooled_results[threshold_kt == 34L &
                    paste(outcome, trimester) %in%
                    paste(manuscript_results$outcome, manuscript_results$trimester), .(
-    outcome, trimester, specification = "Corrected 34 kt + year/season FE",
+    outcome, trimester,
+    specification = "Corrected 34 kt + year/season/county FE",
     OR, conf_low, conf_high
   )]
 ))
@@ -681,7 +696,8 @@ Differences between manuscript and corrected estimates reflect several changes
 at once: correction of the original space-time join, replacement of RMW track
 buffers with time-specific wind radii, replacement of the three-day phases
 with a ±7-day local-impact window, use of 34 kt as the primary threshold, and
-addition of calendar-year and season fixed effects. The comparison therefore
+addition of calendar-year, season, and county fixed effects with county-clustered
+standard errors. The comparison therefore
 should not be interpreted as isolating a single modeling change.
 
 The manuscript's statement “five iterations” is insufficient to reproduce its

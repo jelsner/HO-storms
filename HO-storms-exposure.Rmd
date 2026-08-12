@@ -195,6 +195,74 @@ birth_points <- st_as_sf(
 )
 ```
 
+## Assign county polygons and load county demographics
+
+County is assigned from the supplied Florida polygon archive using the birth
+residence coordinates. Points outside all 67 county polygons are not assigned
+to the nearest county and are marked ineligible for exposure modeling. Annual
+ACS five-year county demographics are retained as one-year-lagged sensitivity
+fields; the primary outcome models use county fixed effects instead.
+
+```{r counties}
+county_archive <- here("data", "FL_county_export.zip")
+county_data_dir <- here("data", "derived", "FL_county_export")
+county_gpkg <- file.path(county_data_dir, "FL_counties_boundaries.gpkg")
+county_demographic_file <- file.path(
+  county_data_dir, "FL_county_demographics_2000_2022.csv"
+)
+stopifnot(file.exists(county_archive))
+
+if (!file.exists(county_gpkg) || !file.exists(county_demographic_file)) {
+  unzip(county_archive, exdir = here("data", "derived"))
+}
+stopifnot(file.exists(county_gpkg), file.exists(county_demographic_file))
+
+county_polygons <- st_read(county_gpkg, quiet = TRUE) |>
+  st_transform(4326) |>
+  transmute(
+    county_geoid = as.character(GEOID),
+    county_name = as.character(NAME)
+  )
+stopifnot(nrow(county_polygons) == 67L, uniqueN(county_polygons$county_geoid) == 67L)
+
+birth_points <- st_join(
+  birth_points, county_polygons,
+  join = st_within,
+  left = TRUE
+)
+stopifnot(nrow(birth_points) == nrow(births_valid),
+          uniqueN(birth_points$ID) == nrow(birth_points))
+
+county_key <- as.data.table(st_drop_geometry(birth_points))[, .(
+  ID, county_geoid, county_name
+)]
+births[, `:=`(county_geoid = NA_character_, county_name = NA_character_)]
+births[county_key, on = "ID", `:=`(
+  county_geoid = i.county_geoid,
+  county_name = i.county_name
+)]
+births[, valid_county := !is.na(county_geoid)]
+
+county_qa <- births[, .(
+  n_births = .N,
+  n_valid_coordinates_and_dates = sum(valid_coordinates & valid_gestation_dates),
+  n_county_matched = sum(valid_county),
+  n_county_unmatched = sum(valid_coordinates & valid_gestation_dates & !valid_county)
+)]
+print(county_qa)
+fwrite(county_qa, here("data", "derived", "birth-county-assignment-qa.csv"))
+
+# Only polygon-matched births enter the spatial storm assignment.
+birth_points <- birth_points[!is.na(birth_points$county_geoid), ]
+
+county_demographics <- fread(county_demographic_file)
+county_demographics[, county_geoid := sprintf("%05d", as.integer(GEOID))]
+county_demographics <- county_demographics[source == "acs5"]
+stopifnot(
+  county_demographics[, .N, by = .(county_geoid, year)][, all(N == 1L)]
+)
+```
+
 ## Read storm observations and calculate 55 kt radii
 
 IBTrACS directly reports quadrant radii for 34, 50, and 64 kt winds. Within a
@@ -709,13 +777,44 @@ analytic_births[, conception_season := fcase(
 
 birth_exposure_eligibility <- births[, .(
   ID,
-  exposure_eligible = valid_coordinates & valid_gestation_dates
+  exposure_eligible = valid_coordinates & valid_gestation_dates & valid_county,
+  county_geoid,
+  county_name
 )]
 
 analytic_corrected <- merge(
   analytic_births,
   birth_exposure_eligibility,
   by = "ID",
+  all.x = TRUE,
+  sort = FALSE
+)
+
+# Attach prior-year ACS five-year county measures for optional sensitivity
+# analyses. Coverage begins with 2010 births because ACS5 starts in 2009.
+lagged_county_demographics <- county_demographics[, .(
+  county_geoid,
+  birth_year = year + 1L,
+  county_demo_year_lag1 = year,
+  county_total_pop_lag1 = total_pop,
+  county_median_age_lag1 = median_age,
+  county_poverty_rate_lag1 = poverty_rate_pct,
+  county_median_hh_income_lag1 = median_hh_income,
+  county_median_home_value_lag1 = median_home_value,
+  county_pct_white_lag1 = 100 * race_white / total_pop,
+  county_pct_black_lag1 = 100 * race_black / total_pop,
+  county_pct_asian_lag1 = 100 * race_asian / total_pop,
+  county_pct_hispanic_lag1 = 100 * hispanic_any_race / total_pop
+)]
+stopifnot(
+  lagged_county_demographics[, .N, by = .(county_geoid, birth_year)][,
+    all(N == 1L)]
+)
+
+analytic_corrected <- merge(
+  analytic_corrected,
+  lagged_county_demographics,
+  by = c("county_geoid", "birth_year"),
   all.x = TRUE,
   sort = FALSE
 )
@@ -792,8 +891,20 @@ storm_event_qa <- event_windows[, .(
   max_observed_quadrants = max(observed_quadrants)
 ), by = .(SID, NAME, threshold_kt, trimester)]
 
+county_demographic_coverage <- analytic_corrected[, .(
+  births = .N,
+  county_matched = sum(!is.na(county_geoid)),
+  lagged_acs5_available = sum(!is.na(county_demo_year_lag1)),
+  lagged_acs5_coverage = mean(!is.na(county_demo_year_lag1))
+), by = birth_year]
+
 print(exposure_prevalence)
 print(storm_event_qa[order(-exposed_births)][1:min(.N, 30L)])
+print(county_demographic_coverage)
+fwrite(
+  county_demographic_coverage,
+  here("data", "derived", "birth-county-demographic-coverage.csv")
+)
 
 prevalence_plot <- ggplot(
   exposure_prevalence,
@@ -857,8 +968,10 @@ log_progress("complete", "corrected birth exposure workflow finished")
 All previously reported birth-outcome models must be refit. The 34 kt
 `exposed_window` variable is primary; the corresponding 55 kt variable is the
 sensitivity exposure. Every model must include calendar-year and season fixed
-effects. The existing substantive covariates should be added to `covariates`
-after their coding and missing-data strategy are finalized.
+effects, residence-county fixed effects, and county-clustered standard errors.
+The existing substantive covariates should be added to `covariates` after their
+coding and missing-data strategy are finalized. `HO-storms-models.Rmd` is the
+authoritative implementation.
 
 ```{r model-template, eval=FALSE}
 covariates <- c(
@@ -869,18 +982,14 @@ covariates <- c(
 fit_birth_model <- function(data, outcome, trimester = "T1",
                             threshold_kt = 34L) {
   exposure <- paste0("exposed_window_", trimester, "_", threshold_kt)
-  model_formula <- reformulate(
-    c(
-      exposure,
-      covariates,
-      "birth_year_fe",
-      "conception_season_fe"
-      # Prefer birth_month_fe instead of conception_season_fe in a stricter
-      # seasonality sensitivity model; do not include both simultaneously.
-    ),
-    response = outcome
+  model_formula <- as.formula(paste0(
+    outcome, " ~ ", paste(c(exposure, covariates), collapse = " + "),
+    " | birth_year + conception_season + county_geoid"
+  ))
+  fixest::feglm(
+    model_formula, data = data, family = "binomial",
+    vcov = ~county_geoid
   )
-  glm(model_formula, data = data, family = binomial())
 }
 
 ptb_t1_primary <- fit_birth_model(
