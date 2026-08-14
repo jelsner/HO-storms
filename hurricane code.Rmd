@@ -1,0 +1,2222 @@
+---
+title: "hurricane code"
+author: "Jessica Broach"
+date: "2026-08-14"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## packages
+
+```{r}
+library(dplyr)
+library(mice)
+```
+
+
+## data cleaning
+
+### 1st trimester hurricane exposure
+
+```{r, read in file}
+hurricane1 <- read.csv("/Users/jessicabroach/Library/CloudStorage/OneDrive-TulaneUniversity/Research Assistant/GRP/hurricane and pregnancy/All_1st_Trimester_Storm_Effectsv2.csv")
+```
+
+```{r, make missing data NA}
+hurricane1[hurricane1 == 99] <- NA
+
+hurricane1$DATE_OF_BIRTH <- as.character(hurricane1$DATE_OF_BIRTH)
+hurricane1$MENSES_DATE <- as.character(hurricane1$MENSES_DATE)
+# Only replace "NULL" with NA in character columns
+hurricane1[] <- lapply(hurricane1, function(col) {
+  if (is.character(col)) {
+    col[col == "NULL"] <- NA
+  }
+  return(col)
+})
+
+hurricane1[] <- lapply(hurricane1, function(col) {
+  if (is.character(col)) {
+    col[col == "U"] <- NA
+  }
+  return(col)
+})
+hurricane1$DATE_OF_BIRTH <- as.Date(hurricane1$DATE_OF_BIRTH, format = "%Y-%m-%d") 
+hurricane1$MENSES_DATE <- as.Date(hurricane1$MENSES_DATE, format = "%Y-%m-%d")
+
+hurricane1$FATHER_EDCODE[hurricane1$FATHER_EDCODE == 9] <- NA
+hurricane1$MOTHER_EDCODE[hurricane1$MOTHER_EDCODE == 9] <- NA
+hurricane1$PRINCIPAL_SRCPAY_CODE[hurricane1$PRINCIPAL_SRCPAY_CODE == 9] <- NA
+```
+
+#### create covariates
+
+```{r, combine father/mother race}
+#father
+hurricane1 <- hurricane1 %>%
+  mutate(father_race = case_when(
+    Father_CalculatedRace %in% c(01, 1) ~ 1,
+    Father_CalculatedRace %in% c(02, 2) ~ 2,
+    Father_CalculatedRace %in% c(03, 3) ~ 3,
+    Father_CalculatedRace %in% c(04, 4, 05, 5, 07, 7, 08, 8, 10, 11, 12) ~ 4,
+    Father_CalculatedRace %in% c(06, 6, 13, 14, 15) ~ 5,
+    Father_CalculatedRace %in% c(09, 9) ~ 6,
+    Father_CalculatedRace == 20 ~ 7,
+  ))
+
+#mother
+hurricane1 <- hurricane1 %>%
+  mutate(mother_race = case_when(
+    Mother_CalculatedRace %in% c(01, 1) ~ 1,
+    Mother_CalculatedRace %in% c(02, 2) ~ 2,
+    Mother_CalculatedRace %in% c(03, 3) ~ 3,
+    Mother_CalculatedRace %in% c(04, 4, 05, 5, 07, 7, 08, 8, 10, 11, 12) ~ 4,
+    Mother_CalculatedRace %in% c(06, 6, 13, 14, 15) ~ 5,
+    Mother_CalculatedRace %in% c(09, 9) ~ 6,
+    Mother_CalculatedRace == 20 ~ 7,
+  ))
+
+hurricane1 <- hurricane1 %>%
+  mutate(mother_his = case_when(
+    Mother_CalculatedHisp %in% c(0, 6) ~ 0,
+    Mother_CalculatedHisp %in% c(1, 2, 3, 5) ~ 1,
+  ))
+```
+
+```{r, categorize BMI}
+hurricane1$PrePregnancy_BMI <- as.numeric(hurricane1$PrePregnancy_BMI)
+hurricane1$PPBMI_cat <- cut(hurricane1$PrePregnancy_BMI,
+                              breaks = c(-Inf, 18.5, 25, 30, Inf),
+                              labels = c(1, 2, 3, 4),
+)
+
+```
+
+
+```{r, change class type}
+hurricane1$FATHER_EDCODE <- as.character(hurricane1$FATHER_EDCODE)
+hurricane1$father_race <- as.character(hurricane1$father_race)
+hurricane1$mother_race <- as.character(hurricane1$mother_race)
+hurricane1$MOTHER_EDCODE <- as.character(hurricane1$MOTHER_EDCODE)
+hurricane1$Father_CalculatedHisp <- as.character(hurricane1$Father_CalculatedHisp)
+hurricane1$Mother_CalculatedHisp <- as.character(hurricane1$Mother_CalculatedHisp)
+```
+
+
+#### create hurricane exposure variables
+
+
+```{r, any hurricane impact}
+hurricane1 <- hurricane1 %>%
+  rowwise() %>%
+  mutate(any_storm = ifelse(
+    any(c_across(c(
+      "Storm_Effect_1", "Storm_Effect_2", "Storm_Effect_3",
+      "Storm_Effect_4", "Storm_Effect_5", "Storm_Effect_6",
+      "Storm_Effect_7", "Storm_Effect_8", "Storm_Effect_9",
+      "Storm_Effect_10", "Storm_Effect_11", "Storm_Effect_12"
+    )) %in% c("Threat", "Impact", "Cleanup"), na.rm = TRUE),
+    1, 0
+  )) %>%
+  ungroup()
+```
+
+```{r, threat}
+library(dplyr)
+
+hurricane1 <- hurricane1 %>%
+  rowwise() %>%
+  mutate(threat = ifelse(
+    any(c_across(c("Storm_Effect_1", "Storm_Effect_2", "Storm_Effect_3",
+                   "Storm_Effect_4", "Storm_Effect_5", "Storm_Effect_6",
+                   "Storm_Effect_7", "Storm_Effect_8", "Storm_Effect_9",
+                   "Storm_Effect_10", "Storm_Effect_11", "Storm_Effect_12")) == "Threat", 
+        na.rm = TRUE), 
+    1, 0)) %>%
+  ungroup()
+
+```
+
+```{r, impact}
+hurricane1 <- hurricane1 %>%
+  rowwise() %>%
+  mutate(impact = ifelse(
+    any(c_across(c("Storm_Effect_1", "Storm_Effect_2", "Storm_Effect_3",
+                   "Storm_Effect_4", "Storm_Effect_5", "Storm_Effect_6",
+                   "Storm_Effect_7", "Storm_Effect_8", "Storm_Effect_9",
+                   "Storm_Effect_10", "Storm_Effect_11", "Storm_Effect_12")) == "Impact", 
+        na.rm = TRUE), 
+    1, 0)) %>%
+  ungroup()
+
+```
+
+```{r, cleanup}
+hurricane1 <- hurricane1 %>%
+  rowwise() %>%
+  mutate(cleanup = ifelse(
+    any(c_across(c("Storm_Effect_1", "Storm_Effect_2", "Storm_Effect_3",
+                   "Storm_Effect_4", "Storm_Effect_5", "Storm_Effect_6",
+                   "Storm_Effect_7", "Storm_Effect_8", "Storm_Effect_9",
+                   "Storm_Effect_10", "Storm_Effect_11", "Storm_Effect_12")) == "Cleanup", 
+        na.rm = TRUE), 
+    1, 0)) %>%
+  ungroup()
+
+```
+
+
+
+#### create ptb and lbw
+
+```{r, restrict lbw to term births}
+hurricane1_lbw <- hurricane1
+hurricane1_lbw <- subset(hurricane1_lbw, GESTATION_WEEKS >= 37)
+```
+
+```{r, create outcome variables}
+hurricane1$ptb <- ifelse(hurricane1$GESTATION_WEEKS < 37, 1, 0)
+hurricane1$vptb <- ifelse(hurricane1$GESTATION_WEEKS < 32, 1, 0)
+hurricane1$lbw <- ifelse(hurricane1$BIRTH_WEIGHT_GRAMS < 2500, 1, 0)
+hurricane1$vlbw <- ifelse(hurricane1$BIRTH_WEIGHT_GRAMS < 1500, 1, 0)
+hurricane1_lbw$lbw <- ifelse(hurricane1_lbw$BIRTH_WEIGHT_GRAMS < 2500, 1, 0)
+```
+
+#### save data
+
+```{r}
+save(hurricane1, file = "/Users/jessicabroach/Library/CloudStorage/OneDrive-TulaneUniversity/Research Assistant/GRP/hurricane/hurricane1.Rdata")
+save(hurricane1_lbw, file = "/Users/jessicabroach/Library/CloudStorage/OneDrive-TulaneUniversity/Research Assistant/GRP/hurricane/hurricane1_lbw.Rdata")
+```
+
+
+### 2 trimester hurricane exposure
+
+
+```{r, read in file}
+hurricane2 <- read.csv("/Users/jessicabroach/Library/CloudStorage/OneDrive-TulaneUniversity/Research Assistant/GRP/hurricane and pregnancy/All_2nd_Trimester_Storm_Effects.csv")
+```
+
+```{r, make missing data NA}
+hurricane2[hurricane2 == 99] <- NA
+
+hurricane2$DATE_OF_BIRTH <- as.character(hurricane2$DATE_OF_BIRTH)
+hurricane2$MENSES_DATE <- as.character(hurricane2$MENSES_DATE)
+# Only replace "NULL" with NA in character columns
+hurricane2[] <- lapply(hurricane2, function(col) {
+  if (is.character(col)) {
+    col[col == "NULL"] <- NA
+  }
+  return(col)
+})
+
+hurricane2[] <- lapply(hurricane2, function(col) {
+  if (is.character(col)) {
+    col[col == "U"] <- NA
+  }
+  return(col)
+})
+hurricane2$DATE_OF_BIRTH <- as.Date(hurricane2$DATE_OF_BIRTH, format = "%Y-%m-%d") 
+hurricane2$MENSES_DATE <- as.Date(hurricane2$MENSES_DATE, format = "%Y-%m-%d")
+
+hurricane2$FATHER_EDCODE[hurricane2$FATHER_EDCODE == 9] <- NA
+hurricane2$MOTHER_EDCODE[hurricane2$MOTHER_EDCODE == 9] <- NA
+hurricane2$PRINCIPAL_SRCPAY_CODE[hurricane2$PRINCIPAL_SRCPAY_CODE == 9] <- NA
+```
+
+#### create covariates
+
+```{r, combine father/mother race}
+#father
+hurricane2 <- hurricane2 %>%
+  mutate(father_race = case_when(
+    Father_CalculatedRace %in% c(01, 1) ~ 1,
+    Father_CalculatedRace %in% c(02, 2) ~ 2,
+    Father_CalculatedRace %in% c(03, 3) ~ 3,
+    Father_CalculatedRace %in% c(04, 4, 05, 5, 07, 7, 08, 8, 10, 11, 12) ~ 4,
+    Father_CalculatedRace %in% c(06, 6, 13, 14, 15) ~ 5,
+    Father_CalculatedRace %in% c(09, 9) ~ 6,
+    Father_CalculatedRace == 20 ~ 7,
+  ))
+
+#mother
+hurricane2 <- hurricane2 %>%
+  mutate(mother_race = case_when(
+    Mother_CalculatedRace %in% c(01, 1) ~ 1,
+    Mother_CalculatedRace %in% c(02, 2) ~ 2,
+    Mother_CalculatedRace %in% c(03, 3) ~ 3,
+    Mother_CalculatedRace %in% c(04, 4, 05, 5, 07, 7, 08, 8, 10, 11, 12) ~ 4,
+    Mother_CalculatedRace %in% c(06, 6, 13, 14, 15) ~ 5,
+    Mother_CalculatedRace %in% c(09, 9) ~ 6,
+    Mother_CalculatedRace == 20 ~ 7,
+  ))
+
+hurricane2 <- hurricane2 %>%
+  mutate(mother_his = case_when(
+    Mother_CalculatedHisp %in% c(0, 6) ~ 0,
+    Mother_CalculatedHisp %in% c(1, 2, 3, 5) ~ 1,
+  ))
+```
+
+```{r, categorize BMI}
+hurricane2$PrePregnancy_BMI <- as.numeric(hurricane2$PrePregnancy_BMI)
+hurricane2$PPBMI_cat <- cut(hurricane2$PrePregnancy_BMI,
+                              breaks = c(-Inf, 18.5, 25, 30, Inf),
+                              labels = c(1, 2, 3, 4),
+)
+
+```
+
+
+```{r, change class type}
+hurricane2$FATHER_EDCODE <- as.character(hurricane2$FATHER_EDCODE)
+hurricane2$father_race <- as.character(hurricane2$father_race)
+hurricane2$mother_race <- as.character(hurricane2$mother_race)
+hurricane2$MOTHER_EDCODE <- as.character(hurricane2$MOTHER_EDCODE)
+hurricane2$Father_CalculatedHisp <- as.character(hurricane2$Father_CalculatedHisp)
+hurricane2$Mother_CalculatedHisp <- as.character(hurricane2$Mother_CalculatedHisp)
+```
+
+
+#### create hurricane exposure
+
+
+```{r, any hurricane impact}
+hurricane2 <- hurricane2 %>%
+  rowwise() %>%
+  mutate(any_storm = ifelse(
+    any(c_across(c(
+      "Storm_Effect_1", "Storm_Effect_2", "Storm_Effect_3",
+      "Storm_Effect_4", "Storm_Effect_5", "Storm_Effect_6",
+      "Storm_Effect_7", "Storm_Effect_8", "Storm_Effect_9",
+      "Storm_Effect_10", "Storm_Effect_11", "Storm_Effect_12"
+    )) %in% c("Threat", "Impact", "Cleanup"), na.rm = TRUE),
+    1, 0
+  )) %>%
+  ungroup()
+```
+
+```{r, threat}
+library(dplyr)
+
+hurricane2 <- hurricane2 %>%
+  rowwise() %>%
+  mutate(threat = ifelse(
+    any(c_across(c("Storm_Effect_1", "Storm_Effect_2", "Storm_Effect_3",
+                   "Storm_Effect_4", "Storm_Effect_5", "Storm_Effect_6",
+                   "Storm_Effect_7", "Storm_Effect_8", "Storm_Effect_9",
+                   "Storm_Effect_10", "Storm_Effect_11", "Storm_Effect_12")) == "Threat", 
+        na.rm = TRUE), 
+    1, 0)) %>%
+  ungroup()
+
+```
+
+```{r, impact}
+hurricane2 <- hurricane2 %>%
+  rowwise() %>%
+  mutate(impact = ifelse(
+    any(c_across(c("Storm_Effect_1", "Storm_Effect_2", "Storm_Effect_3",
+                   "Storm_Effect_4", "Storm_Effect_5", "Storm_Effect_6",
+                   "Storm_Effect_7", "Storm_Effect_8", "Storm_Effect_9",
+                   "Storm_Effect_10", "Storm_Effect_11", "Storm_Effect_12")) == "Impact", 
+        na.rm = TRUE), 
+    1, 0)) %>%
+  ungroup()
+
+```
+
+```{r, cleanup}
+hurricane2 <- hurricane2 %>%
+  rowwise() %>%
+  mutate(cleanup = ifelse(
+    any(c_across(c("Storm_Effect_1", "Storm_Effect_2", "Storm_Effect_3",
+                   "Storm_Effect_4", "Storm_Effect_5", "Storm_Effect_6",
+                   "Storm_Effect_7", "Storm_Effect_8", "Storm_Effect_9",
+                   "Storm_Effect_10", "Storm_Effect_11", "Storm_Effect_12")) == "Cleanup", 
+        na.rm = TRUE), 
+    1, 0)) %>%
+  ungroup()
+
+```
+
+
+
+#### create ptb and lbw
+
+```{r, restrict lbw to term births}
+hurricane2_lbw <- hurricane2
+hurricane2_lbw <- subset(hurricane2_lbw, GESTATION_WEEKS >= 37)
+```
+
+```{r, create outcome variables}
+hurricane2$ptb <- ifelse(hurricane2$GESTATION_WEEKS < 37, 1, 0)
+hurricane2$vptb <- ifelse(hurricane2$GESTATION_WEEKS < 32, 1, 0)
+hurricane2$lbw <- ifelse(hurricane2$BIRTH_WEIGHT_GRAMS < 2500, 1, 0)
+hurricane2$vlbw <- ifelse(hurricane2$BIRTH_WEIGHT_GRAMS < 1500, 1, 0)
+hurricane2_lbw$lbw <- ifelse(hurricane2_lbw$BIRTH_WEIGHT_GRAMS < 2500, 1, 0)
+```
+
+#### save data
+
+```{r}
+save(hurricane2, file = "/Users/jessicabroach/Library/CloudStorage/OneDrive-TulaneUniversity/Research Assistant/GRP/hurricane/hurricane2.Rdata")
+save(hurricane2_lbw, file = "/Users/jessicabroach/Library/CloudStorage/OneDrive-TulaneUniversity/Research Assistant/GRP/hurricane/hurricane2_lbw.Rdata")
+```
+
+
+### 3rd trimester hurricane exposure
+
+```{r, read in file}
+hurricane3 <- read.csv("/Users/jessicabroach/Library/CloudStorage/OneDrive-TulaneUniversity/Research Assistant/GRP/hurricane and pregnancy/All_3rd_Trimester_Storm_Effects.csv")
+```
+
+
+```{r, make missing data NA}
+hurricane3[hurricane3 == 99] <- NA
+
+hurricane3$DATE_OF_BIRTH <- as.character(hurricane3$DATE_OF_BIRTH)
+hurricane3$MENSES_DATE <- as.character(hurricane3$MENSES_DATE)
+# Only replace "NULL" with NA in character columns
+hurricane3[] <- lapply(hurricane3, function(col) {
+  if (is.character(col)) {
+    col[col == "NULL"] <- NA
+  }
+  return(col)
+})
+
+hurricane3[] <- lapply(hurricane3, function(col) {
+  if (is.character(col)) {
+    col[col == "U"] <- NA
+  }
+  return(col)
+})
+hurricane3$DATE_OF_BIRTH <- as.Date(hurricane3$DATE_OF_BIRTH, format = "%Y-%m-%d") 
+hurricane3$MENSES_DATE <- as.Date(hurricane3$MENSES_DATE, format = "%Y-%m-%d")
+
+hurricane3$FATHER_EDCODE[hurricane3$FATHER_EDCODE == 9] <- NA
+hurricane3$MOTHER_EDCODE[hurricane3$MOTHER_EDCODE == 9] <- NA
+hurricane3$PRINCIPAL_SRCPAY_CODE[hurricane3$PRINCIPAL_SRCPAY_CODE == 9] <- NA
+```
+
+#### create covariates
+
+```{r, combine father/mother race}
+#father
+hurricane3 <- hurricane3 %>%
+  mutate(father_race = case_when(
+    Father_CalculatedRace %in% c(01, 1) ~ 1,
+    Father_CalculatedRace %in% c(02, 2) ~ 2,
+    Father_CalculatedRace %in% c(03, 3) ~ 3,
+    Father_CalculatedRace %in% c(04, 4, 05, 5, 07, 7, 08, 8, 10, 11, 12) ~ 4,
+    Father_CalculatedRace %in% c(06, 6, 13, 14, 15) ~ 5,
+    Father_CalculatedRace %in% c(09, 9) ~ 6,
+    Father_CalculatedRace == 20 ~ 7,
+  ))
+
+#mother
+hurricane3 <- hurricane3 %>%
+  mutate(mother_race = case_when(
+    Mother_CalculatedRace %in% c(01, 1) ~ 1,
+    Mother_CalculatedRace %in% c(02, 2) ~ 2,
+    Mother_CalculatedRace %in% c(03, 3) ~ 3,
+    Mother_CalculatedRace %in% c(04, 4, 05, 5, 07, 7, 08, 8, 10, 11, 12) ~ 4,
+    Mother_CalculatedRace %in% c(06, 6, 13, 14, 15) ~ 5,
+    Mother_CalculatedRace %in% c(09, 9) ~ 6,
+    Mother_CalculatedRace == 20 ~ 7,
+  ))
+
+hurricane3 <- hurricane3 %>%
+  mutate(mother_his = case_when(
+    Mother_CalculatedHisp %in% c(0, 6) ~ 0,
+    Mother_CalculatedHisp %in% c(1, 2, 3, 5) ~ 1,
+  ))
+```
+
+```{r, categorize BMI}
+hurricane3$PrePregnancy_BMI <- as.numeric(hurricane3$PrePregnancy_BMI)
+hurricane3$PPBMI_cat <- cut(hurricane3$PrePregnancy_BMI,
+                              breaks = c(-Inf, 18.5, 25, 30, Inf),
+                              labels = c(1, 2, 3, 4),
+)
+
+```
+
+
+```{r, change class type}
+hurricane3$FATHER_EDCODE <- as.character(hurricane3$FATHER_EDCODE)
+hurricane3$father_race <- as.character(hurricane3$father_race)
+hurricane3$mother_race <- as.character(hurricane3$mother_race)
+hurricane3$MOTHER_EDCODE <- as.character(hurricane3$MOTHER_EDCODE)
+hurricane3$Father_CalculatedHisp <- as.character(hurricane3$Father_CalculatedHisp)
+hurricane3$Mother_CalculatedHisp <- as.character(hurricane3$Mother_CalculatedHisp)
+```
+
+#### create hurricane exposure variables
+
+```{r, any hurricane impact}
+hurricane3 <- hurricane3 %>%
+  rowwise() %>%
+  mutate(any_storm = ifelse(
+    any(c_across(c(
+      "Storm_Effect_1", "Storm_Effect_2", "Storm_Effect_3",
+      "Storm_Effect_4", "Storm_Effect_5", "Storm_Effect_6",
+      "Storm_Effect_7", "Storm_Effect_8", "Storm_Effect_9",
+      "Storm_Effect_10", "Storm_Effect_11", "Storm_Effect_12"
+    )) %in% c("Threat", "Impact", "Cleanup"), na.rm = TRUE),
+    1, 0
+  )) %>%
+  ungroup()
+```
+
+```{r, threat}
+hurricane3 <- hurricane3 %>%
+  rowwise() %>%
+  mutate(threat = ifelse(
+    any(c_across(c("Storm_Effect_1", "Storm_Effect_2", "Storm_Effect_3",
+                   "Storm_Effect_4", "Storm_Effect_5", "Storm_Effect_6",
+                   "Storm_Effect_7", "Storm_Effect_8", "Storm_Effect_9",
+                   "Storm_Effect_10", "Storm_Effect_11", "Storm_Effect_12")) == "Threat", 
+        na.rm = TRUE), 
+    1, 0)) %>%
+  ungroup()
+
+```
+
+```{r, impact}
+hurricane3 <- hurricane3 %>%
+  rowwise() %>%
+  mutate(impact = ifelse(
+    any(c_across(c("Storm_Effect_1", "Storm_Effect_2", "Storm_Effect_3",
+                   "Storm_Effect_4", "Storm_Effect_5", "Storm_Effect_6",
+                   "Storm_Effect_7", "Storm_Effect_8", "Storm_Effect_9",
+                   "Storm_Effect_10", "Storm_Effect_11", "Storm_Effect_12")) == "Impact", 
+        na.rm = TRUE), 
+    1, 0)) %>%
+  ungroup()
+
+```
+
+```{r, cleanup}
+hurricane3 <- hurricane3 %>%
+  rowwise() %>%
+  mutate(cleanup = ifelse(
+    any(c_across(c("Storm_Effect_1", "Storm_Effect_2", "Storm_Effect_3",
+                   "Storm_Effect_4", "Storm_Effect_5", "Storm_Effect_6",
+                   "Storm_Effect_7", "Storm_Effect_8", "Storm_Effect_9",
+                   "Storm_Effect_10", "Storm_Effect_11", "Storm_Effect_12")) == "Cleanup", 
+        na.rm = TRUE), 
+    1, 0)) %>%
+  ungroup()
+
+```
+
+
+#### create ptb and lbw
+
+```{r, restrict lbw to term births}
+hurricane3_lbw <- hurricane3
+hurricane3_lbw <- subset(hurricane3_lbw, GESTATION_WEEKS >= 37)
+```
+
+```{r, create outcome variables}
+hurricane3$ptb <- ifelse(hurricane3$GESTATION_WEEKS < 37, 1, 0)
+hurricane3$vptb <- ifelse(hurricane3$GESTATION_WEEKS < 32, 1, 0)
+hurricane3$lbw <- ifelse(hurricane3$BIRTH_WEIGHT_GRAMS < 2500, 1, 0)
+hurricane3$vlbw <- ifelse(hurricane3$BIRTH_WEIGHT_GRAMS < 1500, 1, 0)
+hurricane3_lbw$lbw <- ifelse(hurricane3_lbw$BIRTH_WEIGHT_GRAMS < 2500, 1, 0)
+```
+
+#### save data
+
+```{r}
+save(hurricane3, file = "/Users/jessicabroach/Library/CloudStorage/OneDrive-TulaneUniversity/Research Assistant/GRP/hurricane/hurricane3.Rdata")
+save(hurricane3_lbw, file = "/Users/jessicabroach/Library/CloudStorage/OneDrive-TulaneUniversity/Research Assistant/GRP/hurricane/hurricane3_lbw.Rdata")
+```
+
+
+## multiple imputation
+
+### 1st trimester
+
+```{r}
+#subset columns needed
+h1imp <- hurricane1 %>% 
+  select(ID, final_lat, final_lon, PrePregnancy_BMI, threat, impact, cleanup, any_storm, ALCOHOL_USE, FATHER_EDCODE, MENSES_DATE, MOTHER_EDCODE, MOTHER_AGE, MOTHER_WIC_YESNO, MR_PREV_PRETERM, PPBMI_cat, MOTHER_MARRIED, PRINCIPAL_SRCPAY_CODE, Father_CalculatedHisp, Mother_CalculatedHisp, MR_DIAB_GEST, MR_HYPERT_ECLAMPSIA, MR_HYPERT_PREG, mother_race, father_race, Birth_Year, BIRTH_WEIGHT_GRAMS, Birth_Date, GESTATION_WEEKS, ptb, vptb lbw, vlbw)
+
+#factor character columns
+h1imp$ALCOHOL_USE <- as.factor(h1imp$ALCOHOL_USE)
+h1imp$FATHER_EDCODE <- as.factor(h1imp$FATHER_EDCODE)
+h1imp$MOTHER_EDCODE <- as.factor(h1imp$MOTHER_EDCODE)
+h1imp$MOTHER_WIC_YESNO <- as.factor(h1imp$MOTHER_WIC_YESNO)
+h1imp$MR_PREV_PRETERM <- as.factor(h1imp$MR_PREV_PRETERM)
+h1imp$MOTHER_MARRIED <- as.factor(h1imp$MOTHER_MARRIED)
+h1imp$PRINCIPAL_SRCPAY_CODE <- as.factor(h1imp$PRINCIPAL_SRCPAY_CODE)
+h1imp$Father_CalculatedHisp <- as.factor(h1imp$Father_CalculatedHisp)
+h1imp$Mother_CalculatedHisp <- as.factor(h1imp$Mother_CalculatedHisp)
+h1imp$mother_race <- as.factor(h1imp$mother_race)
+h1imp$father_race <- as.factor(h1imp$father_race)
+
+#imputation
+imp1 <- mice(
+  h1imp,
+  m = 20, 
+  maxit = 20,
+  seed = 12345)
+```
+
+
+```{r}
+#subset columns needed
+h1imp_lbw <- hurricane1_lbw %>% 
+  select(ID, final_lat, final_lon, PrePregnancy_BMI, threat, impact, cleanup, any_storm, ALCOHOL_USE, FATHER_EDCODE, MENSES_DATE, MOTHER_EDCODE, MOTHER_AGE, MOTHER_WIC_YESNO, MR_PREV_PRETERM, PPBMI_cat, MOTHER_MARRIED, PRINCIPAL_SRCPAY_CODE, Father_CalculatedHisp, Mother_CalculatedHisp, MR_DIAB_GEST, MR_HYPERT_ECLAMPSIA, MR_HYPERT_PREG, mother_race, father_race, Birth_Year, BIRTH_WEIGHT_GRAMS, Birth_Date, GESTATION_WEEKS, lbw)
+
+#factor character columns
+h1imp_lbw$ALCOHOL_USE <- as.factor(h1imp_lbw$ALCOHOL_USE)
+h1imp_lbw$FATHER_EDCODE <- as.factor(h1imp_lbw$FATHER_EDCODE)
+h1imp_lbw$MOTHER_EDCODE <- as.factor(h1imp_lbw$MOTHER_EDCODE)
+h1imp_lbw$MOTHER_WIC_YESNO <- as.factor(h1imp_lbw$MOTHER_WIC_YESNO)
+h1imp_lbw$MR_PREV_PRETERM <- as.factor(h1imp_lbw$MR_PREV_PRETERM)
+h1imp_lbw$MOTHER_MARRIED <- as.factor(h1imp_lbw$MOTHER_MARRIED)
+h1imp_lbw$PRINCIPAL_SRCPAY_CODE <- as.factor(h1imp_lbw$PRINCIPAL_SRCPAY_CODE)
+h1imp_lbw$Father_CalculatedHisp <- as.factor(h1imp_lbw$Father_CalculatedHisp)
+h1imp_lbw$Mother_CalculatedHisp <- as.factor(h1imp_lbw$Mother_CalculatedHisp)
+h1imp_lbw$mother_race <- as.factor(h1imp_lbw$mother_race)
+h1imp_lbw$father_race <- as.factor(h1imp_lbw$father_race)
+
+#imputation
+imp1_lbw <- mice(
+  h1imp_lbw,
+  m = 20, 
+  maxit = 20,
+  seed = 12345)
+```
+
+
+```{r}
+save(hurricane1imp, file = "/Users/jessicabroach/Library/CloudStorage/OneDrive-TulaneUniversity/Research Assistant/GRP/hurricane and pregnancy/imp1.Rdata")
+save(hurricane1imp_lbw, file = "/Users/jessicabroach/Library/CloudStorage/OneDrive-TulaneUniversity/Research Assistant/GRP/hurricane and pregnancy/imp1_lbw.Rdata")
+```
+
+
+
+### 2nd trimester
+
+```{r}
+#subset columns needed
+h2imp <- hurricane2 %>% 
+  select(ID, final_lat, final_lon, PrePregnancy_BMI, threat, impact, cleanup, any_storm, ALCOHOL_USE, FATHER_EDCODE, MENSES_DATE, MOTHER_EDCODE, MOTHER_AGE, MOTHER_WIC_YESNO, MR_PREV_PRETERM, PPBMI_cat, MOTHER_MARRIED, PRINCIPAL_SRCPAY_CODE, Father_CalculatedHisp, Mother_CalculatedHisp, MR_DIAB_GEST, MR_HYPERT_ECLAMPSIA, MR_HYPERT_PREG, mother_race, father_race, Birth_Year, BIRTH_WEIGHT_GRAMS, Birth_Date, GESTATION_WEEKS, ptb, vptb lbw, vlbw)
+
+#factor character columns
+h2imp$ALCOHOL_USE <- as.factor(h2imp$ALCOHOL_USE)
+h2imp$FATHER_EDCODE <- as.factor(h2imp$FATHER_EDCODE)
+h2imp$MOTHER_EDCODE <- as.factor(h2imp$MOTHER_EDCODE)
+h2imp$MOTHER_WIC_YESNO <- as.factor(h2imp$MOTHER_WIC_YESNO)
+h2imp$MR_PREV_PRETERM <- as.factor(h2imp$MR_PREV_PRETERM)
+h2imp$MOTHER_MARRIED <- as.factor(h2imp$MOTHER_MARRIED)
+h2imp$PRINCIPAL_SRCPAY_CODE <- as.factor(h2imp$PRINCIPAL_SRCPAY_CODE)
+h2imp$Father_CalculatedHisp <- as.factor(h2imp$Father_CalculatedHisp)
+h2imp$Mother_CalculatedHisp <- as.factor(h2imp$Mother_CalculatedHisp)
+h2imp$mother_race <- as.factor(h2imp$mother_race)
+h2imp$father_race <- as.factor(h2imp$father_race)
+
+#imputation
+imp2 <- mice(
+  h2imp,
+  m = 20, 
+  maxit = 20,
+  seed = 12345)
+```
+
+
+```{r}
+#subset columns needed
+h2imp_lbw <- hurricane2_lbw %>% 
+  select(ID, final_lat, final_lon, PrePregnancy_BMI, threat, impact, cleanup, any_storm, ALCOHOL_USE, FATHER_EDCODE, MENSES_DATE, MOTHER_EDCODE, MOTHER_AGE, MOTHER_WIC_YESNO, MR_PREV_PRETERM, PPBMI_cat, MOTHER_MARRIED, PRINCIPAL_SRCPAY_CODE, Father_CalculatedHisp, Mother_CalculatedHisp, MR_DIAB_GEST, MR_HYPERT_ECLAMPSIA, MR_HYPERT_PREG, mother_race, father_race, Birth_Year, BIRTH_WEIGHT_GRAMS, Birth_Date, GESTATION_WEEKS, lbw)
+
+#factor character columns
+h2imp_lbw$ALCOHOL_USE <- as.factor(h2imp_lbw$ALCOHOL_USE)
+h2imp_lbw$FATHER_EDCODE <- as.factor(h2imp_lbw$FATHER_EDCODE)
+h2imp_lbw$MOTHER_EDCODE <- as.factor(h2imp_lbw$MOTHER_EDCODE)
+h2imp_lbw$MOTHER_WIC_YESNO <- as.factor(h2imp_lbw$MOTHER_WIC_YESNO)
+h2imp_lbw$MR_PREV_PRETERM <- as.factor(h2imp_lbw$MR_PREV_PRETERM)
+h2imp_lbw$MOTHER_MARRIED <- as.factor(h2imp_lbw$MOTHER_MARRIED)
+h2imp_lbw$PRINCIPAL_SRCPAY_CODE <- as.factor(h2imp_lbw$PRINCIPAL_SRCPAY_CODE)
+h2imp_lbw$Father_CalculatedHisp <- as.factor(h2imp_lbw$Father_CalculatedHisp)
+h2imp_lbw$Mother_CalculatedHisp <- as.factor(h2imp_lbw$Mother_CalculatedHisp)
+h2imp_lbw$mother_race <- as.factor(h2imp_lbw$mother_race)
+h2imp_lbw$father_race <- as.factor(h2imp_lbw$father_race)
+
+#imputation
+imp2_lbw <- mice(
+  h2imp_lbw,
+  m = 20, 
+  maxit = 20,
+  seed = 12345)
+```
+
+
+```{r}
+save(hurricane2imp, file = "/Users/jessicabroach/Library/CloudStorage/OneDrive-TulaneUniversity/Research Assistant/GRP/hurricane and pregnancy/imp2.Rdata")
+save(hurricane2imp_lbw, file = "/Users/jessicabroach/Library/CloudStorage/OneDrive-TulaneUniversity/Research Assistant/GRP/hurricane and pregnancy/imp2_lbw.Rdata")
+```
+
+
+
+### 3rd trimester
+
+```{r}
+#subset columns needed
+h3imp <- hurricane3 %>% 
+  select(ID, final_lat, final_lon, PrePregnancy_BMI, threat, impact, cleanup, any_storm, ALCOHOL_USE, FATHER_EDCODE, MENSES_DATE, MOTHER_EDCODE, MOTHER_AGE, MOTHER_WIC_YESNO, MR_PREV_PRETERM, PPBMI_cat, MOTHER_MARRIED, PRINCIPAL_SRCPAY_CODE, Father_CalculatedHisp, Mother_CalculatedHisp, MR_DIAB_GEST, MR_HYPERT_ECLAMPSIA, MR_HYPERT_PREG, mother_race, father_race, Birth_Year, BIRTH_WEIGHT_GRAMS, Birth_Date, GESTATION_WEEKS, ptb, vptb lbw, vlbw)
+
+#factor character columns
+h3imp$ALCOHOL_USE <- as.factor(h3imp$ALCOHOL_USE)
+h3imp$FATHER_EDCODE <- as.factor(h3imp$FATHER_EDCODE)
+h3imp$MOTHER_EDCODE <- as.factor(h3imp$MOTHER_EDCODE)
+h3imp$MOTHER_WIC_YESNO <- as.factor(h3imp$MOTHER_WIC_YESNO)
+h3imp$MR_PREV_PRETERM <- as.factor(h3imp$MR_PREV_PRETERM)
+h3imp$MOTHER_MARRIED <- as.factor(h3imp$MOTHER_MARRIED)
+h3imp$PRINCIPAL_SRCPAY_CODE <- as.factor(h3imp$PRINCIPAL_SRCPAY_CODE)
+h3imp$Father_CalculatedHisp <- as.factor(h3imp$Father_CalculatedHisp)
+h3imp$Mother_CalculatedHisp <- as.factor(h3imp$Mother_CalculatedHisp)
+h3imp$mother_race <- as.factor(h3imp$mother_race)
+h3imp$father_race <- as.factor(h3imp$father_race)
+
+#imputation
+imp3 <- mice(
+  h3imp,
+  m = 20, 
+  maxit = 20,
+  seed = 12345)
+```
+
+
+```{r}
+#subset columns needed
+h3imp_lbw <- hurricane3_lbw %>% 
+  select(ID, final_lat, final_lon, PrePregnancy_BMI, threat, impact, cleanup, any_storm, ALCOHOL_USE, FATHER_EDCODE, MENSES_DATE, MOTHER_EDCODE, MOTHER_AGE, MOTHER_WIC_YESNO, MR_PREV_PRETERM, PPBMI_cat, MOTHER_MARRIED, PRINCIPAL_SRCPAY_CODE, Father_CalculatedHisp, Mother_CalculatedHisp, MR_DIAB_GEST, MR_HYPERT_ECLAMPSIA, MR_HYPERT_PREG, mother_race, father_race, Birth_Year, BIRTH_WEIGHT_GRAMS, Birth_Date, GESTATION_WEEKS, lbw)
+
+#factor character columns
+h3imp_lbw$ALCOHOL_USE <- as.factor(h3imp_lbw$ALCOHOL_USE)
+h3imp_lbw$FATHER_EDCODE <- as.factor(h3imp_lbw$FATHER_EDCODE)
+h3imp_lbw$MOTHER_EDCODE <- as.factor(h3imp_lbw$MOTHER_EDCODE)
+h3imp_lbw$MOTHER_WIC_YESNO <- as.factor(h3imp_lbw$MOTHER_WIC_YESNO)
+h3imp_lbw$MR_PREV_PRETERM <- as.factor(h3imp_lbw$MR_PREV_PRETERM)
+h3imp_lbw$MOTHER_MARRIED <- as.factor(h3imp_lbw$MOTHER_MARRIED)
+h3imp_lbw$PRINCIPAL_SRCPAY_CODE <- as.factor(h3imp_lbw$PRINCIPAL_SRCPAY_CODE)
+h3imp_lbw$Father_CalculatedHisp <- as.factor(h3imp_lbw$Father_CalculatedHisp)
+h3imp_lbw$Mother_CalculatedHisp <- as.factor(h3imp_lbw$Mother_CalculatedHisp)
+h3imp_lbw$mother_race <- as.factor(h3imp_lbw$mother_race)
+h3imp_lbw$father_race <- as.factor(h3imp_lbw$father_race)
+
+#imputation
+imp3_lbw <- mice(
+  h3imp_lbw,
+  m = 20, 
+  maxit = 20,
+  seed = 12345)
+```
+
+
+```{r}
+save(imp3, file = "/Users/jessicabroach/Library/CloudStorage/OneDrive-TulaneUniversity/Research Assistant/GRP/hurricane and pregnancy/imp3.Rdata")
+save(imp3_lbw, file = "/Users/jessicabroach/Library/CloudStorage/OneDrive-TulaneUniversity/Research Assistant/GRP/hurricane and pregnancy/imp3_lbw.Rdata")
+```
+
+
+## models
+
+#trimester 1
+
+## Gestational Diabetes
+
+```{r}
+library(mice)
+
+# THREAT ------------------------------------------------------------
+
+# Unadjusted
+m_threat_unadj <- with(
+  imp1,
+  glm(MR_DIAB_GEST ~ threat, family = binomial)
+)
+
+pool_threat_unadj <- pool(m_threat_unadj)
+
+summary(
+  pool_threat_unadj,
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+# Adjusted
+m_threat_adj <- with(
+  imp1,
+  glm(
+    MR_DIAB_GEST ~ threat +
+      ALCOHOL_USE +
+      FATHER_EDCODE +
+      MOTHER_EDCODE +
+      MOTHER_AGE +
+      MOTHER_WIC_YESNO +
+      PPBMI_cat +
+      MOTHER_MARRIED +
+      PRINCIPAL_SRCPAY_CODE +
+      Father_CalculatedHisp +
+      Mother_CalculatedHisp +
+      mother_race +
+      father_race,
+    family = binomial
+  )
+)
+
+pool_threat_adj <- pool(m_threat_adj)
+
+summary(
+  pool_threat_adj,
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+# IMPACT ------------------------------------------------------------
+
+m_impact_unadj <- with(
+  imp1,
+  glm(MR_DIAB_GEST ~ impact, family = binomial)
+)
+
+summary(
+  pool(m_impact_unadj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+m_impact_adj <- with(
+  imp1,
+  glm(
+    MR_DIAB_GEST ~ impact +
+      ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE +
+      MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat +
+      MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE +
+      Father_CalculatedHisp + Mother_CalculatedHisp +
+      mother_race + father_race,
+    family = binomial
+  )
+)
+
+summary(
+  pool(m_impact_adj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+# CLEANUP -----------------------------------------------------------
+
+m_cleanup_unadj <- with(
+  imp1,
+  glm(MR_DIAB_GEST ~ cleanup, family = binomial)
+)
+
+summary(
+  pool(m_cleanup_unadj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+m_cleanup_adj <- with(
+  imp1,
+  glm(
+    MR_DIAB_GEST ~ cleanup +
+      ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE +
+      MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat +
+      MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE +
+      Father_CalculatedHisp + Mother_CalculatedHisp +
+      mother_race + father_race,
+    family = binomial
+  )
+)
+
+summary(
+  pool(m_cleanup_adj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+# ANY STORM ---------------------------------------------------------
+
+m_any_storm_unadj <- with(
+  imp1,
+  glm(MR_DIAB_GEST ~ any_storm, family = binomial)
+)
+
+summary(
+  pool(m_any_storm_unadj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+m_any_storm_adj <- with(
+  imp1,
+  glm(
+    MR_DIAB_GEST ~ any_storm +
+      ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE +
+      MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat +
+      MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE +
+      Father_CalculatedHisp + Mother_CalculatedHisp +
+      mother_race + father_race,
+    family = binomial
+  )
+)
+
+summary(
+  pool(m_any_storm_adj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+```
+
+#Gestational Hypertension
+
+```{r}
+library(mice)
+
+# THREAT
+# Unadjusted
+m_threat_unadj <- with(imp1, glm(MR_HYPERT_PREG ~ threat, family = binomial))
+
+summary(pool(m_threat_unadj), conf.int = TRUE, exponentiate = TRUE)
+
+# Adjusted
+m_threat_adj <- with(imp1, glm(MR_HYPERT_PREG ~ threat + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+
+# Unadjusted
+m_impact_unadj <- with(imp1, glm(MR_HYPERT_PREG ~ impact, family = binomial))
+
+summary(pool(m_impact_unadj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# Adjusted
+m_impact_adj <- with(imp1,glm(MR_HYPERT_PREG ~ impact + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP 
+
+# Unadjusted
+m_cleanup_unadj <- with(imp1, glm(MR_HYPERT_PREG ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup_unadj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# Adjusted
+m_cleanup_adj <- with(imp1, glm(MR_HYPERT_PREG ~ cleanup + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM 
+
+# Unadjusted
+m_any_storm_unadj <- with(imp1, glm(MR_HYPERT_PREG ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm_unadj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# Adjusted
+m_any_storm_adj <- with(imp1, glm(MR_HYPERT_PREG ~ any_storm + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+
+##preterm birth
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat <- with(imp1, glm(ptb ~ threat, family = binomial))
+
+summary(pool(m_threat), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact <- with(imp1, glm(ptb ~ impact, family = binomial))
+
+summary(pool(m_impact), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup <- with(imp1, glm(ptb ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm <- with(imp1, glm(ptb ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm), conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat_adj <- with(imp1, glm(ptb ~ threat + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact_adj <- with(imp1, glm(ptb ~ impact + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup_adj <- with(imp1, glm(ptb ~ cleanup + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm_adj <- with(imp1, glm(ptb ~ any_storm + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+
+##very preterm birth
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat <- with(imp1, glm(vptb ~ threat, family = binomial))
+
+summary(pool(m_threat), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact <- with(imp1, glm(vptb ~ impact, family = binomial))
+
+summary(pool(m_impact), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup <- with(imp1, glm(vptb ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm <- with(imp1, glm(vptb ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm), conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat_adj <- with(imp1, glm(vptb ~ threat + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact_adj <- with(imp1, glm(vptb ~ impact + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup_adj <- with(imp1, glm(vptb ~ cleanup + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm_adj <- with(imp1, glm(vptb ~ any_storm + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+###term lbw
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat <- with(imp1_lbw, glm(lbw ~ threat, family = binomial))
+
+summary(pool(m_threat), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact <- with(imp1_lbw, glm(lbw ~ impact, family = binomial))
+
+summary(pool(m_impact), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup <- with(imp1_lbw, glm(lbw ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm <- with(imp1_lbw, glm(lbw ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm), conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat_adj <- with(imp1_lbw, glm(lbw ~ threat + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact_adj <- with(imp1_lbw, glm(lbw ~ impact + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup_adj <- with(imp1_lbw, glm(lbw ~ cleanup + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm_adj <- with(imp1_lbw, glm(lbw ~ any_storm + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+
+## lbw
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat <- with(imp1, glm(lbw ~ threat, family = binomial))
+
+summary(pool(m_threat), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact <- with(imp1, glm(lbw ~ impact, family = binomial))
+
+summary(pool(m_impact), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup <- with(imp1, glm(lbw ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm <- with(imp1, glm(lbw ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm), conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat_adj <- with(imp1, glm(lbw ~ threat + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact_adj <- with(imp1, glm(lbw ~ impact + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup_adj <- with(imp1, glm(lbw ~ cleanup + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm_adj <- with(imp1, glm(lbw ~ any_storm + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+## very lbw
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat <- with(imp1, glm(vlbw ~ threat, family = binomial))
+
+summary(pool(m_threat), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact <- with(imp1, glm(vlbw ~ impact, family = binomial))
+
+summary(pool(m_impact), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup <- with(imp1, glm(vlbw ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm <- with(imp1, glm(vlbw ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm), conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat_adj <- with(imp1, glm(vlbw ~ threat + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact_adj <- with(imp1, glm(vlbw ~ impact + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup_adj <- with(imp1, glm(vlbw ~ cleanup + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm_adj <- with(imp1, glm(vlbw ~ any_storm + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+#trimester 2
+## Gestational Diabetes
+
+```{r}
+library(mice)
+
+# THREAT ------------------------------------------------------------
+
+# Unadjusted
+m_threat_unadj <- with(
+  imp2,
+  glm(MR_DIAB_GEST ~ threat, family = binomial)
+)
+
+pool_threat_unadj <- pool(m_threat_unadj)
+
+summary(
+  pool_threat_unadj,
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+# Adjusted
+m_threat_adj <- with(
+  imp2,
+  glm(
+    MR_DIAB_GEST ~ threat +
+      ALCOHOL_USE +
+      FATHER_EDCODE +
+      MOTHER_EDCODE +
+      MOTHER_AGE +
+      MOTHER_WIC_YESNO +
+      PPBMI_cat +
+      MOTHER_MARRIED +
+      PRINCIPAL_SRCPAY_CODE +
+      Father_CalculatedHisp +
+      Mother_CalculatedHisp +
+      mother_race +
+      father_race,
+    family = binomial
+  )
+)
+
+pool_threat_adj <- pool(m_threat_adj)
+
+summary(
+  pool_threat_adj,
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+# IMPACT ------------------------------------------------------------
+
+m_impact_unadj <- with(
+  imp2,
+  glm(MR_DIAB_GEST ~ impact, family = binomial)
+)
+
+summary(
+  pool(m_impact_unadj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+m_impact_adj <- with(
+  imp2,
+  glm(
+    MR_DIAB_GEST ~ impact +
+      ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE +
+      MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat +
+      MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE +
+      Father_CalculatedHisp + Mother_CalculatedHisp +
+      mother_race + father_race,
+    family = binomial
+  )
+)
+
+summary(
+  pool(m_impact_adj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+# CLEANUP -----------------------------------------------------------
+
+m_cleanup_unadj <- with(
+  imp2,
+  glm(MR_DIAB_GEST ~ cleanup, family = binomial)
+)
+
+summary(
+  pool(m_cleanup_unadj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+m_cleanup_adj <- with(
+  imp2,
+  glm(
+    MR_DIAB_GEST ~ cleanup +
+      ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE +
+      MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat +
+      MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE +
+      Father_CalculatedHisp + Mother_CalculatedHisp +
+      mother_race + father_race,
+    family = binomial
+  )
+)
+
+summary(
+  pool(m_cleanup_adj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+# ANY STORM ---------------------------------------------------------
+
+m_any_storm_unadj <- with(
+  imp2,
+  glm(MR_DIAB_GEST ~ any_storm, family = binomial)
+)
+
+summary(
+  pool(m_any_storm_unadj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+m_any_storm_adj <- with(
+  imp2,
+  glm(
+    MR_DIAB_GEST ~ any_storm +
+      ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE +
+      MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat +
+      MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE +
+      Father_CalculatedHisp + Mother_CalculatedHisp +
+      mother_race + father_race,
+    family = binomial
+  )
+)
+
+summary(
+  pool(m_any_storm_adj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+```
+
+#Gestational Hypertension
+
+```{r}
+library(mice)
+
+# THREAT
+# Unadjusted
+m_threat_unadj <- with(imp2, glm(MR_HYPERT_PREG ~ threat, family = binomial))
+
+summary(pool(m_threat_unadj), conf.int = TRUE, exponentiate = TRUE)
+
+# Adjusted
+m_threat_adj <- with(imp2, glm(MR_HYPERT_PREG ~ threat + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+
+# Unadjusted
+m_impact_unadj <- with(imp2, glm(MR_HYPERT_PREG ~ impact, family = binomial))
+
+summary(pool(m_impact_unadj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# Adjusted
+m_impact_adj <- with(imp2,glm(MR_HYPERT_PREG ~ impact + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP 
+
+# Unadjusted
+m_cleanup_unadj <- with(imp2, glm(MR_HYPERT_PREG ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup_unadj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# Adjusted
+m_cleanup_adj <- with(imp2, glm(MR_HYPERT_PREG ~ cleanup + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM 
+
+# Unadjusted
+m_any_storm_unadj <- with(imp2, glm(MR_HYPERT_PREG ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm_unadj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# Adjusted
+m_any_storm_adj <- with(imp2, glm(MR_HYPERT_PREG ~ any_storm + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+
+##preterm birth
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat <- with(imp2, glm(ptb ~ threat, family = binomial))
+
+summary(pool(m_threat), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact <- with(imp2, glm(ptb ~ impact, family = binomial))
+
+summary(pool(m_impact), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup <- with(imp2, glm(ptb ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm <- with(imp2, glm(ptb ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm), conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat_adj <- with(imp2, glm(ptb ~ threat + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact_adj <- with(imp2, glm(ptb ~ impact + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup_adj <- with(imp2, glm(ptb ~ cleanup + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm_adj <- with(imp2, glm(ptb ~ any_storm + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+
+##very preterm birth
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat <- with(imp2, glm(vptb ~ threat, family = binomial))
+
+summary(pool(m_threat), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact <- with(imp2, glm(vptb ~ impact, family = binomial))
+
+summary(pool(m_impact), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup <- with(imp2, glm(vptb ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm <- with(imp2, glm(vptb ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm), conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat_adj <- with(imp2, glm(vptb ~ threat + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact_adj <- with(imp2, glm(vptb ~ impact + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup_adj <- with(imp2, glm(vptb ~ cleanup + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm_adj <- with(imp2, glm(vptb ~ any_storm + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+###term lbw
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat <- with(imp2_lbw, glm(lbw ~ threat, family = binomial))
+
+summary(pool(m_threat), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact <- with(imp2_lbw, glm(lbw ~ impact, family = binomial))
+
+summary(pool(m_impact), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup <- with(imp2_lbw, glm(lbw ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm <- with(imp2_lbw, glm(lbw ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm), conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat_adj <- with(imp2_lbw, glm(lbw ~ threat + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact_adj <- with(imp2_lbw, glm(lbw ~ impact + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup_adj <- with(imp2_lbw, glm(lbw ~ cleanup + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm_adj <- with(imp2_lbw, glm(lbw ~ any_storm + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+
+## lbw
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat <- with(imp2, glm(lbw ~ threat, family = binomial))
+
+summary(pool(m_threat), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact <- with(imp2, glm(lbw ~ impact, family = binomial))
+
+summary(pool(m_impact), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup <- with(imp2, glm(lbw ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm <- with(imp2, glm(lbw ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm), conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat_adj <- with(imp2, glm(lbw ~ threat + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact_adj <- with(imp2, glm(lbw ~ impact + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup_adj <- with(imp2, glm(lbw ~ cleanup + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm_adj <- with(imp2, glm(lbw ~ any_storm + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+## very lbw
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat <- with(imp2, glm(vlbw ~ threat, family = binomial))
+
+summary(pool(m_threat), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact <- with(imp2, glm(vlbw ~ impact, family = binomial))
+
+summary(pool(m_impact), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup <- with(imp2, glm(vlbw ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm <- with(imp2, glm(vlbw ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm), conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat_adj <- with(imp2, glm(vlbw ~ threat + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact_adj <- with(imp2, glm(vlbw ~ impact + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup_adj <- with(imp2, glm(vlbw ~ cleanup + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm_adj <- with(imp2, glm(vlbw ~ any_storm + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+
+#trimester 3
+
+## Gestational Diabetes
+
+```{r}
+library(mice)
+
+# THREAT ------------------------------------------------------------
+
+# Unadjusted
+m_threat_unadj <- with(
+  imp3,
+  glm(MR_DIAB_GEST ~ threat, family = binomial)
+)
+
+pool_threat_unadj <- pool(m_threat_unadj)
+
+summary(
+  pool_threat_unadj,
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+# Adjusted
+m_threat_adj <- with(
+  imp3,
+  glm(
+    MR_DIAB_GEST ~ threat +
+      ALCOHOL_USE +
+      FATHER_EDCODE +
+      MOTHER_EDCODE +
+      MOTHER_AGE +
+      MOTHER_WIC_YESNO +
+      PPBMI_cat +
+      MOTHER_MARRIED +
+      PRINCIPAL_SRCPAY_CODE +
+      Father_CalculatedHisp +
+      Mother_CalculatedHisp +
+      mother_race +
+      father_race,
+    family = binomial
+  )
+)
+
+pool_threat_adj <- pool(m_threat_adj)
+
+summary(
+  pool_threat_adj,
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+# IMPACT ------------------------------------------------------------
+
+m_impact_unadj <- with(
+  imp3,
+  glm(MR_DIAB_GEST ~ impact, family = binomial)
+)
+
+summary(
+  pool(m_impact_unadj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+m_impact_adj <- with(
+  imp3,
+  glm(
+    MR_DIAB_GEST ~ impact +
+      ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE +
+      MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat +
+      MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE +
+      Father_CalculatedHisp + Mother_CalculatedHisp +
+      mother_race + father_race,
+    family = binomial
+  )
+)
+
+summary(
+  pool(m_impact_adj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+# CLEANUP -----------------------------------------------------------
+
+m_cleanup_unadj <- with(
+  imp3,
+  glm(MR_DIAB_GEST ~ cleanup, family = binomial)
+)
+
+summary(
+  pool(m_cleanup_unadj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+m_cleanup_adj <- with(
+  imp3,
+  glm(
+    MR_DIAB_GEST ~ cleanup +
+      ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE +
+      MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat +
+      MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE +
+      Father_CalculatedHisp + Mother_CalculatedHisp +
+      mother_race + father_race,
+    family = binomial
+  )
+)
+
+summary(
+  pool(m_cleanup_adj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+# ANY STORM ---------------------------------------------------------
+
+m_any_storm_unadj <- with(
+  imp3,
+  glm(MR_DIAB_GEST ~ any_storm, family = binomial)
+)
+
+summary(
+  pool(m_any_storm_unadj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+
+
+m_any_storm_adj <- with(
+  imp3,
+  glm(
+    MR_DIAB_GEST ~ any_storm +
+      ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE +
+      MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat +
+      MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE +
+      Father_CalculatedHisp + Mother_CalculatedHisp +
+      mother_race + father_race,
+    family = binomial
+  )
+)
+
+summary(
+  pool(m_any_storm_adj),
+  conf.int = TRUE,
+  exponentiate = TRUE
+)
+```
+
+#Gestational Hypertension
+
+```{r}
+library(mice)
+
+# THREAT
+# Unadjusted
+m_threat_unadj <- with(imp3, glm(MR_HYPERT_PREG ~ threat, family = binomial))
+
+summary(pool(m_threat_unadj), conf.int = TRUE, exponentiate = TRUE)
+
+# Adjusted
+m_threat_adj <- with(imp3, glm(MR_HYPERT_PREG ~ threat + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+
+# Unadjusted
+m_impact_unadj <- with(imp3, glm(MR_HYPERT_PREG ~ impact, family = binomial))
+
+summary(pool(m_impact_unadj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# Adjusted
+m_impact_adj <- with(imp3,glm(MR_HYPERT_PREG ~ impact + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP 
+
+# Unadjusted
+m_cleanup_unadj <- with(imp3, glm(MR_HYPERT_PREG ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup_unadj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# Adjusted
+m_cleanup_adj <- with(imp3, glm(MR_HYPERT_PREG ~ cleanup + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM 
+
+# Unadjusted
+m_any_storm_unadj <- with(imp3, glm(MR_HYPERT_PREG ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm_unadj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# Adjusted
+m_any_storm_adj <- with(imp3, glm(MR_HYPERT_PREG ~ any_storm + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+
+##preterm birth
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat <- with(imp3, glm(ptb ~ threat, family = binomial))
+
+summary(pool(m_threat), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact <- with(imp3, glm(ptb ~ impact, family = binomial))
+
+summary(pool(m_impact), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup <- with(imp3, glm(ptb ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm <- with(imp3, glm(ptb ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm), conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat_adj <- with(imp3, glm(ptb ~ threat + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact_adj <- with(imp3, glm(ptb ~ impact + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup_adj <- with(imp3, glm(ptb ~ cleanup + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm_adj <- with(imp3, glm(ptb ~ any_storm + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+
+##very preterm birth
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat <- with(imp3, glm(vptb ~ threat, family = binomial))
+
+summary(pool(m_threat), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact <- with(imp3, glm(vptb ~ impact, family = binomial))
+
+summary(pool(m_impact), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup <- with(imp3, glm(vptb ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm <- with(imp3, glm(vptb ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm), conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat_adj <- with(imp3, glm(vptb ~ threat + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact_adj <- with(imp3, glm(vptb ~ impact + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup_adj <- with(imp3, glm(vptb ~ cleanup + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm_adj <- with(imp3, glm(vptb ~ any_storm + ALCOHOL_USE + FATHER_EDCODE + MOTHER_EDCODE + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + PPBMI_cat + MOTHER_MARRIED + PRINCIPAL_SRCPAY_CODE + Father_CalculatedHisp + Mother_CalculatedHisp + mother_race + father_race, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+###term lbw
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat <- with(imp3_lbw, glm(lbw ~ threat, family = binomial))
+
+summary(pool(m_threat), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact <- with(imp3_lbw, glm(lbw ~ impact, family = binomial))
+
+summary(pool(m_impact), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup <- with(imp3_lbw, glm(lbw ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm <- with(imp3_lbw, glm(lbw ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm), conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat_adj <- with(imp3_lbw, glm(lbw ~ threat + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact_adj <- with(imp3_lbw, glm(lbw ~ impact + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup_adj <- with(imp3_lbw, glm(lbw ~ cleanup + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm_adj <- with(imp3_lbw, glm(lbw ~ any_storm + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+
+## lbw
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat <- with(imp3, glm(lbw ~ threat, family = binomial))
+
+summary(pool(m_threat), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact <- with(imp3, glm(lbw ~ impact, family = binomial))
+
+summary(pool(m_impact), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup <- with(imp3, glm(lbw ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm <- with(imp3, glm(lbw ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm), conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat_adj <- with(imp3, glm(lbw ~ threat + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact_adj <- with(imp3, glm(lbw ~ impact + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup_adj <- with(imp3, glm(lbw ~ cleanup + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm_adj <- with(imp3, glm(lbw ~ any_storm + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```
+
+## very lbw
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat <- with(imp3, glm(vlbw ~ threat, family = binomial))
+
+summary(pool(m_threat), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact <- with(imp3, glm(vlbw ~ impact, family = binomial))
+
+summary(pool(m_impact), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup <- with(imp3, glm(vlbw ~ cleanup, family = binomial))
+
+summary(pool(m_cleanup), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm <- with(imp3, glm(vlbw ~ any_storm, family = binomial))
+
+summary(pool(m_any_storm), conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+library(mice)
+
+# THREAT
+m_threat_adj <- with(imp3, glm(vlbw ~ threat + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_threat_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# IMPACT
+m_impact_adj <- with(imp3, glm(vlbw ~ impact + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_impact_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# CLEANUP
+m_cleanup_adj <- with(imp3, glm(vlbw ~ cleanup + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_cleanup_adj), conf.int = TRUE, exponentiate = TRUE)
+
+
+# ANY STORM
+m_any_storm_adj <- with(imp3, glm(vlbw ~ any_storm + mother_race + ALCOHOL_USE + FATHER_EDCODE + Father_CalculatedHisp + Mother_CalculatedHisp + father_race + MOTHER_AGE + MOTHER_WIC_YESNO + MR_PREV_PRETERM + MOTHER_EDCODE + MOTHER_MARRIED + PPBMI_cat + PRINCIPAL_SRCPAY_CODE, family = binomial))
+
+summary(pool(m_any_storm_adj), conf.int = TRUE, exponentiate = TRUE)
+```

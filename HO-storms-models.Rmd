@@ -884,3 +884,11 @@ imputation exactly. This workflow records the number of imputed datasets,
 iterations, seed, methods, and predictor matrix. If the original analysts can
 provide their MICE specification or Tables 2-4, update those inputs before the
 final manuscript revision.
+
+## Decision
+
+I reanalyzed the study using corrected, residence-specific 34-kt wind-field exposure data and repeated the conventional models using both the manuscript’s ±1-day window and broader exposure windows. After adding county and conception-time fixed effects, most of the adverse associations reported in the original manuscript disappeared or changed direction. 
+
+The conventional trimester models continued to produce strong protective associations, especially for second-trimester vPTB and vLBW and third-trimester term LBW. These estimates were similar using multiple imputation or complete-case analyses. But they appear to arise from unequal gestational exposure opportunity (fixed-cohort bias as pointed out by reviewers 2,3 & 6). Pregnancies that continue longer have more opportunity to be classified as exposed, while early deliveries have less opportunity.
+
+I therefore fit delayed-entry, time-varying Cox models that correctly aligned storm exposure with gestational time at risk. In these models, the pronounced protective associations were substantially attenuated or disappeared, and there was no consistent evidence that storm exposure increased PTB or vPTB risk. The few nominal findings were inconsistent across 0–3- and 0–7-day windows, showed no coherent intensity-response pattern, and generally did not withstand multiple-testing adjustment. All together, the original conclusions are not supported after correcting the exposure model and addressing gestational-time bias. In my view, we should not continue trying to publish the manuscript in its current form as evidence that tropical cyclones adversely affect birth outcomes.
