@@ -6,13 +6,19 @@ output:
     toc_float: true
     code_folding: show
 params:
-  corrected_data: "data/outputs/All_Births_Corrected_Storm_Exposure.rds"
+  corrected_data: "data/outputs/All_Births_Corrected_Storm_Exposure-trimester-eligible-v2.rds"
+  event_data: "data/derived/birth-storm-events-time-specific-trimester-eligible-v2.csv"
+  birth_interval_data: "data/all_births_hurricane.csv"
+  exposure_window_days: 1
+  output_dir: "data/outputs/Models-trimester-eligible-v2-window1"
+  figure_dir: "figs/model-comparison-trimester-eligible-v2-window1"
   imputations: 5
   mice_iterations: 5
+  imputation_cores: 5
   polyreg_max_weights: 10000
-  imputation_training_rows: 250000
+  imputation_training_rows: 50000
   seed: 20260810
-  fit_55kt_sensitivity: true
+  fit_55kt_sensitivity: false
   fit_complete_case_sensitivity: true
   save_imputation_object: false
 ---
@@ -41,11 +47,14 @@ The manuscript describes:
    imputed datasets or variable-specific imputation methods.
 
 For reproducibility, this refit uses `r params$imputations` imputed datasets and
-`r params$mice_iterations` MICE iterations. In response to the reviewer concern
+`r params$mice_iterations` MICE iterations. In response to reviewer concerns
 about temporal and spatial confounding, every corrected primary model includes
-birth-year, conception-season, and residence-county fixed effects, with
-standard errors clustered by county. The 34 kt ±7-day exposure is primary; the
-55 kt nested exposure is a sensitivity analysis.
+conception year-month and residence-county fixed effects, with standard errors
+clustered by county. Eligibility is trimester-specific, so an early delivery
+remains in every earlier gestational period it reached. The 34 kt ±7-day
+exposure used previously is rebuilt here with the manuscript's ±1-day window.
+The corrected residence-specific wind field and local impact date are otherwise
+unchanged.
 
 Alcohol was listed among measured covariates in the manuscript's Covariates
 section but was not included in the Statistical Analysis adjustment list. It
@@ -73,10 +82,19 @@ library(fixest)
 library(ggplot2)
 
 set.seed(as.integer(params$seed))
-dir.create("data/outputs/Models", recursive = TRUE, showWarnings = FALSE)
-dir.create("figs/model-comparison", recursive = TRUE, showWarnings = FALSE)
+window_days <- as.integer(params$exposure_window_days)
+analysis_thresholds <- if (isTRUE(params$fit_55kt_sensitivity)) c(34L, 55L) else 34L
+stopifnot(length(window_days) == 1L, !is.na(window_days), window_days >= 0L)
+model_output_dir <- as.character(params$output_dir)
+model_figure_dir <- as.character(params$figure_dir)
+stopifnot(
+  length(model_output_dir) == 1L, nzchar(model_output_dir),
+  length(model_figure_dir) == 1L, nzchar(model_figure_dir)
+)
+dir.create(model_output_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(model_figure_dir, recursive = TRUE, showWarnings = FALSE)
 
-progress_file <- "data/outputs/Models/model-refit-progress.log"
+progress_file <- file.path(model_output_dir, "model-refit-progress.log")
 if (file.exists(progress_file)) file.remove(progress_file)
 
 log_progress <- function(stage, detail) {
@@ -116,16 +134,18 @@ source_columns <- c(
   "Father_CalculatedRace", "Father_CalculatedHisp", "FATHER_EDCODE",
   "MOTHER_AGE", "PrePregnancy_BMI", "MR_PREV_PRETERM",
   "MOTHER_WIC_YESNO", "PRINCIPAL_SRCPAY_CODE",
-  "birth_year", "conception_season", "county_geoid", "county_name",
+  "birth_year", "conception_year", "conception_month",
+  "conception_season", "county_geoid", "county_name",
   "county_demo_year_lag1", "county_total_pop_lag1",
   "county_median_age_lag1", "county_poverty_rate_lag1",
   "county_median_hh_income_lag1", "county_median_home_value_lag1",
   "county_pct_white_lag1", "county_pct_black_lag1",
   "county_pct_asian_lag1", "county_pct_hispanic_lag1",
-  "exposure_eligible"
+  "exposure_eligible", "exposure_eligible_T1",
+  "exposure_eligible_T2", "exposure_eligible_T3"
 )
 exposure_columns <- as.vector(outer(
-  paste0("exposed_window_T", 1:3), c(34L, 55L), paste, sep = "_"
+  paste0("exposed_window_T", 1:3), analysis_thresholds, paste, sep = "_"
 ))
 required_columns <- c(source_columns, exposure_columns)
 missing_columns <- setdiff(required_columns, names(births))
@@ -139,6 +159,91 @@ if (length(missing_columns) > 0L) {
 }
 
 births <- births[, ..required_columns]
+gc()
+
+# Rebuild only the gestational window assignment. The expensive spatial
+# intersection and residence-specific local impact time are reused from the
+# corrected event file. This makes the ±1-day comparison differ from the
+# corrected conventional model only in window width, while retaining the
+# corrected wind-field exposure and trimester-specific eligibility.
+stopifnot(file.exists(params$event_data), file.exists(params$birth_interval_data))
+interval_dates <- fread(
+  params$birth_interval_data,
+  select = c(
+    "ID", "DATE_OF_BIRTH", "trimester1_s_date", "trimester1_e_date",
+    "trimester2_s_date", "trimester2_e_date", "trimester3_s_date"
+  )
+)
+interval_date_columns <- setdiff(names(interval_dates), "ID")
+interval_dates[, (interval_date_columns) := lapply(.SD, as.IDate),
+               .SDcols = interval_date_columns]
+interval_dates[, `:=`(
+  T1_start = trimester1_s_date,
+  T1_end = pmin(trimester1_e_date, DATE_OF_BIRTH, na.rm = FALSE),
+  T2_start = trimester2_s_date,
+  T2_end = pmin(trimester2_e_date, DATE_OF_BIRTH, na.rm = FALSE),
+  T3_start = trimester3_s_date,
+  T3_end = DATE_OF_BIRTH
+)]
+interval_dates <- interval_dates[, .(
+  ID, T1_start, T1_end, T2_start, T2_end, T3_start, T3_end
+)]
+
+event_impacts <- fread(
+  params$event_data,
+  select = c("ID", "SID", "threshold_kt", "local_impact_date")
+)[threshold_kt %in% analysis_thresholds]
+event_impacts[, `:=`(
+  local_impact_date = as.IDate(local_impact_date),
+  window_start_rebuilt = as.IDate(local_impact_date) - window_days,
+  window_end_rebuilt = as.IDate(local_impact_date) + window_days
+)]
+event_impacts <- merge(
+  event_impacts, interval_dates, by = "ID", all.x = TRUE, sort = FALSE
+)
+
+exposure_hits <- rbindlist(lapply(paste0("T", 1:3), function(trimester) {
+  period_start <- paste0(trimester, "_start")
+  period_end <- paste0(trimester, "_end")
+  event_impacts[
+    !is.na(get(period_start)) & !is.na(get(period_end)) &
+      window_start_rebuilt <= get(period_end) &
+      window_end_rebuilt >= get(period_start),
+    .(ID, trimester, threshold_kt)
+  ]
+}))
+exposure_hits <- unique(exposure_hits)
+
+for (trimester_value in paste0("T", 1:3)) {
+  eligibility <- paste0("exposure_eligible_", trimester_value)
+  for (threshold in analysis_thresholds) {
+    exposure <- paste0("exposed_window_", trimester_value, "_", threshold)
+    births[, (exposure) := fifelse(get(eligibility) %in% TRUE, 0L, NA_integer_)]
+    exposed_ids <- exposure_hits[
+      trimester == trimester_value & threshold_kt == threshold, ID
+    ]
+    exposed_rows <- match(exposed_ids, births$ID)
+    exposed_rows <- exposed_rows[
+      !is.na(exposed_rows) & births[[eligibility]][exposed_rows] %in% TRUE
+    ]
+    set(births, exposed_rows, exposure, 1L)
+  }
+}
+window_exposure_qa <- rbindlist(lapply(paste0("T", 1:3), function(trimester) {
+  rbindlist(lapply(analysis_thresholds, function(threshold) {
+    exposure <- paste0("exposed_window_", trimester, "_", threshold)
+    data.table(
+      window_days = window_days, trimester = trimester,
+      threshold_kt = threshold,
+      eligible = sum(!is.na(births[[exposure]])),
+      exposed = sum(births[[exposure]] == 1L, na.rm = TRUE),
+      prevalence = mean(births[[exposure]], na.rm = TRUE)
+    )
+  }))
+}))
+fwrite(window_exposure_qa,
+       file.path(model_output_dir, "window1-exposure-rebuild-qa.csv"))
+rm(interval_dates, event_impacts, exposure_hits)
 gc()
 log_progress(
   "read data",
@@ -263,19 +368,26 @@ births[, `:=`(
   GDM = gestational_diabetes_raw,
   HDP = hdp_raw,
   birth_year = suppressWarnings(as.integer(birth_year)),
+  conception_year = suppressWarnings(as.integer(conception_year)),
+  conception_month = suppressWarnings(as.integer(conception_month)),
+  conception_year_month = factor(fifelse(
+    !is.na(conception_year) & conception_month %in% 1:12,
+    sprintf("%04d-%02d", conception_year, conception_month),
+    NA_character_
+  )),
   conception_season = factor(
     conception_season, levels = c("DJF", "MAM", "JJA", "SON")
   ),
   county_geoid = factor(county_geoid)
 )]
 
-# Manuscript base cohort: accurate coordinates, singleton birth, and nonmissing
-# gestational weeks and birthweight. Year/season are additionally required by
-# the corrected specification.
+# Union cohort for the conventional trimester-specific models. Each fitted
+# model applies its own exposure_eligible_T* flag; no earlier-trimester model
+# requires the pregnancy to have reached a later trimester.
 model_births <- births[
   exposure_eligible %in% TRUE & singleton %in% TRUE &
     !is.na(gest_weeks) & !is.na(birthweight_g) &
-    !is.na(birth_year) & !is.na(conception_season) & !is.na(county_geoid)
+    !is.na(conception_year_month) & !is.na(county_geoid)
 ]
 model_births[, complication_eligible :=
                !is.na(GDM) & !is.na(HDP) &
@@ -287,22 +399,34 @@ covariates <- c(
   "maternal_age", "bmi_category", "previous_preterm", "wic", "payment"
 )
 
-sample_qa <- model_births[, .(
-  births = .N,
-  counties = uniqueN(county_geoid),
-  term_births = sum(gest_weeks >= 37),
-  complication_eligible = sum(complication_eligible %in% TRUE),
-  PTB_pct = 100 * mean(PTB),
-  vPTB_pct = 100 * mean(vPTB),
-  LBW_pct = 100 * mean(LBW),
-  vLBW_pct = 100 * mean(vLBW),
-  term_LBW_pct = 100 * mean(tLBW[gest_weeks >= 37]),
-  GDM_pct = 100 * mean(GDM, na.rm = TRUE),
-  HDP_pct = 100 * mean(HDP, na.rm = TRUE)
-)]
+sample_qa <- rbindlist(lapply(c("T1", "T2", "T3"), function(trimester) {
+  eligibility <- paste0("exposure_eligible_", trimester)
+  analysis <- model_births[get(eligibility) %in% TRUE]
+  analysis[, .(
+    trimester = trimester,
+    births = .N,
+    counties = uniqueN(county_geoid),
+    term_births = sum(gest_weeks >= 37),
+    complication_eligible = sum(complication_eligible %in% TRUE),
+    PTB_events = sum(PTB),
+    vPTB_events = sum(vPTB),
+    LBW_events = sum(LBW),
+    vLBW_events = sum(vLBW),
+    term_LBW_events = sum(tLBW[gest_weeks >= 37]),
+    GDM_events = sum(GDM, na.rm = TRUE),
+    HDP_events = sum(HDP, na.rm = TRUE),
+    PTB_pct = 100 * mean(PTB),
+    vPTB_pct = 100 * mean(vPTB),
+    LBW_pct = 100 * mean(LBW),
+    vLBW_pct = 100 * mean(vLBW),
+    term_LBW_pct = 100 * mean(tLBW[gest_weeks >= 37]),
+    GDM_pct = 100 * mean(GDM, na.rm = TRUE),
+    HDP_pct = 100 * mean(HDP, na.rm = TRUE)
+  )]
+}))
 print(sample_qa)
 
-fwrite(sample_qa, "data/outputs/Models/corrected_model_sample_qa.csv")
+fwrite(sample_qa, file.path(model_output_dir, "corrected_model_sample_qa.csv"))
 log_progress("recode", sprintf("model base cohort contains %s births",
                                 format(nrow(model_births), big.mark = ",")))
 ```
@@ -324,13 +448,17 @@ corrected_prevalence[, prevalence_difference_percentage_points :=
                        100 * (prevalence - manuscript_any_exposure_prevalence)]
 print(corrected_prevalence)
 fwrite(corrected_prevalence,
-       "data/outputs/Models/corrected_exposure_prevalence.csv")
+       file.path(model_output_dir, "corrected_exposure_prevalence.csv"))
 ```
 
 ## Multiple imputation
 
 The imputation model includes all analysis covariates, complete birthweight and
-gestational-age measures, corrected exposures, and the temporal fixed effects.
+gestational-age measures, corrected exposures, county, conception year, and
+conception month. The exact conception year-month fixed effect is applied in
+the outcome models; using its 276-level interaction inside every chained
+imputation regression adds substantial computation without changing the final
+fixed-effect specification.
 Only covariates are imputed; outcomes, exposures, and fixed effects are never
 imputed. To make MICE feasible for more than four million births, its regression
 equations are estimated on a reproducible random training sample of
@@ -341,10 +469,20 @@ health-outcome models continue to use the complete eligible cohort.
 ```{r imputation}
 imputation_predictors <- c(
   "birthweight_g", "gest_weeks", exposure_columns,
-  "birth_year", "conception_season", "county_geoid"
+  "exposure_eligible_T1", "exposure_eligible_T2", "exposure_eligible_T3",
+  "conception_year", "conception_month", "county_geoid"
 )
 imputation_columns <- unique(c(covariates, imputation_predictors))
-imputation_data <- as.data.frame(model_births[, ..imputation_columns])
+imputation_source <- copy(model_births[, ..imputation_columns])
+# Exposure is structurally missing outside its eligible trimester. For the
+# imputation predictor matrix only, encode those cells as zero and retain the
+# corresponding eligibility indicators. The outcome models continue to use the
+# original NA exposure values and trimester-specific eligibility flags.
+for (column in exposure_columns) {
+  set(imputation_source, which(is.na(imputation_source[[column]])), column, 0L)
+}
+imputation_data <- as.data.frame(imputation_source)
+rm(imputation_source)
 
 training_rows <- min(
   as.integer(params$imputation_training_rows), nrow(imputation_data)
@@ -382,18 +520,37 @@ log_progress(
           format(nrow(imputation_data), big.mark = ","))
 )
 imputation_started <- Sys.time()
-imputed <- mice::mice(
-  imputation_data,
-  m = as.integer(params$imputations),
-  maxit = as.integer(params$mice_iterations),
-  method = method,
-  predictorMatrix = predictor_matrix,
-  ignore = imputation_ignore,
-  seed = as.integer(params$seed),
-  printFlag = TRUE,
-  nnet.MaxNWts = as.integer(params$polyreg_max_weights),
-  nnet.trace = FALSE
+imputation_cores <- min(
+  as.integer(params$imputation_cores),
+  as.integer(params$imputations)
 )
+stopifnot(imputation_cores >= 1L)
+imputation_list <- parallel::mclapply(
+  seq_len(as.integer(params$imputations)),
+  mc.cores = imputation_cores,
+  mc.preschedule = TRUE,
+  mc.set.seed = TRUE,
+  FUN = function(imputation_number) {
+    mice::mice(
+      imputation_data,
+      m = 1L,
+      maxit = as.integer(params$mice_iterations),
+      method = method,
+      predictorMatrix = predictor_matrix,
+      ignore = imputation_ignore,
+      seed = as.integer(params$seed) + imputation_number,
+      printFlag = TRUE,
+      nnet.MaxNWts = as.integer(params$polyreg_max_weights),
+      nnet.trace = FALSE
+    )
+  }
+)
+stopifnot(
+  length(imputation_list) == as.integer(params$imputations),
+  all(vapply(imputation_list, inherits, logical(1), what = "mids"))
+)
+imputed <- Reduce(mice::ibind, imputation_list)
+rm(imputation_list)
 log_progress(
   "imputation",
   paste("completed in", format_duration(as.numeric(difftime(
@@ -402,7 +559,7 @@ log_progress(
 )
 
 if (isTRUE(params$save_imputation_object)) {
-  saveRDS(imputed, "data/outputs/Models/corrected_birth_mice.rds",
+  saveRDS(imputed, file.path(model_output_dir, "corrected_birth_mice.rds"),
           compress = "xz")
 }
 ```
@@ -421,32 +578,37 @@ model_plan[, sample := fcase(
   default = "birth"
 )]
 
-thresholds <- 34L
-if (isTRUE(params$fit_55kt_sensitivity)) thresholds <- c(34L, 55L)
+thresholds <- analysis_thresholds
 model_plan <- model_plan[, .(threshold_kt = thresholds),
                          by = .(outcome, trimester, sample)]
-model_plan[, exposure := paste0("exposed_window_", trimester, "_", threshold_kt)]
+model_plan[, `:=`(
+  exposure = paste0("exposed_window_", trimester, "_", threshold_kt),
+  eligibility = paste0("exposure_eligible_", trimester)
+)]
 print(model_plan)
 ```
 
 ## Fit imputed logistic models
 
 `fixest::feglm` fits the same binomial-logit likelihood as ordinary logistic
-regression while absorbing birth-year, conception-season, and county fixed
-effects efficiently. County-clustered standard errors allow residual
-correlation among births assigned to the same county.
+regression while absorbing conception year-month and county fixed effects
+efficiently. County-clustered standard errors allow residual correlation among
+births assigned to the same county.
 
 ```{r fit-models}
-fit_one_model <- function(data, outcome, exposure, sample) {
+fit_one_model <- function(data, outcome, exposure, eligibility, sample) {
   keep <- rep(TRUE, nrow(data))
   if (sample == "term") keep <- data$gest_weeks >= 37
   if (sample == "complication") keep <- data$complication_eligible %in% TRUE
 
-  analysis <- data[keep & !is.na(data[[outcome]]) & !is.na(data[[exposure]])]
+  analysis <- data[
+    keep & data[[eligibility]] %in% TRUE &
+      !is.na(data[[outcome]]) & !is.na(data[[exposure]])
+  ]
   rhs <- paste(c(exposure, covariates), collapse = " + ")
   formula <- as.formula(paste0(
     outcome, " ~ ", rhs,
-    " | birth_year + conception_season + county_geoid"
+    " | conception_year_month + county_geoid"
   ))
   fit <- fixest::feglm(
     formula, data = analysis, family = "binomial",
@@ -477,7 +639,7 @@ for (imp in seq_len(params$imputations)) {
     result_index <- result_index + 1L
     spec <- model_plan[j]
     result <- fit_one_model(
-      completed, spec$outcome, spec$exposure, spec$sample
+      completed, spec$outcome, spec$exposure, spec$eligibility, spec$sample
     )
     model_results[[result_index]] <- cbind(
       data.table(imputation = imp), spec, result
@@ -494,7 +656,7 @@ for (imp in seq_len(params$imputations)) {
   completed_results <- rbindlist(model_results[seq_len(result_index)])
   fwrite(
     completed_results,
-    "data/outputs/Models/corrected_model_results_checkpoint.csv"
+    file.path(model_output_dir, "corrected_model_results_checkpoint.csv")
   )
   log_progress(
     "models",
@@ -507,7 +669,7 @@ for (imp in seq_len(params$imputations)) {
 
 imputation_model_results <- rbindlist(model_results)
 fwrite(imputation_model_results,
-       "data/outputs/Models/corrected_model_results_by_imputation.csv")
+       file.path(model_output_dir, "corrected_model_results_by_imputation.csv"))
 log_progress(
   "models",
   paste("all imputed models completed in", format_duration(as.numeric(difftime(
@@ -552,7 +714,7 @@ pooled_results <- imputation_model_results[,
 pooled_results[, estimate := sprintf("%.3f (%.3f, %.3f)",
                                       OR, conf_low, conf_high)]
 fwrite(pooled_results,
-       "data/outputs/Models/corrected_model_estimates_pooled.csv")
+       file.path(model_output_dir, "corrected_model_estimates_pooled.csv"))
 print(pooled_results)
 ```
 
@@ -565,7 +727,9 @@ if (isTRUE(params$fit_complete_case_sensitivity)) {
     spec <- model_plan[j]
     complete <- complete.cases(model_births[, c(covariates, spec$exposure), with = FALSE])
     analysis <- model_births[complete]
-    fit <- fit_one_model(analysis, spec$outcome, spec$exposure, spec$sample)
+    fit <- fit_one_model(
+      analysis, spec$outcome, spec$exposure, spec$eligibility, spec$sample
+    )
     se <- sqrt(fit$within_variance)
     cbind(spec, data.table(
       OR = exp(fit$beta),
@@ -576,27 +740,38 @@ if (isTRUE(params$fit_complete_case_sensitivity)) {
     ))
   }))
   fwrite(complete_case_results,
-         "data/outputs/Models/corrected_model_estimates_complete_case.csv")
+         file.path(model_output_dir, "corrected_model_estimates_complete_case.csv"))
 }
 ```
 
 ## Comparison with estimates reported in the manuscript
 
-The PDF does not contain Tables 2-4, so only estimates quoted in the Results
-text can be compared numerically. Unquoted manuscript cells remain missing
-rather than being reconstructed from rounded prose.
+The manuscript DOCX contains Tables 2-4. The comparison below transcribes every
+adjusted `Any Storm Effect` estimate reported for the outcome/trimester models,
+rather than relying only on estimates repeated in the Results prose.
 
 ```{r manuscript-comparison}
 manuscript_results <- data.table(
-  outcome = c("PTB", "PTB", "vPTB", "tLBW", "tLBW", "tLBW",
-              "vLBW", "GDM", "HDP"),
-  trimester = c("T1", "T2", "T2", "T1", "T2", "T3", "T2", "T1", "T1"),
-  old_OR = c(1.012, 1.008, 0.919, 1.023, 1.034, 0.966,
-             0.914, 1.050, 1.127),
-  old_low = c(1.004, 1.000, 0.902, 1.006, 1.019, 0.950,
-              0.896, 1.041, 1.114),
-  old_high = c(1.020, 1.016, 0.937, 1.040, 1.051, 0.982,
-               0.933, 1.068, 1.141)
+  outcome = c(
+    "PTB", "PTB", "vPTB", "vPTB", "tLBW", "tLBW", "tLBW",
+    "LBW", "LBW", "vLBW", "vLBW", "GDM", "HDP"
+  ),
+  trimester = c(
+    "T1", "T2", "T1", "T2", "T1", "T2", "T3",
+    "T1", "T2", "T1", "T2", "T1", "T1"
+  ),
+  old_OR = c(
+    1.012, 1.008, 0.985, 0.919, 1.023, 1.034, 0.966,
+    1.004, 1.003, 0.985, 0.914, 1.054, 1.127
+  ),
+  old_low = c(
+    1.004, 1.000, 0.966, 0.902, 1.006, 1.019, 0.950,
+    0.994, 0.995, 0.965, 0.896, 1.041, 1.114
+  ),
+  old_high = c(
+    1.020, 1.016, 1.005, 0.937, 1.040, 1.051, 0.982,
+    1.013, 1.012, 1.005, 0.933, 1.068, 1.141
+  )
 )
 
 comparison <- merge(
@@ -623,7 +798,7 @@ comparison[, `:=`(
 )]
 
 fwrite(comparison,
-       "data/outputs/Models/manuscript_vs_corrected_model_comparison.csv")
+       file.path(model_output_dir, "manuscript_vs_corrected_model_comparison.csv"))
 print(comparison[, .(
   outcome, trimester, old_estimate, corrected = estimate,
   percent_change_in_OR, direction_changed,
@@ -643,7 +818,10 @@ plot_data <- rbindlist(list(
                    paste(outcome, trimester) %in%
                    paste(manuscript_results$outcome, manuscript_results$trimester), .(
     outcome, trimester,
-    specification = "Corrected 34 kt + year/season/county FE",
+    specification = paste0(
+      "Corrected 34 kt ±", window_days,
+      " day + conception year-month/county FE"
+    ),
     OR, conf_low, conf_high
   )]
 ))
@@ -661,14 +839,14 @@ comparison_plot <- ggplot(
   labs(
     x = "Adjusted odds ratio (log scale)", y = NULL, color = NULL,
     title = "Manuscript and corrected tropical-cyclone exposure estimates",
-    subtitle = "Only manuscript estimates quoted in the Results text are shown"
+    subtitle = "All adjusted Any Storm Effect estimates from manuscript Tables 2–4"
   ) +
   theme_minimal() +
   theme(legend.position = "bottom")
 print(comparison_plot)
 
 ggsave(
-  "figs/model-comparison/manuscript-vs-corrected-forest-plot.png",
+  file.path(model_figure_dir, "manuscript-vs-corrected-forest-plot.png"),
   comparison_plot, width = 10, height = 7, dpi = 300
 )
 ```
@@ -685,20 +863,21 @@ summary_counts <- reported_comparison[, .(
   median_absolute_percent_OR_change = median(abs(percent_change_in_OR))
 )]
 print(summary_counts)
-fwrite(summary_counts, "data/outputs/Models/model_comparison_summary.csv")
+fwrite(summary_counts, file.path(model_output_dir, "model_comparison_summary.csv"))
 
 log_progress("complete", "model refit and comparison finished")
 ```
 
 ## Interpretation notes
 
-Differences between manuscript and corrected estimates reflect several changes
-at once: correction of the original space-time join, replacement of RMW track
-buffers with time-specific wind radii, replacement of the three-day phases
-with a ±7-day local-impact window, use of 34 kt as the primary threshold, and
-addition of calendar-year, season, and county fixed effects with county-clustered
-standard errors. The comparison therefore
-should not be interpreted as isolating a single modeling change.
+Both columns use a ±1-day exposure window, but differences between manuscript
+and corrected estimates still reflect several changes: correction of the
+original space-time join, replacement of RMW track buffers with time-specific
+34 kt wind radii, use of a residence-specific local impact date,
+trimester-specific eligibility, and addition of conception year-month and
+county fixed effects with county-clustered standard errors. The comparison
+therefore isolates window width from the prior ±7-day corrected analysis, but
+does not isolate the other exposure and model corrections from one another.
 
 The manuscript's statement “five iterations” is insufficient to reproduce its
 imputation exactly. This workflow records the number of imputed datasets,

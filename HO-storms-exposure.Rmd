@@ -11,6 +11,7 @@ params:
   window_days: 7
   chunk_size: 50000
   progress_every: 5
+  output_tag: "trimester-eligible-v2"
   rebuild_ibtracs: false
   write_outputs: true
 ---
@@ -52,6 +53,10 @@ dir.create(here("data", "outputs"), recursive = TRUE, showWarnings = FALSE)
 dir.create(here("figs", "exposure-validation"), recursive = TRUE,
            showWarnings = FALSE)
 
+output_tag <- as.character(params$output_tag)
+stopifnot(length(output_tag) == 1L, nzchar(output_tag))
+output_suffix <- paste0("-", output_tag)
+
 study_start <- as.Date(params$study_start)
 study_end <- as.Date(params$study_end)
 
@@ -71,7 +76,9 @@ stopifnot(
   progress_every > 0L
 )
 
-progress_file <- here("data", "derived", "birth-exposure-progress.log")
+progress_file <- here(
+  "data", "derived", paste0("birth-exposure-progress", output_suffix, ".log")
+)
 if (file.exists(progress_file)) file.remove(progress_file)
 
 log_progress <- function(stage, detail) {
@@ -136,8 +143,9 @@ stopifnot(length(ibtracs_shp) == 1L)
 ## Read and validate births
 
 Trimester definitions are weeks 1-13, weeks 14-28, and week 29 through
-delivery. The supplied trimester dates are retained, rather than reconstructed
-from delivery date, but their ordering and consistency are checked.
+delivery. Eligibility is evaluated separately for each trimester. A pregnancy
+that ends before a later trimester remains eligible for every earlier observed
+period; it is not excluded merely because it never reached trimester 3.
 
 ```{r births-read}
 birth_file <- here("data", "all_births_hurricane.csv")
@@ -169,26 +177,42 @@ births[, valid_coordinates :=
          is.finite(final_lon) & is.finite(final_lat) &
          between(final_lon, -88.0, -79.0) &
          between(final_lat, 24.0, 32.0)]
-births[, valid_gestation_dates :=
-         !is.na(trimester1_s_date) & !is.na(trimester1_e_date) &
-         !is.na(trimester2_s_date) & !is.na(trimester2_e_date) &
-         !is.na(trimester3_s_date) &
-         trimester1_s_date <= trimester1_e_date &
-         trimester1_e_date < trimester2_s_date &
-         trimester2_s_date <= trimester2_e_date &
-         trimester2_e_date < trimester3_s_date &
-         trimester3_s_date <= DATE_OF_BIRTH]
+
+# Period ends are truncated at delivery. This preserves early deliveries in
+# every trimester they actually reached and prevents post-delivery exposure.
+births[, `:=`(
+  T1_start = trimester1_s_date,
+  T1_end = pmin(trimester1_e_date, DATE_OF_BIRTH, na.rm = FALSE),
+  T2_start = trimester2_s_date,
+  T2_end = pmin(trimester2_e_date, DATE_OF_BIRTH, na.rm = FALSE),
+  T3_start = trimester3_s_date,
+  T3_end = DATE_OF_BIRTH
+)]
+
+births[, `:=`(
+  valid_T1_dates = !is.na(T1_start) & !is.na(T1_end) & T1_start <= T1_end,
+  valid_T2_dates = !is.na(T2_start) & !is.na(T2_end) & T2_start <= T2_end,
+  valid_T3_dates = !is.na(T3_start) & !is.na(T3_end) & T3_start <= T3_end
+)]
 
 birth_qa <- births[, .(
   n_births = .N,
   n_invalid_coordinates = sum(!valid_coordinates),
-  n_invalid_gestation_dates = sum(!valid_gestation_dates)
+  n_valid_T1_dates = sum(valid_T1_dates),
+  n_valid_T2_dates = sum(valid_T2_dates),
+  n_valid_T3_dates = sum(valid_T3_dates),
+  n_born_before_29_weeks = sum(
+    as.numeric(DATE_OF_BIRTH - T1_start) < 28 * 7,
+    na.rm = TRUE
+  )
 )]
 print(birth_qa)
 
-births_valid <- births[valid_coordinates & valid_gestation_dates]
+# County and storm assignment depend only on residence coordinates, not on
+# whether a pregnancy reached a later trimester.
+births_coordinate_valid <- births[valid_coordinates == TRUE]
 birth_points <- st_as_sf(
-  births_valid,
+  births_coordinate_valid,
   coords = c("final_lon", "final_lat"),
   crs = 4326,
   remove = FALSE
@@ -230,7 +254,7 @@ birth_points <- st_join(
   join = st_within,
   left = TRUE
 )
-stopifnot(nrow(birth_points) == nrow(births_valid),
+stopifnot(nrow(birth_points) == nrow(births_coordinate_valid),
           uniqueN(birth_points$ID) == nrow(birth_points))
 
 county_key <- as.data.table(st_drop_geometry(birth_points))[, .(
@@ -242,15 +266,28 @@ births[county_key, on = "ID", `:=`(
   county_name = i.county_name
 )]
 births[, valid_county := !is.na(county_geoid)]
+births[, `:=`(
+  exposure_eligible_T1 = valid_coordinates & valid_county & valid_T1_dates,
+  exposure_eligible_T2 = valid_coordinates & valid_county & valid_T2_dates,
+  exposure_eligible_T3 = valid_coordinates & valid_county & valid_T3_dates
+)]
+births[, exposure_eligible :=
+         exposure_eligible_T1 | exposure_eligible_T2 | exposure_eligible_T3]
 
 county_qa <- births[, .(
   n_births = .N,
-  n_valid_coordinates_and_dates = sum(valid_coordinates & valid_gestation_dates),
+  n_valid_coordinates = sum(valid_coordinates),
   n_county_matched = sum(valid_county),
-  n_county_unmatched = sum(valid_coordinates & valid_gestation_dates & !valid_county)
+  n_county_unmatched = sum(valid_coordinates & !valid_county),
+  n_eligible_T1 = sum(exposure_eligible_T1),
+  n_eligible_T2 = sum(exposure_eligible_T2),
+  n_eligible_T3 = sum(exposure_eligible_T3)
 )]
 print(county_qa)
-fwrite(county_qa, here("data", "derived", "birth-county-assignment-qa.csv"))
+fwrite(
+  county_qa,
+  here("data", "derived", paste0("birth-county-assignment-qa", output_suffix, ".csv"))
+)
 
 # Only polygon-matched births enter the spatial storm assignment.
 birth_points <- birth_points[!is.na(birth_points$county_geoid), ]
@@ -463,16 +500,34 @@ storm_center_key <- paste(storm_centers$SID, storm_centers$observation_time)
 
 assign_exposure_chunk <- function(index) {
   births_chunk <- st_transform(birth_points[index, ], analysis_crs) |>
-    select(ID)
+    select(ID, T1_start, DATE_OF_BIRTH)
+
+  # The birth file is ordered chronologically. Restricting the candidate wind
+  # fields to the dates represented in each chunk prevents a spatial match to
+  # every Florida storm in the full study period. The row-level filter below
+  # then enforces the exact pregnancy-specific risk interval.
+  candidate_start <- min(births_chunk$T1_start, na.rm = TRUE) - window_days
+  candidate_end <- max(births_chunk$DATE_OF_BIRTH, na.rm = TRUE) + window_days
+  candidate_fields <- wind_fields[
+    wind_fields$observation_date >= as.Date(candidate_start) &
+      wind_fields$observation_date <= as.Date(candidate_end),
+  ]
+  if (nrow(candidate_fields) == 0L) return(NULL)
 
   matched <- st_join(
     births_chunk,
-    wind_fields |>
+    candidate_fields |>
       select(SID, NAME, observation_time, observation_date, USA_WIND,
              threshold_kt, observed_quadrants),
     join = st_within,
     left = FALSE
   )
+  if (nrow(matched) == 0L) return(NULL)
+
+  matched <- matched[
+    as.IDate(matched$observation_date) >= matched$T1_start - window_days &
+      as.IDate(matched$observation_date) <= matched$DATE_OF_BIRTH + window_days,
+  ]
   if (nrow(matched) == 0L) return(NULL)
 
   matched_key <- paste(matched$SID, matched$observation_time)
@@ -609,13 +664,23 @@ impact date itself occurred during the trimester.
 
 ```{r trimester-assign}
 gestation_intervals <- rbindlist(list(
-  births_valid[, .(ID, trimester = "T1", period_start = trimester1_s_date,
-                   period_end = trimester1_e_date)],
-  births_valid[, .(ID, trimester = "T2", period_start = trimester2_s_date,
-                   period_end = trimester2_e_date)],
-  births_valid[, .(ID, trimester = "T3", period_start = trimester3_s_date,
-                   period_end = DATE_OF_BIRTH)]
+  births[exposure_eligible_T1 == TRUE, .(
+    ID, trimester = "T1", period_start = T1_start, period_end = T1_end
+  )],
+  births[exposure_eligible_T2 == TRUE, .(
+    ID, trimester = "T2", period_start = T2_start, period_end = T2_end
+  )],
+  births[exposure_eligible_T3 == TRUE, .(
+    ID, trimester = "T3", period_start = T3_start, period_end = T3_end
+  )]
 ))
+
+stopifnot(
+  !anyNA(gestation_intervals$period_start),
+  !anyNA(gestation_intervals$period_end),
+  all(gestation_intervals$period_start <= gestation_intervals$period_end),
+  gestation_intervals[, .N, by = .(ID, trimester)][, all(N == 1L)]
+)
 
 event_windows <- merge(
   birth_storm_events,
@@ -648,12 +713,10 @@ exposure_wide <- dcast(
   sep = "_"
 )
 
-binary_count_columns <- grep(
-  "^(exposed_window|acute_direct|n_storms)_", names(exposure_wide), value = TRUE
-)
-for (column in binary_count_columns) {
-  set(exposure_wide, which(is.na(exposure_wide[[column]])), column, 0L)
-}
+# Do not fill absent cells here. A birth represented in one trimester can be
+# structurally ineligible for a later trimester. Eligible missing cells are
+# set to zero only after trimester eligibility is joined below; ineligible
+# cells must remain NA.
 ```
 
 ## Merge by birth ID and add fixed-effect variables
@@ -663,24 +726,6 @@ This is a keyed merge, not an ordered column bind. `birth_year_fe` and
 provided for a stricter seasonality specification.
 
 ```{r analytic-merge}
-all_files <- list.files(
-  here("data", "21_definition_final_re"),
-  pattern = "[.]Rdata$", full.names = TRUE
-)
-stopifnot(length(all_files) > 0L)
-
-load_one_object <- function(path) {
-  environment <- new.env(parent = emptyenv())
-  object_names <- load(path, envir = environment)
-  stopifnot(length(object_names) == 1L)
-  as.data.table(environment[[object_names]])
-}
-
-analytic_births <- rbindlist(
-  lapply(all_files, load_one_object), use.names = TRUE, fill = TRUE
-)
-stopifnot(!anyNA(analytic_births$ID), uniqueN(analytic_births$ID) == nrow(analytic_births))
-
 # Approved analytic columns sent by Jessica Broach on April 14, 2025. The
 # corrected exposure variables, eligibility flag, and temporal fixed-effect
 # variables are appended later in this workflow.
@@ -713,6 +758,28 @@ approved_birth_columns <- c(
   "d_from29_wk_98_3", "trimester1_length", "trimester2_length",
   "trimester3_length"
 )
+
+all_files <- list.files(
+  here("data", "21_definition_final_re"),
+  pattern = "[.]Rdata$", full.names = TRUE
+)
+stopifnot(length(all_files) > 0L)
+
+load_one_object <- function(path) {
+  environment <- new.env(parent = emptyenv())
+  object_names <- load(path, envir = environment)
+  stopifnot(length(object_names) == 1L)
+  yearly_births <- as.data.table(environment[[object_names]])
+  available_columns <- intersect(approved_birth_columns, names(yearly_births))
+  yearly_births[, ..available_columns]
+}
+
+# Select within each yearly object before row-binding. Loading all source
+# columns for every year before subsetting can exceed R's vector-memory limit.
+analytic_births <- rbindlist(
+  lapply(all_files, load_one_object), use.names = TRUE, fill = TRUE
+)
+stopifnot(!anyNA(analytic_births$ID), uniqueN(analytic_births$ID) == nrow(analytic_births))
 
 missing_approved_columns <- setdiff(approved_birth_columns, names(analytic_births))
 if (length(missing_approved_columns) > 0L) {
@@ -777,7 +844,10 @@ analytic_births[, conception_season := fcase(
 
 birth_exposure_eligibility <- births[, .(
   ID,
-  exposure_eligible = valid_coordinates & valid_gestation_dates & valid_county,
+  exposure_eligible,
+  exposure_eligible_T1,
+  exposure_eligible_T2,
+  exposure_eligible_T3,
   county_geoid,
   county_name
 )]
@@ -818,7 +888,13 @@ analytic_corrected <- merge(
   all.x = TRUE,
   sort = FALSE
 )
-analytic_corrected[is.na(exposure_eligible), exposure_eligible := FALSE]
+eligibility_columns <- c(
+  "exposure_eligible", "exposure_eligible_T1",
+  "exposure_eligible_T2", "exposure_eligible_T3"
+)
+for (column in eligibility_columns) {
+  analytic_corrected[is.na(get(column)), (column) := FALSE]
+}
 
 analytic_corrected <- merge(
   analytic_corrected,
@@ -837,9 +913,14 @@ for (column in expected_exposure_columns) {
   if (!column %in% names(analytic_corrected)) {
     analytic_corrected[, (column) := NA_integer_]
   }
+  trimester <- sub(
+    "^(exposed_window|acute_direct|n_storms)_(T[123])_.*$",
+    "\\2", column
+  )
+  eligibility_column <- paste0("exposure_eligible_", trimester)
   set(
     analytic_corrected,
-    which(analytic_corrected$exposure_eligible &
+    which(analytic_corrected[[eligibility_column]] &
             is.na(analytic_corrected[[column]])),
     column,
     0L
@@ -863,7 +944,12 @@ stopifnot(
 for (trimester in c("T1", "T2", "T3")) {
   primary <- analytic_corrected[[paste0("exposed_window_", trimester, "_34")]]
   sensitivity <- analytic_corrected[[paste0("exposed_window_", trimester, "_55")]]
-  stopifnot(all(is.na(sensitivity) | is.na(primary) | sensitivity <= primary))
+  eligible <- analytic_corrected[[paste0("exposure_eligible_", trimester)]]
+  stopifnot(
+    all(!eligible | (!is.na(primary) & !is.na(sensitivity))),
+    all(eligible | (is.na(primary) & is.na(sensitivity))),
+    all(is.na(sensitivity) | is.na(primary) | sensitivity <= primary)
+  )
 }
 ```
 
@@ -898,12 +984,57 @@ county_demographic_coverage <- analytic_corrected[, .(
   lagged_acs5_coverage = mean(!is.na(county_demo_year_lag1))
 ), by = birth_year]
 
+trimester_eligibility_qa <- rbindlist(lapply(c("T1", "T2", "T3"), function(trimester) {
+  eligible_column <- paste0("exposure_eligible_", trimester)
+  exposure_column <- paste0("exposed_window_", trimester, "_34")
+  analytic_corrected[, .(
+    trimester = trimester,
+    births = .N,
+    eligible = sum(get(eligible_column)),
+    exposed = sum(get(exposure_column) == 1L, na.rm = TRUE),
+    ineligible = sum(!get(eligible_column)),
+    PTB_source = sum(
+      suppressWarnings(as.numeric(GESTATION_WEEKS)) < 37 &
+        suppressWarnings(as.integer(PLURALITY_CODE)) == 1L,
+      na.rm = TRUE
+    ),
+    PTB_eligible = sum(
+      get(eligible_column) &
+        suppressWarnings(as.numeric(GESTATION_WEEKS)) < 37 &
+        suppressWarnings(as.integer(PLURALITY_CODE)) == 1L,
+      na.rm = TRUE
+    ),
+    vPTB_source = sum(
+      suppressWarnings(as.numeric(GESTATION_WEEKS)) < 32 &
+        suppressWarnings(as.integer(PLURALITY_CODE)) == 1L,
+      na.rm = TRUE
+    ),
+    vPTB_eligible = sum(
+      get(eligible_column) &
+        suppressWarnings(as.numeric(GESTATION_WEEKS)) < 32 &
+        suppressWarnings(as.integer(PLURALITY_CODE)) == 1L,
+      na.rm = TRUE
+    )
+  )]
+}))
+
 print(exposure_prevalence)
 print(storm_event_qa[order(-exposed_births)][1:min(.N, 30L)])
 print(county_demographic_coverage)
+print(trimester_eligibility_qa)
 fwrite(
   county_demographic_coverage,
-  here("data", "derived", "birth-county-demographic-coverage.csv")
+  here(
+    "data", "derived",
+    paste0("birth-county-demographic-coverage", output_suffix, ".csv")
+  )
+)
+fwrite(
+  trimester_eligibility_qa,
+  here(
+    "data", "derived",
+    paste0("birth-trimester-eligibility-qa", output_suffix, ".csv")
+  )
 )
 
 prevalence_plot <- ggplot(
@@ -922,7 +1053,10 @@ prevalence_plot <- ggplot(
 print(prevalence_plot)
 
 ggsave(
-  here("figs", "exposure-validation", "exposure-prevalence-by-year.png"),
+  here(
+    "figs", "exposure-validation",
+    paste0("exposure-prevalence-by-year", output_suffix, ".png")
+  ),
   prevalence_plot, width = 10, height = 6, dpi = 300
 )
 
@@ -944,19 +1078,31 @@ one row per birth and is the input for refitting all birth-outcome models.
 if (isTRUE(params$write_outputs)) {
   fwrite(
     birth_storm_events,
-    here("data", "derived", "birth-storm-events-time-specific.csv")
+    here(
+      "data", "derived",
+      paste0("birth-storm-events-time-specific", output_suffix, ".csv")
+    )
   )
   fwrite(
     storm_radius_coverage,
-    here("data", "derived", "storm-wind-radius-coverage.csv")
+    here(
+      "data", "derived",
+      paste0("storm-wind-radius-coverage", output_suffix, ".csv")
+    )
   )
   fwrite(
     storm_event_qa,
-    here("data", "derived", "birth-storm-exposure-validation.csv")
+    here(
+      "data", "derived",
+      paste0("birth-storm-exposure-validation", output_suffix, ".csv")
+    )
   )
   saveRDS(
     analytic_corrected,
-    here("data", "outputs", "All_Births_Corrected_Storm_Exposure.rds"),
+    here(
+      "data", "outputs",
+      paste0("All_Births_Corrected_Storm_Exposure", output_suffix, ".rds")
+    ),
     compress = "xz"
   )
 }
@@ -967,8 +1113,8 @@ log_progress("complete", "corrected birth exposure workflow finished")
 
 All previously reported birth-outcome models must be refit. The 34 kt
 `exposed_window` variable is primary; the corresponding 55 kt variable is the
-sensitivity exposure. Every model must include calendar-year and season fixed
-effects, residence-county fixed effects, and county-clustered standard errors.
+sensitivity exposure. Every model must include conception year-month and
+residence-county fixed effects, with county-clustered standard errors.
 The existing substantive covariates should be added to `covariates` after their
 coding and missing-data strategy are finalized. `HO-storms-models.Rmd` is the
 authoritative implementation.
@@ -982,9 +1128,11 @@ covariates <- c(
 fit_birth_model <- function(data, outcome, trimester = "T1",
                             threshold_kt = 34L) {
   exposure <- paste0("exposed_window_", trimester, "_", threshold_kt)
+  eligibility <- paste0("exposure_eligible_", trimester)
+  data <- data[get(eligibility) %in% TRUE]
   model_formula <- as.formula(paste0(
     outcome, " ~ ", paste(c(exposure, covariates), collapse = " + "),
-    " | birth_year + conception_season + county_geoid"
+    " | conception_year_month + county_geoid"
   ))
   fixest::feglm(
     model_formula, data = data, family = "binomial",

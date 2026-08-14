@@ -1,0 +1,541 @@
+---
+title: "Time-to-event models for tropical-cyclone exposure and preterm delivery"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+params:
+  corrected_data: "data/outputs/All_Births_Corrected_Storm_Exposure-trimester-eligible-v2.rds"
+  event_data: "data/derived/birth-storm-events-time-specific-trimester-eligible-v2.csv"
+  output_dir: "data/outputs/Survival-trimester-eligible-v2"
+  entry_week: 20
+  acute_days: [3, 7]
+  fit_intensity_models: true
+---
+
+## Purpose
+
+These models replace trimester-level ever/never exposure with gestational-age
+time-to-event analyses. A pregnancy contributes unexposed person-time until the
+residence-specific local storm impact. Storms after delivery never define
+exposure. The primary time-varying covariate switches on at local impact and
+remains on; acute sensitivity covariates are on from impact through either three
+or seven days after impact. The pre-impact half of the descriptive ±7-day window is not used
+as a causal time-varying exposure because it would condition current risk on a
+future storm.
+
+Pregnancies enter follow-up at 20 completed weeks. PTB follow-up ends at
+delivery or 37 weeks; vPTB follow-up ends at delivery or 32 weeks. County and
+conception year-month are controlled through joint Cox strata, and robust
+standard errors are clustered by county. This first survival analysis uses
+complete covariate cases so its purpose—diagnosing gestational-time selection—
+is not mixed with another imputation exercise.
+
+```{r setup, message=FALSE, warning=FALSE}
+required_packages <- c("data.table", "survival")
+missing_packages <- required_packages[
+  !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
+]
+if (length(missing_packages)) {
+  stop("Missing packages: ", paste(missing_packages, collapse = ", "))
+}
+
+library(data.table)
+library(survival)
+
+output_dir <- as.character(params$output_dir)
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+progress_file <- file.path(output_dir, "survival-model-progress.log")
+if (file.exists(progress_file)) file.remove(progress_file)
+
+log_progress <- function(stage, detail) {
+  line <- sprintf(
+    "%s | %-20s | %s",
+    format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"), stage, detail
+  )
+  message(line)
+  write(line, progress_file, append = TRUE)
+  invisible(line)
+}
+
+entry_day <- as.integer(params$entry_week) * 7L
+acute_windows <- sort(unique(as.integer(unlist(params$acute_days))))
+stopifnot(entry_day >= 0L, length(acute_windows) >= 1L, all(acute_windows >= 0L))
+log_progress("setup", "time-to-event workflow started")
+```
+
+## Read and recode the birth cohort
+
+```{r births}
+stopifnot(file.exists(params$corrected_data), file.exists(params$event_data))
+births <- readRDS(params$corrected_data)
+setDT(births)
+
+source_columns <- c(
+  "ID", "DATE_OF_BIRTH", "conception_date", "GESTATION_WEEKS",
+  "PLURALITY_CODE", "county_geoid", "conception_year", "conception_month",
+  "exposure_eligible_T1", "Mother_CalculatedRace",
+  "Mother_CalculatedHisp", "MOTHER_EDCODE", "Father_CalculatedRace",
+  "Father_CalculatedHisp", "FATHER_EDCODE", "MOTHER_AGE",
+  "PrePregnancy_BMI", "MR_PREV_PRETERM", "MOTHER_WIC_YESNO",
+  "PRINCIPAL_SRCPAY_CODE"
+)
+missing_columns <- setdiff(source_columns, names(births))
+if (length(missing_columns)) {
+  stop("Corrected data missing: ", paste(missing_columns, collapse = ", "))
+}
+births <- births[, ..source_columns]
+
+normalize_missing_code <- function(
+    x, missing = c("", "NULL", "NA", "N/A", "U", "UNK", "UNKNOWN")) {
+  value <- trimws(toupper(as.character(x)))
+  value[value %in% missing] <- NA_character_
+  value
+}
+
+binary_yes_no <- function(x) {
+  value <- normalize_missing_code(x)
+  fcase(
+    value %in% c("Y", "YES", "1", "TRUE"), 1L,
+    value %in% c("N", "NO", "0", "FALSE"), 0L,
+    default = NA_integer_
+  )
+}
+
+collapse_race <- function(x) {
+  value <- suppressWarnings(as.integer(normalize_missing_code(x)))
+  factor(fcase(
+    value == 1L, "White", value == 2L, "Black",
+    !is.na(value) & value != 99L, "Other", default = NA_character_
+  ), levels = c("White", "Black", "Other"))
+}
+
+collapse_ethnicity <- function(x) {
+  value <- suppressWarnings(as.integer(normalize_missing_code(x)))
+  factor(fcase(
+    value == 0L, "Non-Hispanic", value %in% 1:98, "Hispanic",
+    default = NA_character_
+  ), levels = c("Non-Hispanic", "Hispanic"))
+}
+
+collapse_education <- function(x) {
+  value <- suppressWarnings(as.integer(normalize_missing_code(x)))
+  factor(fcase(
+    value %in% 1:2, "Less than high school",
+    value == 3L, "High school or GED",
+    value %in% 4:5, "Some college or associate degree",
+    value %in% 6:8, "Bachelor degree or higher",
+    default = NA_character_
+  ), levels = c(
+    "Less than high school", "High school or GED",
+    "Some college or associate degree", "Bachelor degree or higher"
+  ))
+}
+
+collapse_payment <- function(x) {
+  value <- suppressWarnings(as.integer(normalize_missing_code(x)))
+  factor(fcase(
+    value == 1L, "Medicaid", value == 2L, "Private insurance",
+    value == 3L, "Self-pay", !is.na(value) & value != 9L, "Other",
+    default = NA_character_
+  ), levels = c("Medicaid", "Private insurance", "Self-pay", "Other"))
+}
+
+births[, `:=`(
+  DATE_OF_BIRTH = as.IDate(DATE_OF_BIRTH),
+  conception_date = as.IDate(conception_date),
+  gest_weeks_reported = suppressWarnings(as.numeric(GESTATION_WEEKS)),
+  singleton = suppressWarnings(as.integer(PLURALITY_CODE)) == 1L,
+  maternal_race = collapse_race(Mother_CalculatedRace),
+  maternal_ethnicity = collapse_ethnicity(Mother_CalculatedHisp),
+  maternal_education = collapse_education(MOTHER_EDCODE),
+  paternal_race = collapse_race(Father_CalculatedRace),
+  paternal_ethnicity = collapse_ethnicity(Father_CalculatedHisp),
+  paternal_education = collapse_education(FATHER_EDCODE),
+  maternal_age = suppressWarnings(as.numeric(MOTHER_AGE)),
+  previous_preterm = factor(binary_yes_no(MR_PREV_PRETERM), levels = 0:1),
+  wic = factor(binary_yes_no(MOTHER_WIC_YESNO), levels = 0:1),
+  payment = collapse_payment(PRINCIPAL_SRCPAY_CODE),
+  county_geoid = factor(county_geoid),
+  conception_year_month = factor(fifelse(
+    !is.na(conception_year) & conception_month %in% 1:12,
+    sprintf("%04d-%02d", as.integer(conception_year),
+            as.integer(conception_month)),
+    NA_character_
+  ))
+)]
+
+bmi_numeric <- suppressWarnings(as.numeric(normalize_missing_code(
+  births$PrePregnancy_BMI
+)))
+births[, bmi_category := cut(
+  bmi_numeric, breaks = c(-Inf, 18.5, 25, 30, Inf), right = FALSE,
+  labels = c("Underweight", "Normal", "Overweight", "Obesity")
+)]
+
+covariates <- c(
+  "maternal_race", "maternal_ethnicity", "maternal_education",
+  "paternal_race", "paternal_ethnicity", "paternal_education",
+  "maternal_age", "bmi_category", "previous_preterm", "wic", "payment"
+)
+
+births[, gestational_day := as.integer(DATE_OF_BIRTH - conception_date)]
+births[, reported_day := round(gest_weeks_reported * 7)]
+births[, county_month_stratum := interaction(
+  county_geoid, conception_year_month, drop = TRUE, lex.order = TRUE
+)]
+
+date_qa <- births[, .(
+  births = .N,
+  valid_gestational_days = sum(between(gestational_day, entry_day, 45L * 7L)),
+  median_date_minus_reported_days = median(
+    gestational_day - reported_day, na.rm = TRUE
+  ),
+  p01_date_minus_reported_days = quantile(
+    gestational_day - reported_day, 0.01, na.rm = TRUE
+  ),
+  p99_date_minus_reported_days = quantile(
+    gestational_day - reported_day, 0.99, na.rm = TRUE
+  )
+)]
+fwrite(date_qa, file.path(output_dir, "gestational-date-qa.csv"))
+
+complete <- complete.cases(births[, c(
+  covariates, "gestational_day", "county_geoid",
+  "conception_year_month", "county_month_stratum"
+), with = FALSE])
+
+analysis_births <- births[
+  exposure_eligible_T1 %in% TRUE & singleton %in% TRUE & complete &
+    between(gestational_day, entry_day, 45L * 7L)
+]
+analysis_births <- analysis_births[, c(
+  "ID", "DATE_OF_BIRTH", "conception_date", "gestational_day",
+  "gest_weeks_reported", "county_geoid", "conception_year_month",
+  "county_month_stratum", covariates
+), with = FALSE]
+setkey(analysis_births, ID)
+
+cohort_qa <- data.table(
+  source_births = nrow(births),
+  complete_case_survival_births = nrow(analysis_births),
+  counties = uniqueN(analysis_births$county_geoid),
+  county_month_strata = uniqueN(analysis_births$county_month_stratum)
+)
+fwrite(cohort_qa, file.path(output_dir, "survival-cohort-qa.csv"))
+log_progress("births", sprintf("retained %s complete-case singleton births",
+                                format(nrow(analysis_births), big.mark = ",")))
+rm(births)
+gc()
+```
+
+## Read local storm impacts and define intensity
+
+The intensity model distinguishes tropical-storm observations (34–63 kt
+center intensity) from category-1-or-higher observations (at least 64 kt).
+Both indicators are time varying and are entered jointly, so their coefficients
+can be contrasted directly.
+
+```{r events}
+events_34 <- fread(
+  params$event_data,
+  select = c("ID", "SID", "threshold_kt", "USA_WIND", "local_impact_date")
+)[threshold_kt == 34L]
+events_34[, local_impact_date := as.IDate(local_impact_date)]
+events_34 <- merge(
+  events_34,
+  analysis_births[, .(ID, conception_date, DATE_OF_BIRTH)],
+  by = "ID", all = FALSE, sort = FALSE
+)
+events_34[, event_day := as.integer(local_impact_date - conception_date)]
+
+# Impacts on or after the delivery date cannot precede the delivery event.
+events_34 <- events_34[
+  !is.na(event_day) & !is.na(USA_WIND) &
+    local_impact_date < DATE_OF_BIRTH & event_day >= 0L
+]
+events_34[, storm_class := fifelse(USA_WIND >= 64, "hu", "ts")]
+events_34 <- unique(events_34[, .(ID, SID, event_day, storm_class)])
+
+event_qa <- events_34[, .(
+  birth_storm_impacts = .N,
+  exposed_births = uniqueN(ID),
+  tropical_storm_impacts = sum(storm_class == "ts"),
+  hurricane_impacts = sum(storm_class == "hu"),
+  first_event_day = min(event_day),
+  last_event_day = max(event_day)
+)]
+fwrite(event_qa, file.path(output_dir, "survival-event-qa.csv"))
+log_progress("events", sprintf("retained %s pre-delivery local impacts",
+                                format(nrow(events_34), big.mark = ",")))
+```
+
+## Construct counting-process intervals
+
+```{r intervals}
+make_risk_base <- function(outcome, cutoff_week) {
+  cutoff_day <- as.integer(cutoff_week) * 7L
+  risk <- copy(analysis_births)
+  risk[, `:=`(
+    outcome = outcome,
+    cutoff_day = cutoff_day,
+    followup_stop = pmin(gestational_day, cutoff_day),
+    status = as.integer(gestational_day < cutoff_day)
+  )]
+  risk[followup_stop > entry_day]
+}
+
+make_event_long <- function(risk, family) {
+  relevant <- merge(
+    events_34[, .(ID, event_day, storm_class)],
+    risk[, .(ID, followup_stop)], by = "ID", all = FALSE, sort = FALSE
+  )[event_day < followup_stop]
+
+  if (family == "any") {
+    relevant[, exposure_var := "any"]
+  } else if (family == "intensity") {
+    relevant[, exposure_var := storm_class]
+  } else {
+    stop("Unknown exposure family: ", family)
+  }
+  unique(relevant[, .(ID, event_day, exposure_var, followup_stop)])
+}
+
+build_intervals <- function(risk, family, structure, acute_days = NA_integer_) {
+  exposure_vars <- if (family == "any") "any" else c("ts", "hu")
+  event_long <- make_event_long(risk, family)
+
+  if (structure == "cumulative") {
+    event_long <- event_long[, .(event_day = min(event_day)),
+                             by = .(ID, exposure_var, followup_stop)]
+    event_long[, `:=`(
+      start = pmax(event_day, entry_day),
+      end = NA_integer_
+    )]
+    changes <- event_long[start < followup_stop,
+      .(ID, time = start, exposure_var, delta = 1L)]
+  } else if (structure == "acute") {
+    acute_length <- as.integer(acute_days) + 1L
+    stopifnot(length(acute_length) == 1L, !is.na(acute_length), acute_length >= 1L)
+    event_long[, `:=`(
+      start = pmax(event_day, entry_day),
+      end = pmin(event_day + acute_length, followup_stop)
+    )]
+    event_long <- event_long[start < end]
+    changes <- rbindlist(list(
+      event_long[, .(ID, time = start, exposure_var, delta = 1L)],
+      event_long[, .(ID, time = end, exposure_var, delta = -1L)]
+    ))
+  } else {
+    stop("Unknown structure: ", structure)
+  }
+
+  if (nrow(changes)) {
+    change_wide <- dcast(
+      changes, ID + time ~ exposure_var, value.var = "delta",
+      fun.aggregate = sum, fill = 0L
+    )
+  } else {
+    change_wide <- data.table(ID = character(), time = integer())
+  }
+  for (variable in exposure_vars) {
+    if (!variable %in% names(change_wide)) change_wide[, (variable) := 0L]
+  }
+
+  points <- rbindlist(list(
+    risk[, .(ID, time = entry_day)],
+    risk[, .(ID, time = followup_stop)],
+    change_wide[, .(ID, time)]
+  ))
+  points <- unique(points)
+  points <- merge(points, change_wide, by = c("ID", "time"),
+                  all.x = TRUE, sort = FALSE)
+  for (variable in exposure_vars) {
+    set(points, which(is.na(points[[variable]])), variable, 0L)
+  }
+  setorder(points, ID, time)
+  points[, (exposure_vars) := lapply(.SD, cumsum),
+         by = ID, .SDcols = exposure_vars]
+  points[, tstop := shift(time, type = "lead"), by = ID]
+  points <- points[!is.na(tstop) & time < tstop]
+  setnames(points, "time", "tstart")
+  for (variable in exposure_vars) {
+    points[, (paste0(variable, "_td")) := as.integer(get(variable) > 0L)]
+  }
+  points[, (exposure_vars) := NULL]
+
+  intervals <- merge(
+    points, risk, by = "ID", all.x = TRUE, sort = FALSE
+  )
+  intervals[, event := as.integer(status == 1L & tstop == followup_stop)]
+  setorder(intervals, ID, tstart)
+
+  duration_qa <- intervals[, .(
+    observed_duration = sum(tstop - tstart),
+    expected_duration = first(followup_stop) - entry_day,
+    events = sum(event)
+  ), by = ID]
+  stopifnot(
+    all(intervals$tstart < intervals$tstop),
+    all(duration_qa$observed_duration == duration_qa$expected_duration),
+    all(duration_qa$events <= 1L),
+    sum(intervals$event) == sum(risk$status)
+  )
+  intervals
+}
+```
+
+## Fit Cox models
+
+```{r models}
+covariate_rhs <- paste(covariates, collapse = " + ")
+
+extract_cox <- function(fit, terms, contrast = NULL) {
+  coefficients <- coef(fit)
+  variance <- vcov(fit)
+  rows <- rbindlist(lapply(terms, function(term) {
+    beta <- unname(coefficients[term])
+    se <- sqrt(variance[term, term])
+    data.table(
+      contrast = term, beta = beta, standard_error = se,
+      HR = exp(beta), conf_low = exp(beta - qnorm(0.975) * se),
+      conf_high = exp(beta + qnorm(0.975) * se),
+      p_value = 2 * pnorm(-abs(beta / se))
+    )
+  }))
+  if (!is.null(contrast)) {
+    beta <- unname(coefficients[contrast[1]] - coefficients[contrast[2]])
+    se <- sqrt(
+      variance[contrast[1], contrast[1]] +
+        variance[contrast[2], contrast[2]] -
+        2 * variance[contrast[1], contrast[2]]
+    )
+    rows <- rbind(rows, data.table(
+      contrast = "hu_vs_ts", beta = beta, standard_error = se,
+      HR = exp(beta), conf_low = exp(beta - qnorm(0.975) * se),
+      conf_high = exp(beta + qnorm(0.975) * se),
+      p_value = 2 * pnorm(-abs(beta / se))
+    ))
+  }
+  rows
+}
+
+cumulative_plan <- CJ(
+  outcome = c("PTB", "vPTB"),
+  structure = "cumulative",
+  family = c("any", "intensity"),
+  sorted = FALSE
+)
+cumulative_plan[, acute_days := NA_integer_]
+acute_plan <- CJ(
+  outcome = c("PTB", "vPTB"),
+  structure = "acute",
+  family = c("any", "intensity"),
+  acute_days = acute_windows,
+  sorted = FALSE
+)
+model_plan <- rbindlist(list(cumulative_plan, acute_plan), use.names = TRUE)
+if (!isTRUE(params$fit_intensity_models)) {
+  model_plan <- model_plan[family == "any"]
+}
+
+results <- vector("list", nrow(model_plan))
+interval_qa <- vector("list", nrow(model_plan))
+
+for (i in seq_len(nrow(model_plan))) {
+  spec <- model_plan[i]
+  cutoff_week <- if (spec$outcome == "PTB") 37L else 32L
+  risk <- make_risk_base(spec$outcome, cutoff_week)
+  intervals <- build_intervals(
+    risk, spec$family, spec$structure, acute_days = spec$acute_days
+  )
+
+  exposure_terms <- if (spec$family == "any") {
+    "any_td"
+  } else {
+    c("ts_td", "hu_td")
+  }
+  formula <- as.formula(paste0(
+    "Surv(tstart, tstop, event) ~ ",
+    paste(c(exposure_terms, covariates), collapse = " + "),
+    " + strata(county_month_stratum) + cluster(county_geoid)"
+  ))
+  fit <- coxph(
+    formula, data = intervals, ties = "efron",
+    model = FALSE, x = FALSE, y = FALSE
+  )
+  extracted <- extract_cox(
+    fit, exposure_terms,
+    contrast = if (spec$family == "intensity") c("hu_td", "ts_td") else NULL
+  )
+  exposed_birth_count <- intervals[, .(
+    ever_exposed = any(rowSums(.SD) > 0L)
+  ), by = ID, .SDcols = exposure_terms][ever_exposed == TRUE, .N]
+  extracted[, `:=`(
+    outcome = spec$outcome,
+    structure = spec$structure,
+    family = spec$family,
+    acute_days = spec$acute_days,
+    births = uniqueN(intervals$ID),
+    person_intervals = nrow(intervals),
+    events = sum(intervals$event),
+    exposed_births = exposed_birth_count
+  )]
+  results[[i]] <- extracted
+  interval_qa[[i]] <- data.table(
+    outcome = spec$outcome, structure = spec$structure,
+    family = spec$family, acute_days = spec$acute_days,
+    births = uniqueN(intervals$ID),
+    intervals = nrow(intervals), events = sum(intervals$event),
+    min_tstart = min(intervals$tstart), max_tstop = max(intervals$tstop)
+  )
+  fwrite(
+    rbindlist(results[seq_len(i)]),
+    file.path(output_dir, "time-to-event-estimates-checkpoint.csv")
+  )
+  log_progress(
+    "models",
+    sprintf("model %s/%s: %s %s %s%s", i, nrow(model_plan),
+            spec$outcome, spec$structure, spec$family,
+            ifelse(is.na(spec$acute_days), "", paste0(" day0-", spec$acute_days)))
+  )
+  rm(fit, intervals, risk)
+  gc()
+}
+
+survival_results <- rbindlist(results)
+survival_results[, estimate := sprintf(
+  "%.3f (%.3f, %.3f)", HR, conf_low, conf_high
+)]
+setcolorder(survival_results, c(
+  "outcome", "structure", "acute_days", "family", "contrast", "HR", "conf_low",
+  "conf_high", "p_value", "births", "person_intervals", "events",
+  "exposed_births", "estimate", "beta", "standard_error"
+))
+fwrite(survival_results, file.path(output_dir, "time-to-event-estimates.csv"))
+fwrite(rbindlist(interval_qa), file.path(output_dir, "time-to-event-interval-qa.csv"))
+
+acute_comparison <- dcast(
+  survival_results[structure == "acute"],
+  outcome + family + contrast ~ paste0("day0_", acute_days),
+  value.var = c("HR", "conf_low", "conf_high", "p_value", "exposed_births")
+)
+if (all(c("HR_day0_3", "HR_day0_7") %in% names(acute_comparison))) {
+  acute_comparison[, percent_HR_difference_0_3_vs_0_7 :=
+    100 * (HR_day0_3 / HR_day0_7 - 1)]
+}
+fwrite(acute_comparison, file.path(output_dir, "acute-window-comparison.csv"))
+print(survival_results)
+log_progress("complete", "time-to-event workflow finished")
+```
+
+## Interpretation
+
+The cumulative model estimates the delivery hazard after any prior local storm
+impact. The acute models estimate the hazard during days 0–3 and days 0–7 after
+impact, changing only the duration of the active exposure indicator.
+`ts_td` and `hu_td` compare each storm-intensity class with no currently active
+exposure; `hu_vs_ts` is their direct log-hazard contrast. Because these are
+time-varying Cox models, they do not classify births occurring before a later
+trimester storm as unexposed controls for that future storm.
