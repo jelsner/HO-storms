@@ -1,0 +1,21 @@
+cause,group,event_period,zip_days,deaths,nonzero_zip_days
+Digestive diseases,All ages,None,8141952,108323,106902
+Digestive diseases,All ages,Days -14 to -8,91821,1302,1297
+Digestive diseases,All ages,Days -7 to -1,95120,1370,1337
+Digestive diseases,All ages,Days 0 to +6,95122,1321,1301
+Digestive diseases,All ages,Days +7 to +13,92517,1306,1290
+Digestive diseases,<65,None,8141952,41198,40979
+Digestive diseases,<65,Days -14 to -8,91821,526,526
+Digestive diseases,<65,Days -7 to -1,95120,537,535
+Digestive diseases,<65,Days 0 to +6,95122,529,526
+Digestive diseases,<65,Days +7 to +13,92517,494,492
+Digestive diseases,65-74,None,8141952,22368,22308
+Digestive diseases,65-74,Days -14 to -8,91821,282,282
+Digestive diseases,65-74,Days -7 to -1,95120,281,279
+Digestive diseases,65-74,Days 0 to +6,95122,280,280
+Digestive diseases,65-74,Days +7 to +13,92517,271,270
+Digestive diseases,75+,None,8141952,44757,44437
+Digestive diseases,75+,Days -14 to -8,91821,494,494
+Digestive diseases,75+,Days -7 to -1,95120,552,546
+Digestive diseases,75+,Days 0 to +6,95122,512,510
+Digestive diseases,75+,Days +7 to +13,92517,541,540

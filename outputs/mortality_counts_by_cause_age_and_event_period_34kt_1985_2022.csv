@@ -1,0 +1,56 @@
+cause,period,<65,65-74,75+,All ages
+All diseases,Statewide (1985-2022),1417395,1104500,3328609,5850504
+All diseases,Days -14 to -8,9297,6768,20179,36244
+All diseases,Days -7 to -1,9499,7210,21123,37832
+All diseases,Days 0 to +6,9565,7327,21219,38111
+All diseases,Days +7 to +13,9339,7002,20683,37024
+Cardiovascular,Statewide (1985-2022),306088,356274,1432587,2094949
+Cardiovascular,Days -14 to -8,1927,2091,8149,12167
+Cardiovascular,Days -7 to -1,1915,2236,8577,12728
+Cardiovascular,Days 0 to +6,1999,2305,8779,13083
+Cardiovascular,Days +7 to +13,1949,2032,8474,12455
+Respiratory,Statewide (1985-2022),69032,108989,333247,511268
+Respiratory,Days -14 to -8,365,644,1918,2927
+Respiratory,Days -7 to -1,439,698,1961,3098
+Respiratory,Days 0 to +6,443,675,1998,3116
+Respiratory,Days +7 to +13,406,660,2041,3107
+Infectious diseases,Statewide (1985-2022),81003,21207,49615,151825
+Infectious diseases,Days -14 to -8,521,160,324,1005
+Infectious diseases,Days -7 to -1,475,144,318,937
+Infectious diseases,Days 0 to +6,534,141,336,1011
+Infectious diseases,Days +7 to +13,509,155,308,972
+Injuries,Statewide (1985-2022),223264,27924,70127,321315
+Injuries,Days -14 to -8,1758,219,535,2512
+Injuries,Days -7 to -1,1752,227,584,2563
+Injuries,Days 0 to +6,1831,255,617,2703
+Injuries,Days +7 to +13,1736,209,531,2476
+Neuropsychiatric disorders,Statewide (1985-2022),49873,46347,383017,479237
+Neuropsychiatric disorders,Days -14 to -8,365,317,2591,3273
+Neuropsychiatric disorders,Days -7 to -1,349,341,2697,3387
+Neuropsychiatric disorders,Days 0 to +6,360,340,2744,3444
+Neuropsychiatric disorders,Days +7 to +13,381,330,2610,3321
+Renal diseases,Statewide (1985-2022),13736,15121,51817,80674
+Renal diseases,Days -14 to -8,70,108,308,486
+Renal diseases,Days -7 to -1,111,101,334,546
+Renal diseases,Days 0 to +6,101,105,319,525
+Renal diseases,Days +7 to +13,90,106,322,518
+Digestive diseases,Statewide (1985-2022),75121,41690,83160,199971
+Digestive diseases,Days -14 to -8,526,282,494,1302
+Digestive diseases,Days -7 to -1,537,281,552,1370
+Digestive diseases,Days 0 to +6,529,280,512,1321
+Digestive diseases,Days +7 to +13,494,271,541,1306
+Diabetes,Statewide (1985-2022),41768,40645,78862,161275
+Diabetes,Days -14 to -8,313,242,509,1064
+Diabetes,Days -7 to -1,296,266,522,1084
+Diabetes,Days 0 to +6,294,274,511,1079
+Diabetes,Days +7 to +13,290,311,499,1100
+"Endocrine, nutritional, and metabolic disorders",Statewide (1985-2022),61247,53022,115345,229614
+"Endocrine, nutritional, and metabolic disorders",Days -14 to -8,450,330,754,1534
+"Endocrine, nutritional, and metabolic disorders",Days -7 to -1,441,364,816,1621
+"Endocrine, nutritional, and metabolic disorders",Days 0 to +6,413,359,773,1545
+"Endocrine, nutritional, and metabolic disorders",Days +7 to +13,438,396,767,1601
+Neoplasms,Statewide (1985-2022),367589,384972,628382,1380943
+Neoplasms,Days -14 to -8,2336,2313,3956,8605
+Neoplasms,Days -7 to -1,2481,2488,4174,9143
+Neoplasms,Days 0 to +6,2366,2558,3969,8893
+Neoplasms,Days +7 to +13,2368,2516,3925,8809

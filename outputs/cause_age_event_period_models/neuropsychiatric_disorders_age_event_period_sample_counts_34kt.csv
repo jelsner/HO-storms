@@ -1,0 +1,21 @@
+cause,group,event_period,zip_days,deaths,nonzero_zip_days
+Neuropsychiatric disorders,All ages,None,8141952,257551,246928
+Neuropsychiatric disorders,All ages,Days -14 to -8,91821,3273,3143
+Neuropsychiatric disorders,All ages,Days -7 to -1,95120,3387,3235
+Neuropsychiatric disorders,All ages,Days 0 to +6,95122,3444,3308
+Neuropsychiatric disorders,All ages,Days +7 to +13,92517,3321,3182
+Neuropsychiatric disorders,<65,None,8141952,27220,27127
+Neuropsychiatric disorders,<65,Days -14 to -8,91821,365,365
+Neuropsychiatric disorders,<65,Days -7 to -1,95120,349,347
+Neuropsychiatric disorders,<65,Days 0 to +6,95122,360,358
+Neuropsychiatric disorders,<65,Days +7 to +13,92517,381,379
+Neuropsychiatric disorders,65-74,None,8141952,24997,24888
+Neuropsychiatric disorders,65-74,Days -14 to -8,91821,317,315
+Neuropsychiatric disorders,65-74,Days -7 to -1,95120,341,339
+Neuropsychiatric disorders,65-74,Days 0 to +6,95122,340,339
+Neuropsychiatric disorders,65-74,Days +7 to +13,92517,330,329
+Neuropsychiatric disorders,75+,None,8141952,205334,197889
+Neuropsychiatric disorders,75+,Days -14 to -8,91821,2591,2494
+Neuropsychiatric disorders,75+,Days -7 to -1,95120,2697,2593
+Neuropsychiatric disorders,75+,Days 0 to +6,95122,2744,2650
+Neuropsychiatric disorders,75+,Days +7 to +13,92517,2610,2515

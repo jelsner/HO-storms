@@ -1,0 +1,21 @@
+cause,group,event_period,zip_days,deaths,nonzero_zip_days
+Neoplasms,All ages,None,8141952,763070,699386
+Neoplasms,All ages,Days -14 to -8,91821,8605,7875
+Neoplasms,All ages,Days -7 to -1,95120,9143,8423
+Neoplasms,All ages,Days 0 to +6,95122,8893,8141
+Neoplasms,All ages,Days +7 to +13,92517,8809,8084
+Neoplasms,<65,None,8141952,204413,199760
+Neoplasms,<65,Days -14 to -8,91821,2336,2285
+Neoplasms,<65,Days -7 to -1,95120,2481,2430
+Neoplasms,<65,Days 0 to +6,95122,2366,2304
+Neoplasms,<65,Days +7 to +13,92517,2368,2325
+Neoplasms,65-74,None,8141952,212888,207685
+Neoplasms,65-74,Days -14 to -8,91821,2313,2263
+Neoplasms,65-74,Days -7 to -1,95120,2488,2432
+Neoplasms,65-74,Days 0 to +6,95122,2558,2495
+Neoplasms,65-74,Days +7 to +13,92517,2516,2454
+Neoplasms,75+,None,8141952,345769,329987
+Neoplasms,75+,Days -14 to -8,91821,3956,3766
+Neoplasms,75+,Days -7 to -1,95120,4174,4003
+Neoplasms,75+,Days 0 to +6,95122,3969,3788
+Neoplasms,75+,Days +7 to +13,92517,3925,3751

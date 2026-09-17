@@ -1,0 +1,21 @@
+cause,group,event_period,zip_days,deaths,nonzero_zip_days
+"Endocrine, nutritional, and metabolic disorders",All ages,None,8141952,123248,121155
+"Endocrine, nutritional, and metabolic disorders",All ages,Days -14 to -8,91821,1534,1507
+"Endocrine, nutritional, and metabolic disorders",All ages,Days -7 to -1,95120,1621,1587
+"Endocrine, nutritional, and metabolic disorders",All ages,Days 0 to +6,95122,1545,1515
+"Endocrine, nutritional, and metabolic disorders",All ages,Days +7 to +13,92517,1601,1581
+"Endocrine, nutritional, and metabolic disorders",<65,None,8141952,33195,33008
+"Endocrine, nutritional, and metabolic disorders",<65,Days -14 to -8,91821,450,448
+"Endocrine, nutritional, and metabolic disorders",<65,Days -7 to -1,95120,441,441
+"Endocrine, nutritional, and metabolic disorders",<65,Days 0 to +6,95122,413,410
+"Endocrine, nutritional, and metabolic disorders",<65,Days +7 to +13,92517,438,436
+"Endocrine, nutritional, and metabolic disorders",65-74,None,8141952,28563,28448
+"Endocrine, nutritional, and metabolic disorders",65-74,Days -14 to -8,91821,330,329
+"Endocrine, nutritional, and metabolic disorders",65-74,Days -7 to -1,95120,364,363
+"Endocrine, nutritional, and metabolic disorders",65-74,Days 0 to +6,95122,359,356
+"Endocrine, nutritional, and metabolic disorders",65-74,Days +7 to +13,92517,396,396
+"Endocrine, nutritional, and metabolic disorders",75+,None,8141952,61490,60899
+"Endocrine, nutritional, and metabolic disorders",75+,Days -14 to -8,91821,754,744
+"Endocrine, nutritional, and metabolic disorders",75+,Days -7 to -1,95120,816,808
+"Endocrine, nutritional, and metabolic disorders",75+,Days 0 to +6,95122,773,768
+"Endocrine, nutritional, and metabolic disorders",75+,Days +7 to +13,92517,767,766

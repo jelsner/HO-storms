@@ -1,0 +1,21 @@
+cause,group,event_period,zip_days,deaths,nonzero_zip_days
+Diabetes,All ages,None,8141952,86477,85425
+Diabetes,All ages,Days -14 to -8,91821,1064,1051
+Diabetes,All ages,Days -7 to -1,95120,1084,1069
+Diabetes,All ages,Days 0 to +6,95122,1079,1062
+Diabetes,All ages,Days +7 to +13,92517,1100,1094
+Diabetes,<65,None,8141952,22597,22516
+Diabetes,<65,Days -14 to -8,91821,313,312
+Diabetes,<65,Days -7 to -1,95120,296,296
+Diabetes,<65,Days 0 to +6,95122,294,291
+Diabetes,<65,Days +7 to +13,92517,290,290
+Diabetes,65-74,None,8141952,21878,21820
+Diabetes,65-74,Days -14 to -8,91821,242,242
+Diabetes,65-74,Days -7 to -1,95120,266,266
+Diabetes,65-74,Days 0 to +6,95122,274,272
+Diabetes,65-74,Days +7 to +13,92517,311,311
+Diabetes,75+,None,8141952,42002,41717
+Diabetes,75+,Days -14 to -8,91821,509,505
+Diabetes,75+,Days -7 to -1,95120,522,519
+Diabetes,75+,Days 0 to +6,95122,511,509
+Diabetes,75+,Days +7 to +13,92517,499,498

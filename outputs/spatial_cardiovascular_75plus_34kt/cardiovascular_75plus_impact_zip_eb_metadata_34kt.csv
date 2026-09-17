@@ -1,0 +1,2 @@
+wind_threshold_kt,age_group,cause,target_period,total_panel_zips,estimable_zips,pooled_log_rate_ratio,pooled_rate_ratio,aggregate_observed_deaths,aggregate_expected_deaths,aggregate_standardized_rate_ratio,eb_prior_shape,eb_prior_rate,eb_prior_mean_rr,eb_prior_sd_rr
+34,75+,Cardiovascular,Days 0 to +6,1046,982,0.0519938939124323,1.05336931052848,8779,8334.20901136726,1.05336931051598,1140.94239411713,1083.13534320694,1.0533701086136,0.0311852429279452

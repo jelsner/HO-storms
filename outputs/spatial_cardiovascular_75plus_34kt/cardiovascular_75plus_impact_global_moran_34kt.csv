@@ -1,0 +1,2 @@
+variable,contiguity,weight_style,zips_analyzed,non_island_zips,island_zips,undirected_neighbor_links,mean_neighbors,morans_i,expected_i,permutation_mean_i,permutation_sd_i,permutation_z,permutation_p_two_sided,permutations,random_seed
+log EB-smoothed cardiovascular mortality RR,queen,row-standardized,982,981,1,2583,5.26069246435845,0.00988835398623176,-0.00101936799184506,-0.0010633651431108,0.0208634011713799,0.5249249170536,0.598,9999,20260916

@@ -1,0 +1,21 @@
+cause,group,event_period,zip_days,deaths,nonzero_zip_days
+Cardiovascular,All ages,None,8141952,1114723,970251
+Cardiovascular,All ages,Days -14 to -8,91821,12167,10647
+Cardiovascular,All ages,Days -7 to -1,95120,12728,11136
+Cardiovascular,All ages,Days 0 to +6,95122,13083,11383
+Cardiovascular,All ages,Days +7 to +13,92517,12455,10940
+Cardiovascular,<65,None,8141952,167094,163659
+Cardiovascular,<65,Days -14 to -8,91821,1927,1882
+Cardiovascular,<65,Days -7 to -1,95120,1915,1881
+Cardiovascular,<65,Days 0 to +6,95122,1999,1958
+Cardiovascular,<65,Days +7 to +13,92517,1949,1918
+Cardiovascular,65-74,None,8141952,188663,184339
+Cardiovascular,65-74,Days -14 to -8,91821,2091,2046
+Cardiovascular,65-74,Days -7 to -1,95120,2236,2184
+Cardiovascular,65-74,Days 0 to +6,95122,2305,2255
+Cardiovascular,65-74,Days +7 to +13,92517,2032,1988
+Cardiovascular,75+,None,8141952,758966,682918
+Cardiovascular,75+,Days -14 to -8,91821,8149,7364
+Cardiovascular,75+,Days -7 to -1,95120,8577,7715
+Cardiovascular,75+,Days 0 to +6,95122,8779,7872
+Cardiovascular,75+,Days +7 to +13,92517,8474,7640
