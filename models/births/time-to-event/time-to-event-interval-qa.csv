@@ -1,0 +1,13 @@
+outcome,structure,family,acute_days,births,intervals,events,min_tstart,max_tstop
+PTB,cumulative,any,,2987825,3496474,234205,140,259
+PTB,cumulative,intensity,,2987825,3601722,234205,140,259
+vPTB,cumulative,any,,2987825,3350934,33074,140,224
+vPTB,cumulative,intensity,,2987825,3418054,33074,140,224
+PTB,acute,any,3,2987825,4493630,234205,140,259
+PTB,acute,any,7,2987825,4488751,234205,140,259
+PTB,acute,intensity,3,2987825,4493630,234205,140,259
+PTB,acute,intensity,7,2987825,4488751,234205,140,259
+vPTB,acute,any,3,2987825,4030630,33074,140,224
+vPTB,acute,any,7,2987825,4027448,33074,140,224
+vPTB,acute,intensity,3,2987825,4030630,33074,140,224
+vPTB,acute,intensity,7,2987825,4027448,33074,140,224

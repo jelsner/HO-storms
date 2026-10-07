@@ -1,0 +1,3 @@
+outcome,exposure,reference,HR,conf_low,conf_high,p_value,estimate,cutoff_week,births,exposed_births,events,exposed_events,beta,robust_standard_error
+PTB,Any corrected 34-kt local impact during T1,No corrected 34-kt local impact during T1,1.00465487744986,0.979765316321919,1.03017672290428,0.71672692235541,"1.005 (0.980, 1.030)",37,2988783,440197,235163,35402,0.00464407701133157,0.0127993607769826
+vPTB,Any corrected 34-kt local impact during T1,No corrected 34-kt local impact during T1,0.997851600812002,0.924132622381831,1.07745121547248,0.956199489476587,"0.998 (0.924, 1.077)",32,2988783,440197,34032,4971,-0.00215071030826593,0.0391583606744069

@@ -1,0 +1,7 @@
+outcome,model,analysis,effect_measure,effect_ratio,conf_low,conf_high,sample_size,events,estimate_label
+PTB,Time-to-event (0-3 days),Time-to-event model,Adjusted HR,0.953041283682901,0.912258406242993,0.995647375993614,2987825,234205,aHR 0.953 (0.912-0.996)
+PTB,Conventional T2 (±1 day),Conventional trimester model,Adjusted OR,0.960389083119466,0.94350643773748,0.977573818348108,4510917,388755,aOR 0.960 (0.944-0.978)
+PTB,Conventional T1 (±1 day),Conventional trimester model,Adjusted OR,1.01268118504294,0.999639569825578,1.02589294531319,4510991,388829,aOR 1.013 (1.000-1.026)
+vPTB,Time-to-event (0-3 days),Time-to-event model,Adjusted HR,0.942147174719796,0.854694898792942,1.03854755666154,2987825,33074,aHR 0.942 (0.855-1.039)
+vPTB,Conventional T2 (±1 day),Conventional trimester model,Adjusted OR,0.765560830771433,0.728768785535984,0.804210330139761,4500930,62787,aOR 0.766 (0.729-0.804)
+vPTB,Conventional T1 (±1 day),Conventional trimester model,Adjusted OR,1.0002045503006,0.967929410862639,1.033555888699,4501004,62861,aOR 1.000 (0.968-1.034)

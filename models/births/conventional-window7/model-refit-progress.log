@@ -1,0 +1,147 @@
+2026-08-13 17:56:50 EDT | setup                  | model refit started
+2026-08-13 17:57:43 EDT | read data              | loaded 4,662,195 births and retained 46 columns
+2026-08-13 17:58:31 EDT | recode                 | model base cohort contains 4,512,872 births
+2026-08-13 17:58:32 EDT | imputation             | starting MICE: m=5, maxit=5, training rows=50,000, imputed rows=4,512,872
+2026-08-13 20:48:42 EDT | imputation             | completed in 02:50:10
+2026-08-13 20:48:42 EDT | models                 | starting imputation 1/5
+2026-08-13 20:49:06 EDT | models                 | imputation 1/5, model 1/26: LBW T1 34 kt
+2026-08-13 20:49:27 EDT | models                 | imputation 1/5, model 2/26: LBW T1 55 kt
+2026-08-13 20:49:48 EDT | models                 | imputation 1/5, model 3/26: LBW T2 34 kt
+2026-08-13 20:50:09 EDT | models                 | imputation 1/5, model 4/26: LBW T2 55 kt
+2026-08-13 20:50:30 EDT | models                 | imputation 1/5, model 5/26: PTB T1 34 kt
+2026-08-13 20:50:52 EDT | models                 | imputation 1/5, model 6/26: PTB T1 55 kt
+2026-08-13 20:51:13 EDT | models                 | imputation 1/5, model 7/26: PTB T2 34 kt
+2026-08-13 20:51:35 EDT | models                 | imputation 1/5, model 8/26: PTB T2 55 kt
+2026-08-13 20:52:06 EDT | models                 | imputation 1/5, model 9/26: vLBW T1 34 kt
+2026-08-13 20:52:37 EDT | models                 | imputation 1/5, model 10/26: vLBW T1 55 kt
+2026-08-13 20:53:09 EDT | models                 | imputation 1/5, model 11/26: vLBW T2 34 kt
+2026-08-13 20:53:41 EDT | models                 | imputation 1/5, model 12/26: vLBW T2 55 kt
+2026-08-13 20:54:14 EDT | models                 | imputation 1/5, model 13/26: vPTB T1 34 kt
+2026-08-13 20:54:46 EDT | models                 | imputation 1/5, model 14/26: vPTB T1 55 kt
+2026-08-13 20:55:17 EDT | models                 | imputation 1/5, model 15/26: vPTB T2 34 kt
+2026-08-13 20:55:48 EDT | models                 | imputation 1/5, model 16/26: vPTB T2 55 kt
+2026-08-13 20:56:09 EDT | models                 | imputation 1/5, model 17/26: tLBW T1 34 kt
+2026-08-13 20:56:31 EDT | models                 | imputation 1/5, model 18/26: tLBW T1 55 kt
+2026-08-13 20:56:52 EDT | models                 | imputation 1/5, model 19/26: tLBW T2 34 kt
+2026-08-13 20:57:13 EDT | models                 | imputation 1/5, model 20/26: tLBW T2 55 kt
+2026-08-13 20:57:35 EDT | models                 | imputation 1/5, model 21/26: tLBW T3 34 kt
+2026-08-13 20:57:56 EDT | models                 | imputation 1/5, model 22/26: tLBW T3 55 kt
+2026-08-13 20:58:18 EDT | models                 | imputation 1/5, model 23/26: GDM T1 34 kt
+2026-08-13 20:58:39 EDT | models                 | imputation 1/5, model 24/26: GDM T1 55 kt
+2026-08-13 20:59:01 EDT | models                 | imputation 1/5, model 25/26: HDP T1 34 kt
+2026-08-13 20:59:22 EDT | models                 | imputation 1/5, model 26/26: HDP T1 55 kt
+2026-08-13 20:59:22 EDT | models                 | checkpoint saved after imputation 1/5
+2026-08-13 20:59:23 EDT | models                 | starting imputation 2/5
+2026-08-13 20:59:46 EDT | models                 | imputation 2/5, model 1/26: LBW T1 34 kt
+2026-08-13 21:00:06 EDT | models                 | imputation 2/5, model 2/26: LBW T1 55 kt
+2026-08-13 21:00:27 EDT | models                 | imputation 2/5, model 3/26: LBW T2 34 kt
+2026-08-13 21:00:48 EDT | models                 | imputation 2/5, model 4/26: LBW T2 55 kt
+2026-08-13 21:01:09 EDT | models                 | imputation 2/5, model 5/26: PTB T1 34 kt
+2026-08-13 21:01:29 EDT | models                 | imputation 2/5, model 6/26: PTB T1 55 kt
+2026-08-13 21:01:50 EDT | models                 | imputation 2/5, model 7/26: PTB T2 34 kt
+2026-08-13 21:02:11 EDT | models                 | imputation 2/5, model 8/26: PTB T2 55 kt
+2026-08-13 21:02:41 EDT | models                 | imputation 2/5, model 9/26: vLBW T1 34 kt
+2026-08-13 21:03:11 EDT | models                 | imputation 2/5, model 10/26: vLBW T1 55 kt
+2026-08-13 21:03:42 EDT | models                 | imputation 2/5, model 11/26: vLBW T2 34 kt
+2026-08-13 21:04:13 EDT | models                 | imputation 2/5, model 12/26: vLBW T2 55 kt
+2026-08-13 21:04:43 EDT | models                 | imputation 2/5, model 13/26: vPTB T1 34 kt
+2026-08-13 21:05:13 EDT | models                 | imputation 2/5, model 14/26: vPTB T1 55 kt
+2026-08-13 21:05:43 EDT | models                 | imputation 2/5, model 15/26: vPTB T2 34 kt
+2026-08-13 21:06:13 EDT | models                 | imputation 2/5, model 16/26: vPTB T2 55 kt
+2026-08-13 21:06:35 EDT | models                 | imputation 2/5, model 17/26: tLBW T1 34 kt
+2026-08-13 21:06:56 EDT | models                 | imputation 2/5, model 18/26: tLBW T1 55 kt
+2026-08-13 21:07:17 EDT | models                 | imputation 2/5, model 19/26: tLBW T2 34 kt
+2026-08-13 21:07:38 EDT | models                 | imputation 2/5, model 20/26: tLBW T2 55 kt
+2026-08-13 21:07:59 EDT | models                 | imputation 2/5, model 21/26: tLBW T3 34 kt
+2026-08-13 21:08:21 EDT | models                 | imputation 2/5, model 22/26: tLBW T3 55 kt
+2026-08-13 21:08:42 EDT | models                 | imputation 2/5, model 23/26: GDM T1 34 kt
+2026-08-13 21:09:03 EDT | models                 | imputation 2/5, model 24/26: GDM T1 55 kt
+2026-08-13 21:09:25 EDT | models                 | imputation 2/5, model 25/26: HDP T1 34 kt
+2026-08-13 21:09:46 EDT | models                 | imputation 2/5, model 26/26: HDP T1 55 kt
+2026-08-13 21:09:46 EDT | models                 | checkpoint saved after imputation 2/5
+2026-08-13 21:09:47 EDT | models                 | starting imputation 3/5
+2026-08-13 21:10:10 EDT | models                 | imputation 3/5, model 1/26: LBW T1 34 kt
+2026-08-13 21:10:31 EDT | models                 | imputation 3/5, model 2/26: LBW T1 55 kt
+2026-08-13 21:10:52 EDT | models                 | imputation 3/5, model 3/26: LBW T2 34 kt
+2026-08-13 21:11:13 EDT | models                 | imputation 3/5, model 4/26: LBW T2 55 kt
+2026-08-13 21:11:33 EDT | models                 | imputation 3/5, model 5/26: PTB T1 34 kt
+2026-08-13 21:11:54 EDT | models                 | imputation 3/5, model 6/26: PTB T1 55 kt
+2026-08-13 21:12:15 EDT | models                 | imputation 3/5, model 7/26: PTB T2 34 kt
+2026-08-13 21:12:36 EDT | models                 | imputation 3/5, model 8/26: PTB T2 55 kt
+2026-08-13 21:13:06 EDT | models                 | imputation 3/5, model 9/26: vLBW T1 34 kt
+2026-08-13 21:13:36 EDT | models                 | imputation 3/5, model 10/26: vLBW T1 55 kt
+2026-08-13 21:14:07 EDT | models                 | imputation 3/5, model 11/26: vLBW T2 34 kt
+2026-08-13 21:14:37 EDT | models                 | imputation 3/5, model 12/26: vLBW T2 55 kt
+2026-08-13 21:15:08 EDT | models                 | imputation 3/5, model 13/26: vPTB T1 34 kt
+2026-08-13 21:15:38 EDT | models                 | imputation 3/5, model 14/26: vPTB T1 55 kt
+2026-08-13 21:16:08 EDT | models                 | imputation 3/5, model 15/26: vPTB T2 34 kt
+2026-08-13 21:16:39 EDT | models                 | imputation 3/5, model 16/26: vPTB T2 55 kt
+2026-08-13 21:17:00 EDT | models                 | imputation 3/5, model 17/26: tLBW T1 34 kt
+2026-08-13 21:17:22 EDT | models                 | imputation 3/5, model 18/26: tLBW T1 55 kt
+2026-08-13 21:17:43 EDT | models                 | imputation 3/5, model 19/26: tLBW T2 34 kt
+2026-08-13 21:18:04 EDT | models                 | imputation 3/5, model 20/26: tLBW T2 55 kt
+2026-08-13 21:18:26 EDT | models                 | imputation 3/5, model 21/26: tLBW T3 34 kt
+2026-08-13 21:18:46 EDT | models                 | imputation 3/5, model 22/26: tLBW T3 55 kt
+2026-08-13 21:19:07 EDT | models                 | imputation 3/5, model 23/26: GDM T1 34 kt
+2026-08-13 21:19:29 EDT | models                 | imputation 3/5, model 24/26: GDM T1 55 kt
+2026-08-13 21:19:50 EDT | models                 | imputation 3/5, model 25/26: HDP T1 34 kt
+2026-08-13 21:20:11 EDT | models                 | imputation 3/5, model 26/26: HDP T1 55 kt
+2026-08-13 21:20:11 EDT | models                 | checkpoint saved after imputation 3/5
+2026-08-13 21:20:12 EDT | models                 | starting imputation 4/5
+2026-08-13 21:20:35 EDT | models                 | imputation 4/5, model 1/26: LBW T1 34 kt
+2026-08-13 21:20:56 EDT | models                 | imputation 4/5, model 2/26: LBW T1 55 kt
+2026-08-13 21:21:16 EDT | models                 | imputation 4/5, model 3/26: LBW T2 34 kt
+2026-08-13 21:21:37 EDT | models                 | imputation 4/5, model 4/26: LBW T2 55 kt
+2026-08-13 21:21:58 EDT | models                 | imputation 4/5, model 5/26: PTB T1 34 kt
+2026-08-13 21:22:19 EDT | models                 | imputation 4/5, model 6/26: PTB T1 55 kt
+2026-08-13 21:22:40 EDT | models                 | imputation 4/5, model 7/26: PTB T2 34 kt
+2026-08-13 21:23:00 EDT | models                 | imputation 4/5, model 8/26: PTB T2 55 kt
+2026-08-13 21:23:31 EDT | models                 | imputation 4/5, model 9/26: vLBW T1 34 kt
+2026-08-13 21:24:01 EDT | models                 | imputation 4/5, model 10/26: vLBW T1 55 kt
+2026-08-13 21:24:32 EDT | models                 | imputation 4/5, model 11/26: vLBW T2 34 kt
+2026-08-13 21:25:02 EDT | models                 | imputation 4/5, model 12/26: vLBW T2 55 kt
+2026-08-13 21:25:33 EDT | models                 | imputation 4/5, model 13/26: vPTB T1 34 kt
+2026-08-13 21:26:03 EDT | models                 | imputation 4/5, model 14/26: vPTB T1 55 kt
+2026-08-13 21:26:34 EDT | models                 | imputation 4/5, model 15/26: vPTB T2 34 kt
+2026-08-13 21:27:04 EDT | models                 | imputation 4/5, model 16/26: vPTB T2 55 kt
+2026-08-13 21:27:25 EDT | models                 | imputation 4/5, model 17/26: tLBW T1 34 kt
+2026-08-13 21:27:47 EDT | models                 | imputation 4/5, model 18/26: tLBW T1 55 kt
+2026-08-13 21:28:08 EDT | models                 | imputation 4/5, model 19/26: tLBW T2 34 kt
+2026-08-13 21:28:30 EDT | models                 | imputation 4/5, model 20/26: tLBW T2 55 kt
+2026-08-13 21:28:51 EDT | models                 | imputation 4/5, model 21/26: tLBW T3 34 kt
+2026-08-13 21:29:12 EDT | models                 | imputation 4/5, model 22/26: tLBW T3 55 kt
+2026-08-13 21:29:33 EDT | models                 | imputation 4/5, model 23/26: GDM T1 34 kt
+2026-08-13 21:29:55 EDT | models                 | imputation 4/5, model 24/26: GDM T1 55 kt
+2026-08-13 21:30:17 EDT | models                 | imputation 4/5, model 25/26: HDP T1 34 kt
+2026-08-13 21:30:38 EDT | models                 | imputation 4/5, model 26/26: HDP T1 55 kt
+2026-08-13 21:30:38 EDT | models                 | checkpoint saved after imputation 4/5
+2026-08-13 21:30:39 EDT | models                 | starting imputation 5/5
+2026-08-13 21:31:02 EDT | models                 | imputation 5/5, model 1/26: LBW T1 34 kt
+2026-08-13 21:31:22 EDT | models                 | imputation 5/5, model 2/26: LBW T1 55 kt
+2026-08-13 21:31:43 EDT | models                 | imputation 5/5, model 3/26: LBW T2 34 kt
+2026-08-13 21:32:03 EDT | models                 | imputation 5/5, model 4/26: LBW T2 55 kt
+2026-08-13 21:32:24 EDT | models                 | imputation 5/5, model 5/26: PTB T1 34 kt
+2026-08-13 21:32:44 EDT | models                 | imputation 5/5, model 6/26: PTB T1 55 kt
+2026-08-13 21:33:04 EDT | models                 | imputation 5/5, model 7/26: PTB T2 34 kt
+2026-08-13 21:33:25 EDT | models                 | imputation 5/5, model 8/26: PTB T2 55 kt
+2026-08-13 21:33:55 EDT | models                 | imputation 5/5, model 9/26: vLBW T1 34 kt
+2026-08-13 21:34:25 EDT | models                 | imputation 5/5, model 10/26: vLBW T1 55 kt
+2026-08-13 21:34:56 EDT | models                 | imputation 5/5, model 11/26: vLBW T2 34 kt
+2026-08-13 21:35:26 EDT | models                 | imputation 5/5, model 12/26: vLBW T2 55 kt
+2026-08-13 21:35:56 EDT | models                 | imputation 5/5, model 13/26: vPTB T1 34 kt
+2026-08-13 21:36:27 EDT | models                 | imputation 5/5, model 14/26: vPTB T1 55 kt
+2026-08-13 21:36:57 EDT | models                 | imputation 5/5, model 15/26: vPTB T2 34 kt
+2026-08-13 21:37:27 EDT | models                 | imputation 5/5, model 16/26: vPTB T2 55 kt
+2026-08-13 21:37:48 EDT | models                 | imputation 5/5, model 17/26: tLBW T1 34 kt
+2026-08-13 21:38:09 EDT | models                 | imputation 5/5, model 18/26: tLBW T1 55 kt
+2026-08-13 21:38:30 EDT | models                 | imputation 5/5, model 19/26: tLBW T2 34 kt
+2026-08-13 21:38:52 EDT | models                 | imputation 5/5, model 20/26: tLBW T2 55 kt
+2026-08-13 21:39:13 EDT | models                 | imputation 5/5, model 21/26: tLBW T3 34 kt
+2026-08-13 21:39:34 EDT | models                 | imputation 5/5, model 22/26: tLBW T3 55 kt
+2026-08-13 21:39:55 EDT | models                 | imputation 5/5, model 23/26: GDM T1 34 kt
+2026-08-13 21:40:16 EDT | models                 | imputation 5/5, model 24/26: GDM T1 55 kt
+2026-08-13 21:40:38 EDT | models                 | imputation 5/5, model 25/26: HDP T1 34 kt
+2026-08-13 21:40:59 EDT | models                 | imputation 5/5, model 26/26: HDP T1 55 kt
+2026-08-13 21:40:59 EDT | models                 | checkpoint saved after imputation 5/5
+2026-08-13 21:40:59 EDT | models                 | all imputed models completed in 00:52:17
+2026-08-13 21:47:33 EDT | complete               | model refit and comparison finished

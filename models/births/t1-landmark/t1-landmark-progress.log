@@ -1,0 +1,6 @@
+2026-09-16 15:20:53 EDT | setup              | first-trimester landmark workflow started
+2026-09-16 15:21:51 EDT | read               | read and linked 4,662,195 births
+2026-09-16 15:22:28 EDT | cohort             | retained 2,988,783 complete-case singleton pregnancies; 440,197 exposed
+2026-09-16 15:22:28 EDT | model              | fitting PTB model with 2,988,783 births and 235,163 events
+2026-09-16 15:22:55 EDT | model              | fitting vPTB model with 2,988,783 births and 34,032 events
+2026-09-16 15:23:21 EDT | complete           | first-trimester landmark workflow finished

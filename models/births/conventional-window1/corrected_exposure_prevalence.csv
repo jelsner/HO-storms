@@ -1,0 +1,4 @@
+exposure,n_eligible,n_exposed,prevalence,manuscript_any_exposure_prevalence,prevalence_difference_percentage_points
+exposed_window_T1_34,4512872,594899,0.131822706250033,0.808,-67.6177293749967
+exposed_window_T2_34,4512798,714728,0.158378017363064,0.808,-64.9621982636936
+exposed_window_T3_34,4484317,581159,0.129598108251491,0.808,-67.8401891748509
