@@ -4,6 +4,7 @@
 .Ruserdata
 .DS_Store
 data/
+manuscript/
 data.zip
 *.rds
 deploy.R
