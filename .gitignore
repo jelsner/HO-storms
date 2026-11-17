@@ -13,8 +13,8 @@ rsconnect/
 .positai
 
 # Reproducible publication graphics: retain source scripts, captions, and tables.
-/figs/mortality/environmental_research_spatial_v*/*.png
-/figs/mortality/environmental_research_spatial_v*/*.pdf
+#/figs/mortality/environmental_research_spatial_v*/*.png
+#/figs/mortality/environmental_research_spatial_v*/*.pdf
 
 # Large reproducible spatial containers; CSV summaries and manifests stay tracked.
 /outputs/mortality/paper_spatial_34kt/spatial_frozen_v*/spatial_results_34kt_frozen_v*.gpkg
