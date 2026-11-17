@@ -65,6 +65,10 @@ HO-storms/
   machine-readable main and supplementary artifact inventory.
 - `scripts/mortality/build_frozen_spatial_results_34kt.R`: five-target ZIP-level
   Poisson, empirical-Bayes, and Moran workflow for the locked spatial milestone.
+- `scripts/mortality/run_spatial_weight_sensitivity_34kt.R`: prespecified rook
+  and symmetric six-nearest-neighbor sensitivity analysis for global Moran's I.
+- `scripts/mortality/build_spatial_publication_artifacts_34kt.R`: locked builder
+  for main Figures 5–6, Supplementary Figure S8, and Supplementary Table S9.
 - `scripts/mortality/`: reproducible count, model, table, and spatial scripts.
 - `manuscript/mortality/`: submitted paper and review documents.
 
