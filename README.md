@@ -58,6 +58,11 @@ HO-storms/
 - `analysis/mortality/ThreatDays.Rmd`: principal threat-day analysis.
 - `analysis/mortality/All-Cause_Mortality.Rmd`: all-cause mortality analysis.
 - `analysis/mortality/Figures.Rmd`: manuscript figures.
+- `analysis/mortality/protocol/environmental_research_analysis_reporting_plan_v1_2026-11-17.md`:
+  locked analysis-and-reporting plan for the cause-, age-, phase-, and spatial
+  mortality paper.
+- `analysis/mortality/protocol/environmental_research_figure_table_inventory_v1_2026-11-17.csv`:
+  machine-readable main and supplementary artifact inventory.
 - `scripts/mortality/`: reproducible count, model, table, and spatial scripts.
 - `manuscript/mortality/`: submitted paper and review documents.
 
