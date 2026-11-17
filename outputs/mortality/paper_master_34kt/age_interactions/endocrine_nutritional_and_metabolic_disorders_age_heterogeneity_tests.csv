@@ -1,0 +1,5 @@
+cause,period,age_heterogeneity_chisq,age_heterogeneity_df,age_heterogeneity_p_value
+"Endocrine, nutritional, and metabolic disorders",Days -14 to -8,4.32636838228809,2,0.114958487833845
+"Endocrine, nutritional, and metabolic disorders",Days -7 to -1,1.63603133162909,2,0.44130648578614
+"Endocrine, nutritional, and metabolic disorders",Days 0 to +6,0.228914384642281,2,0.891850115634321
+"Endocrine, nutritional, and metabolic disorders",Days +7 to +13,4.56941355514011,2,0.101803908919744

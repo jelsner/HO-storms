@@ -1,0 +1,2 @@
+cause,wind_threshold_kt,total_stacked_rows,model_observations,removed_observations,zip_clusters,year_week_clusters,log_likelihood,pseudo_r2,squared_correlation,converged,coefficient_count
+Renal diseases,34,25549596,20168248,5381348,1046,1197,-289102.768034358,0.0943094785220505,0.00441691680355735,TRUE,12

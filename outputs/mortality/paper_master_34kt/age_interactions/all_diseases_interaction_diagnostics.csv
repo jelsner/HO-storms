@@ -1,0 +1,2 @@
+cause,wind_threshold_kt,total_stacked_rows,model_observations,removed_observations,zip_clusters,year_week_clusters,log_likelihood,pseudo_r2,squared_correlation,converged,coefficient_count
+All diseases,34,25549596,24147306,1402290,1046,1197,-8405048.65269034,0.180097726742859,0.163091578399154,TRUE,12

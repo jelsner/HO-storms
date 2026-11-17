@@ -1,0 +1,17 @@
+check_name,status,observed,expected,details
+Master row count,PASS,176,176,""
+Unique result IDs,PASS,176,176,""
+Cause count,PASS,11,11,""
+Age-group count,PASS,4,4,""
+Event-period count,PASS,4,4,""
+Finite main estimates,PASS,176,176,""
+Ordered main confidence intervals,PASS,176,176,""
+Joint age-estimate row count,PASS,132,132,""
+Pairwise age-contrast row count,PASS,132,132,""
+Global age-test row count,PASS,44,44,""
+Interaction diagnostic row count,PASS,11,11,""
+All joint models converged,PASS,11,11,""
+Joint and separate point estimates reconcile,PASS,2.362e-12,< 1e-10,All 132 age-specific log rate ratios
+All-age deaths equal age-stratum sum,PASS,0,0,Checked within all 44 cause-period cells
+"Master FDR q-values in [0,1]",PASS,range 2.6413e-05 to 0.99863,0 to 1,""
+Age-focused interaction FDR family size,PASS,80,80,10 causes x 4 periods x 2 older-vs-<65 contrasts

@@ -1,0 +1,2 @@
+cause,wind_threshold_kt,total_stacked_rows,model_observations,removed_observations,zip_clusters,year_week_clusters,log_likelihood,pseudo_r2,squared_correlation,converged,coefficient_count
+Neuropsychiatric disorders,34,25549596,22441022,3108574,1046,1197,-1194724.03393877,0.189178237744313,0.0446467805863817,TRUE,12

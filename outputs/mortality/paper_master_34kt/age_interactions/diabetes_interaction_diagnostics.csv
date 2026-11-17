@@ -1,0 +1,2 @@
+cause,wind_threshold_kt,total_stacked_rows,model_observations,removed_observations,zip_clusters,year_week_clusters,log_likelihood,pseudo_r2,squared_correlation,converged,coefficient_count
+Diabetes,34,25549596,22009806,3539790,1046,1197,-543958.79820855,0.0775256081011435,0.00531792357097046,TRUE,12

@@ -1,0 +1,5 @@
+cause,period,age_heterogeneity_chisq,age_heterogeneity_df,age_heterogeneity_p_value
+Neuropsychiatric disorders,Days -14 to -8,4.50169541123728,2,0.105309914906499
+Neuropsychiatric disorders,Days -7 to -1,0.00691275097554524,2,0.996549590901976
+Neuropsychiatric disorders,Days 0 to +6,0.692367727886599,2,0.707382413029022
+Neuropsychiatric disorders,Days +7 to +13,0.638313427617705,2,0.726761646795726

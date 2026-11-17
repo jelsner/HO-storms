@@ -1,0 +1,5 @@
+cause,period,age_heterogeneity_chisq,age_heterogeneity_df,age_heterogeneity_p_value
+Infectious diseases,Days -14 to -8,1.37490118688889,2,0.502856421760951
+Infectious diseases,Days -7 to -1,0.348821208202725,2,0.83995193913143
+Infectious diseases,Days 0 to +6,0.572196301916705,2,0.751188882419724
+Infectious diseases,Days +7 to +13,4.83722668300674,2,0.0890450069055112

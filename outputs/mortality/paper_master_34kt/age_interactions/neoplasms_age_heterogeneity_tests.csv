@@ -1,0 +1,5 @@
+cause,period,age_heterogeneity_chisq,age_heterogeneity_df,age_heterogeneity_p_value
+Neoplasms,Days -14 to -8,4.85338448956507,2,0.0883285190223971
+Neoplasms,Days -7 to -1,3.09994003149961,2,0.212254338018506
+Neoplasms,Days 0 to +6,3.96336394558582,2,0.137837203801925
+Neoplasms,Days +7 to +13,1.12045698526076,2,0.571078561697278

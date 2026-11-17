@@ -1,0 +1,5 @@
+cause,period,age_heterogeneity_chisq,age_heterogeneity_df,age_heterogeneity_p_value
+Injuries,Days -14 to -8,0.146182347131848,2,0.929516078866825
+Injuries,Days -7 to -1,4.64891935072808,2,0.0978362931317041
+Injuries,Days 0 to +6,5.7293546986486,2,0.0570015197441868
+Injuries,Days +7 to +13,0.993436577635709,2,0.608524387791483

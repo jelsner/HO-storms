@@ -1,0 +1,2 @@
+cause,wind_threshold_kt,total_stacked_rows,model_observations,removed_observations,zip_clusters,year_week_clusters,log_likelihood,pseudo_r2,squared_correlation,converged,coefficient_count
+Respiratory,34,25549596,22754298,2795298,1046,1197,-1306684.74250258,0.114011575318308,0.0200699676874582,TRUE,12

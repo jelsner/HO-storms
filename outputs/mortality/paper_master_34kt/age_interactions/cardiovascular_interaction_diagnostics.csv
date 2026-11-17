@@ -1,0 +1,2 @@
+cause,wind_threshold_kt,total_stacked_rows,model_observations,removed_observations,zip_clusters,year_week_clusters,log_likelihood,pseudo_r2,squared_correlation,converged,coefficient_count
+Cardiovascular,34,25549596,23545908,2003688,1046,1197,-3924182.06677907,0.170702297513041,0.0929613541536823,TRUE,12

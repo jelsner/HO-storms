@@ -1,0 +1,5 @@
+cause,period,age_heterogeneity_chisq,age_heterogeneity_df,age_heterogeneity_p_value
+Digestive diseases,Days -14 to -8,2.52971794727468,2,0.282279102128639
+Digestive diseases,Days -7 to -1,0.246422876409684,2,0.884076715204005
+Digestive diseases,Days 0 to +6,1.06572746602788,2,0.586921773457132
+Digestive diseases,Days +7 to +13,1.02167558421207,2,0.599992699040395

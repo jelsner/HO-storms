@@ -1,0 +1,2 @@
+cause,wind_threshold_kt,total_stacked_rows,model_observations,removed_observations,zip_clusters,year_week_clusters,log_likelihood,pseudo_r2,squared_correlation,converged,coefficient_count
+Infectious diseases,34,25549596,21477816,4071780,1046,1197,-494125.530009325,0.116544252187351,0.014118675226868,TRUE,12

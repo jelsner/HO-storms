@@ -1,0 +1,16 @@
+item,value
+Analysis version,frozen_v1_2026-11-17
+Freeze date,2026-11-17
+Wind threshold,>=34 kt
+Source commit,804766c19ff320481142629ee5a0e7dfa0b362a9
+Main model specification,"Fixed-effects Poisson with ZIP, ISO year-week, day-of-week, and ZIP x COVID fixed effects"
+Variance estimator,Two-way clustered by ZIP and ISO year-week
+Primary outcome family,All diseases: 4 age groups x 4 periods (16 tests)
+Prioritized secondary causes,Cardiovascular; Respiratory; Injuries; Neuropsychiatric disorders
+Exploratory causes,"Infectious diseases; Renal diseases; Digestive diseases; Diabetes; Endocrine, nutritional, and metabolic disorders; Neoplasms"
+Interaction model,Three mutually exclusive age panels stacked with age-specific fixed effects; covariance retained for pairwise and 2-df global Wald tests
+Main-effect FDR families,"BH within the Primary (16), Prioritized secondary (64), and Exploratory (96) tiers; plus BH across all 160 cause-specific tests"
+Age-interaction FDR families,BH across all 132 pairwise contrasts; all 120 cause-specific contrasts; focused 80 cause-specific older-vs-<65 contrasts; all 44 and 40 cause-specific global tests
+Event-window assignment,"ZIP-specific impact dates; overlapping windows assigned to the closest impact date, with pre-impact chosen on an exact tie"
+Seasonal restriction,"May-November, plus dates required to complete the -14 through +13 event windows"
+Generating scripts,scripts/mortality/fit_cause_age_interaction_models_34kt.R; scripts/mortality/build_frozen_master_results_34kt.R

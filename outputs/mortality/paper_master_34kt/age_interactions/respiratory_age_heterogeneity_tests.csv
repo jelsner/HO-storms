@@ -1,0 +1,5 @@
+cause,period,age_heterogeneity_chisq,age_heterogeneity_df,age_heterogeneity_p_value
+Respiratory,Days -14 to -8,4.71156658575803,2,0.0948192062299383
+Respiratory,Days -7 to -1,0.00275087215745189,2,0.998625509399946
+Respiratory,Days 0 to +6,0.14194124074958,2,0.931489258530886
+Respiratory,Days +7 to +13,4.19073923396793,2,0.123024763207383

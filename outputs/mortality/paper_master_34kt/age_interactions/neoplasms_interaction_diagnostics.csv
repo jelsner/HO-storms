@@ -1,0 +1,2 @@
+cause,wind_threshold_kt,total_stacked_rows,model_observations,removed_observations,zip_clusters,year_week_clusters,log_likelihood,pseudo_r2,squared_correlation,converged,coefficient_count
+Neoplasms,34,25549596,23504994,2044602,1046,1197,-3186706.68295422,0.0942283302154063,0.0310762877758587,TRUE,12

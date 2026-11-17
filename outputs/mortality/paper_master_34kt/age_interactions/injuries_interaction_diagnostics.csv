@@ -1,0 +1,2 @@
+cause,wind_threshold_kt,total_stacked_rows,model_observations,removed_observations,zip_clusters,year_week_clusters,log_likelihood,pseudo_r2,squared_correlation,converged,coefficient_count
+Injuries,34,25549596,14161622,11387974,1046,1197,-881164.947505634,0.122477252469478,0.0233544938709172,TRUE,12

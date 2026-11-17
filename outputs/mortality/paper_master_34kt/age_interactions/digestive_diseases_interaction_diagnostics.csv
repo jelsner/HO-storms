@@ -1,0 +1,2 @@
+cause,wind_threshold_kt,total_stacked_rows,model_observations,removed_observations,zip_clusters,year_week_clusters,log_likelihood,pseudo_r2,squared_correlation,converged,coefficient_count
+Digestive diseases,34,25549596,22219386,3330210,1046,1197,-663686.987867686,0.0698195067534484,0.00519844714953449,TRUE,12

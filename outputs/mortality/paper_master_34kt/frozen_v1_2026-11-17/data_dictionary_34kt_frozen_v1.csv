@@ -1,0 +1,63 @@
+table_name,column_name,storage_type,description
+master_results_34kt_frozen_v1,analysis_version,character,Immutable analysis freeze identifier.
+master_results_34kt_frozen_v1,freeze_date,IDate,Date on which this versioned result set was frozen.
+master_results_34kt_frozen_v1,source_commit,character,Git commit at the time the freeze was built; uncommitted analysis scripts are documented in the audit table.
+master_results_34kt_frozen_v1,wind_threshold_kt,integer,Storm exposure threshold in knots; this freeze uses winds greater than or equal to 34 kt.
+master_results_34kt_frozen_v1,result_id,character,Unique stable identifier for a cause-age-period estimate.
+master_results_34kt_frozen_v1,analysis_tier,character,"Multiplicity and interpretation tier: Primary, Prioritized secondary, or Exploratory."
+master_results_34kt_frozen_v1,cause,character,Underlying-cause-of-death category.
+master_results_34kt_frozen_v1,cause_order,integer,Display order of the cause category.
+master_results_34kt_frozen_v1,age_group,character,All ages or one of three mutually exclusive age strata.
+master_results_34kt_frozen_v1,age_order,integer,Display order of the age group.
+master_results_34kt_frozen_v1,period,character,Seven-day event-relative period based on the ZIP-specific storm impact date.
+master_results_34kt_frozen_v1,period_order,integer,Chronological display order of the event-relative period.
+master_results_34kt_frozen_v1,model_family,character,Statistical model family.
+master_results_34kt_frozen_v1,model_formula_summary,character,Concise description of the fixed-effects model specification.
+master_results_34kt_frozen_v1,cluster_summary,character,Concise description of the clustered variance estimator.
+master_results_34kt_frozen_v1,reference_period,character,Reference days against which each event-period rate ratio is estimated.
+master_results_34kt_frozen_v1,log_rate_ratio,numeric,Poisson coefficient on the log rate-ratio scale.
+master_results_34kt_frozen_v1,standard_error,numeric,Two-way cluster-robust standard error of the log rate ratio.
+master_results_34kt_frozen_v1,p_value,numeric,"Two-sided, unadjusted p-value for the event-period coefficient."
+master_results_34kt_frozen_v1,main_fdr_q_within_analysis_tier,numeric,"Benjamini-Hochberg q-value across all main-effect tests within the stated analysis tier (16 primary, 64 prioritized secondary, or 96 exploratory tests)."
+master_results_34kt_frozen_v1,main_fdr_q_all_cause_specific,numeric,Benjamini-Hochberg q-value across all 160 cause-specific main-effect tests; not defined for the all-disease primary outcome.
+master_results_34kt_frozen_v1,rate_ratio,numeric,Exponentiated event-period coefficient.
+master_results_34kt_frozen_v1,ci_lower,numeric,Lower endpoint of the 95% confidence interval for the rate ratio.
+master_results_34kt_frozen_v1,ci_upper,numeric,Upper endpoint of the 95% confidence interval for the rate ratio.
+master_results_34kt_frozen_v1,percent_change,numeric,One hundred times the rate ratio minus one.
+master_results_34kt_frozen_v1,observations,integer,Number of ZIP-day observations retained by the separately fitted model for this cause and age group.
+master_results_34kt_frozen_v1,event_zip_days,integer,Number of ZIP-days assigned to this event-relative period.
+master_results_34kt_frozen_v1,event_deaths,integer,Deaths in this cause-age-period cell.
+master_results_34kt_frozen_v1,event_nonzero_zip_days,integer,Event-period ZIP-days with at least one death in this cause-age group.
+master_results_34kt_frozen_v1,joint_log_rate_ratio,numeric,Age-specific log rate ratio from the joint stacked-age interaction model; undefined for All ages.
+master_results_34kt_frozen_v1,joint_standard_error,numeric,Cluster-robust standard error from the joint stacked-age model.
+master_results_34kt_frozen_v1,joint_rate_ratio,numeric,Exponentiated joint-model age-specific coefficient.
+master_results_34kt_frozen_v1,joint_ci_lower,numeric,Lower 95% confidence bound from the joint stacked-age model.
+master_results_34kt_frozen_v1,joint_ci_upper,numeric,Upper 95% confidence bound from the joint stacked-age model.
+master_results_34kt_frozen_v1,joint_point_estimate_match,logical,Whether the joint and separate model log rate ratios agree to within 1e-10.
+master_results_34kt_frozen_v1,age_vs_under65_log_ratio_of_rate_ratios,numeric,Difference in log rate ratios for the listed older group versus under 65; defined for ages 65-74 and 75+.
+master_results_34kt_frozen_v1,age_vs_under65_standard_error,numeric,Standard error of the older-versus-under-65 log ratio-of-rate-ratios contrast.
+master_results_34kt_frozen_v1,age_vs_under65_ratio_of_rate_ratios,numeric,Exponentiated older-versus-under-65 contrast.
+master_results_34kt_frozen_v1,age_vs_under65_ci_lower,numeric,Lower 95% confidence bound for the older-versus-under-65 ratio of rate ratios.
+master_results_34kt_frozen_v1,age_vs_under65_ci_upper,numeric,Upper 95% confidence bound for the older-versus-under-65 ratio of rate ratios.
+master_results_34kt_frozen_v1,age_vs_under65_z_value,numeric,Wald z statistic for the older-versus-under-65 contrast.
+master_results_34kt_frozen_v1,age_vs_under65_p_value,numeric,Unadjusted two-sided p-value for the older-versus-under-65 contrast.
+master_results_34kt_frozen_v1,age_vs_under65_fdr_q_all_132,numeric,Benjamini-Hochberg q-value across all 132 pairwise age contrasts.
+master_results_34kt_frozen_v1,age_vs_under65_fdr_q_all_cause_specific,numeric,Benjamini-Hochberg q-value across all 120 cause-specific pairwise age contrasts.
+master_results_34kt_frozen_v1,age_vs_under65_fdr_q_age_focus_80,numeric,Benjamini-Hochberg q-value across the focused family of 80 cause-specific older-versus-under-65 contrasts.
+master_results_34kt_frozen_v1,age_heterogeneity_chisq,numeric,Two-degree-of-freedom Wald chi-square statistic testing equality of all three age-specific event-period effects.
+master_results_34kt_frozen_v1,age_heterogeneity_df,integer,Degrees of freedom for the global age-heterogeneity test.
+master_results_34kt_frozen_v1,age_heterogeneity_p_value,numeric,Unadjusted p-value for the global age-heterogeneity test.
+master_results_34kt_frozen_v1,age_heterogeneity_fdr_q_all_44,numeric,Benjamini-Hochberg q-value across all 44 global age-heterogeneity tests.
+master_results_34kt_frozen_v1,age_heterogeneity_fdr_q_cause_specific,numeric,Benjamini-Hochberg q-value across the 40 cause-specific global age-heterogeneity tests.
+master_results_34kt_frozen_v1,joint_model_total_stacked_rows,integer,Joint stacked-age model diagnostic: total stacked rows
+master_results_34kt_frozen_v1,joint_model_model_observations,integer,Joint stacked-age model diagnostic: model observations
+master_results_34kt_frozen_v1,joint_model_removed_observations,integer,Joint stacked-age model diagnostic: removed observations
+master_results_34kt_frozen_v1,joint_model_zip_clusters,integer,Joint stacked-age model diagnostic: zip clusters
+master_results_34kt_frozen_v1,joint_model_year_week_clusters,integer,Joint stacked-age model diagnostic: year week clusters
+master_results_34kt_frozen_v1,joint_model_log_likelihood,numeric,Joint stacked-age model diagnostic: log likelihood
+master_results_34kt_frozen_v1,joint_model_pseudo_r2,numeric,Joint stacked-age model diagnostic: pseudo r2
+master_results_34kt_frozen_v1,joint_model_squared_correlation,numeric,Joint stacked-age model diagnostic: squared correlation
+master_results_34kt_frozen_v1,joint_model_converged,logical,Joint stacked-age model diagnostic: converged
+master_results_34kt_frozen_v1,joint_model_coefficient_count,integer,Joint stacked-age model diagnostic: coefficient count
+master_results_34kt_frozen_v1,estimate_is_finite,logical,"QA flag indicating that the main estimate, standard error, rate ratio, and confidence limits are finite."
+master_results_34kt_frozen_v1,confidence_interval_ordered,logical,QA flag indicating ci_lower <= rate_ratio <= ci_upper.
