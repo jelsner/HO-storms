@@ -63,6 +63,8 @@ HO-storms/
   mortality paper.
 - `analysis/mortality/protocol/environmental_research_figure_table_inventory_v1_2026-11-17.csv`:
   machine-readable main and supplementary artifact inventory.
+- `scripts/mortality/build_frozen_spatial_results_34kt.R`: five-target ZIP-level
+  Poisson, empirical-Bayes, and Moran workflow for the locked spatial milestone.
 - `scripts/mortality/`: reproducible count, model, table, and spatial scripts.
 - `manuscript/mortality/`: submitted paper and review documents.
 
