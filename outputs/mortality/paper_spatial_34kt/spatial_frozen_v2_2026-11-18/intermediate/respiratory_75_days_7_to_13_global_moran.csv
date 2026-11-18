@@ -1,0 +1,2 @@
+target_id,target_order,contiguity,weight_style,zips_analyzed,non_island_zips,island_zips,undirected_neighbor_links,mean_neighbors,morans_i,expected_i,permutation_mean_i,permutation_sd_i,permutation_z,permutation_p_two_sided,permutations,random_seed
+SP-34KT-C03-A04-P04,4,queen,row-standardized,954,953,1,2513,5.26834381551363,-0.0180878171478032,-0.00104931794333683,-0.00153934916399367,0.0211755892679404,-0.781487956458607,0.4201,9999,20260916

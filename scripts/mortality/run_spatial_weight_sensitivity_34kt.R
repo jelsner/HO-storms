@@ -1,7 +1,8 @@
 #!/usr/bin/env Rscript
 
-# Prespecified spatial-weight sensitivity for the five frozen older-adult
-# mortality targets. Global Moran's I is evaluated with queen contiguity
+# Prespecified spatial-weight sensitivity for the frozen older-adult mortality
+# targets. The default reproduces v1; set HO_SPATIAL_RELEASE=v2 for the amended
+# eight-target family. Global Moran's I is evaluated with queen contiguity
 # (primary), rook contiguity, and symmetric six-nearest-neighbor weights.
 
 suppressPackageStartupMessages({
@@ -10,26 +11,39 @@ suppressPackageStartupMessages({
   library(sf)
 })
 
-freeze_date <- as.IDate("2026-11-17")
-analysis_version <- "spatial_weight_sensitivity_v1_2026-11-17"
+spatial_release <- Sys.getenv("HO_SPATIAL_RELEASE", unset = "v1")
+if (!spatial_release %chin% c("v1", "v2")) {
+  stop("HO_SPATIAL_RELEASE must be either 'v1' or 'v2'.")
+}
+is_amended_v2 <- identical(spatial_release, "v2")
+freeze_date <- as.IDate(if (is_amended_v2) "2026-11-18" else "2026-11-17")
+analysis_version <- if (is_amended_v2) {
+  "spatial_weight_sensitivity_v2_2026-11-18"
+} else {
+  "spatial_weight_sensitivity_v1_2026-11-17"
+}
+release_label <- if (is_amended_v2) "v2" else "v1"
+freeze_label <- if (is_amended_v2) "frozen_v2" else "frozen_v1"
+expected_target_count <- if (is_amended_v2) 8L else 5L
+expected_row_count <- expected_target_count * 3L
 nsim <- 9999L
 random_seed <- 20260916L
 
 spatial_freeze_dir <- paste0(
   "outputs/mortality/paper_spatial_34kt/",
-  "spatial_frozen_v1_2026-11-17"
+  if (is_amended_v2) "spatial_frozen_v2_2026-11-18" else "spatial_frozen_v1_2026-11-17"
 )
 input_gpkg <- file.path(
   spatial_freeze_dir,
-  "spatial_results_34kt_frozen_v1.gpkg"
+  paste0("spatial_results_34kt_", freeze_label, ".gpkg")
 )
 primary_global_path <- file.path(
   spatial_freeze_dir,
-  "spatial_global_moran_34kt_frozen_v1.csv"
+  paste0("spatial_global_moran_34kt_", freeze_label, ".csv")
 )
 target_path <- file.path(
   spatial_freeze_dir,
-  "spatial_targets_34kt_frozen_v1.csv"
+  paste0("spatial_targets_34kt_", freeze_label, ".csv")
 )
 
 output_dir <- paste0(
@@ -40,19 +54,19 @@ dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 estimate_path <- file.path(
   output_dir,
-  "spatial_weight_sensitivity_34kt_v1.csv"
+  paste0("spatial_weight_sensitivity_34kt_", release_label, ".csv")
 )
 agreement_path <- file.path(
   output_dir,
-  "spatial_weight_agreement_34kt_v1.csv"
+  paste0("spatial_weight_agreement_34kt_", release_label, ".csv")
 )
 qa_path <- file.path(
   output_dir,
-  "spatial_weight_sensitivity_qa_v1.csv"
+  paste0("spatial_weight_sensitivity_qa_", release_label, ".csv")
 )
 manifest_path <- file.path(
   output_dir,
-  "spatial_weight_sensitivity_manifest_v1.csv"
+  paste0("spatial_weight_sensitivity_manifest_", release_label, ".csv")
 )
 
 required_paths <- c(input_gpkg, primary_global_path, target_path)
@@ -207,7 +221,7 @@ calculate_global_moran_set <- function(analysis_map, target_id, target_order) {
   )
 }
 
-message("Reading the frozen five-target spatial dataset")
+message("Reading the frozen ", expected_target_count, "-target spatial dataset")
 spatial <- st_read(input_gpkg, layer = "spatial_results", quiet = TRUE)
 spatial$zip <- as.character(spatial$zip)
 targets <- fread(target_path)
@@ -241,16 +255,27 @@ for (target_index in seq_len(nrow(targets))) {
 }
 
 output <- rbindlist(all_results, use.names = TRUE, fill = TRUE)
-output[, fdr_q_within_weight_five_maps := p.adjust(
+output[, fdr_q_within_weight_family := p.adjust(
   permutation_p_two_sided,
   method = "BH"
 ), by = weight_definition]
-output[, fdr_q_all_15_sensitivity_tests := p.adjust(
+output[, fdr_q_all_sensitivity_tests := p.adjust(
   permutation_p_two_sided,
   method = "BH"
 )]
+if (is_amended_v2) {
+  output[, `:=`(
+    fdr_q_within_weight_eight_maps = fdr_q_within_weight_family,
+    fdr_q_all_24_sensitivity_tests = fdr_q_all_sensitivity_tests
+  )]
+} else {
+  output[, `:=`(
+    fdr_q_within_weight_five_maps = fdr_q_within_weight_family,
+    fdr_q_all_15_sensitivity_tests = fdr_q_all_sensitivity_tests
+  )]
+}
 output[, spatial_concentration_conclusion := fifelse(
-  morans_i > 0 & fdr_q_within_weight_five_maps < 0.05,
+  morans_i > 0 & fdr_q_within_weight_family < 0.05,
   "Evidence of global spatial concentration",
   "No evidence of global spatial concentration"
 )]
@@ -270,14 +295,14 @@ agreement <- output[, .(
   queen_morans_i = morans_i[weight_definition == "queen"],
   rook_morans_i = morans_i[weight_definition == "rook"],
   symmetric_6nn_morans_i = morans_i[weight_definition == "symmetric_6nn"],
-  queen_q = fdr_q_within_weight_five_maps[weight_definition == "queen"],
-  rook_q = fdr_q_within_weight_five_maps[weight_definition == "rook"],
-  symmetric_6nn_q = fdr_q_within_weight_five_maps[
+  queen_q = fdr_q_within_weight_family[weight_definition == "queen"],
+  rook_q = fdr_q_within_weight_family[weight_definition == "rook"],
+  symmetric_6nn_q = fdr_q_within_weight_family[
     weight_definition == "symmetric_6nn"
   ],
   sign_agreement_all_weights = uniqueN(sign(morans_i)) == 1L,
   inference_agreement_all_weights = uniqueN(
-    morans_i > 0 & fdr_q_within_weight_five_maps < 0.05
+    morans_i > 0 & fdr_q_within_weight_family < 0.05
   ) == 1L
 ), by = .(target_id, target_order, cause, age_group, period)]
 agreement[, `:=`(
@@ -308,12 +333,17 @@ add_check <- function(name, pass, observed, expected, details = "") {
   )
 }
 
-add_check("Sensitivity row count", nrow(output) == 15L, nrow(output), 15L)
 add_check(
-  "Five targets",
-  uniqueN(output$target_id) == 5L,
+  "Sensitivity row count",
+  nrow(output) == expected_row_count,
+  nrow(output),
+  expected_row_count
+)
+add_check(
+  paste(expected_target_count, "targets"),
+  uniqueN(output$target_id) == expected_target_count,
   uniqueN(output$target_id),
-  5L
+  expected_target_count
 )
 add_check(
   "Three weight definitions",
@@ -331,22 +361,22 @@ add_check(
   "Finite Moran statistics",
   all(is.finite(output$morans_i)),
   sum(is.finite(output$morans_i)),
-  15L
+  expected_row_count
 )
 add_check(
   "P and q values in [0,1]",
   all(
     output$permutation_p_two_sided >= 0 &
       output$permutation_p_two_sided <= 1 &
-      output$fdr_q_within_weight_five_maps >= 0 &
-      output$fdr_q_within_weight_five_maps <= 1 &
-      output$fdr_q_all_15_sensitivity_tests >= 0 &
-      output$fdr_q_all_15_sensitivity_tests <= 1
+      output$fdr_q_within_weight_family >= 0 &
+      output$fdr_q_within_weight_family <= 1 &
+      output$fdr_q_all_sensitivity_tests >= 0 &
+      output$fdr_q_all_sensitivity_tests <= 1
   ),
   paste0(
     "p ", paste(signif(range(output$permutation_p_two_sided), 4L), collapse = " to "),
-    "; q5 ", paste(signif(range(output$fdr_q_within_weight_five_maps), 4L), collapse = " to "),
-    "; q15 ", paste(signif(range(output$fdr_q_all_15_sensitivity_tests), 4L), collapse = " to ")
+    "; q-family ", paste(signif(range(output$fdr_q_within_weight_family), 4L), collapse = " to "),
+    "; q-all ", paste(signif(range(output$fdr_q_all_sensitivity_tests), 4L), collapse = " to ")
   ),
   "0 to 1"
 )
@@ -379,12 +409,13 @@ max_queen_p_difference <- max(abs(
 ))
 add_check(
   "Queen Moran statistics reproduce primary freeze",
-  nrow(queen_validation) == 5L & max_queen_i_difference < 1e-10,
+  nrow(queen_validation) == expected_target_count &
+    max_queen_i_difference < 1e-10,
   paste0(
     "rows ", nrow(queen_validation), "; max difference ",
     format(max_queen_i_difference, scientific = TRUE, digits = 4L)
   ),
-  "5 rows; difference < 1e-10"
+  paste0(expected_target_count, " rows; difference < 1e-10")
 )
 add_check(
   "Queen permutation p-values reproduce primary freeze",

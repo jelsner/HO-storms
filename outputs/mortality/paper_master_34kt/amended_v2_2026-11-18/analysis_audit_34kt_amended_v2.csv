@@ -1,0 +1,13 @@
+item,value
+Analysis version,amended_v2_2026-11-18
+Parent analysis version,frozen_v1_2026-11-17
+Amendment date,2026-11-18
+Decision maker,Principal investigator
+Outcome-blind status,PI had not seen the results when requesting the scope change; analyst had access to frozen v1
+Excluded categories,"Digestive diseases; Diabetes; Endocrine, nutritional, and metabolic disorders"
+Retained cause-specific categories,Cardiovascular; Respiratory; Infectious diseases; Injuries; Neuropsychiatric disorders; Renal diseases; Neoplasms
+Unchanged families,16-test all-disease primary family and 64-test prioritized family
+Recomputed main-effect families,48-test exploratory family and 112-test all-cause-specific family
+Recomputed age-test families,"32 all-outcome and 28 cause-specific global tests; 96 all, 84 cause-specific, and 56 focused pairwise contrasts"
+Spatial eligibility consequence,Five frozen-v1 targets retained and three targets added; amended total = eight
+Generating script,scripts/mortality/build_amended_master_results_34kt_v2.R

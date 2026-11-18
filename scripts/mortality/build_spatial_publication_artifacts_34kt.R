@@ -12,37 +12,53 @@ suppressPackageStartupMessages({
   library(sf)
 })
 
-freeze_date <- as.IDate("2026-11-17")
-artifact_version <- "environmental_research_spatial_v1_2026-11-17"
+spatial_release <- Sys.getenv("HO_SPATIAL_RELEASE", unset = "v1")
+if (!spatial_release %chin% c("v1", "v2")) {
+  stop("HO_SPATIAL_RELEASE must be either 'v1' or 'v2'.")
+}
+is_amended_v2 <- identical(spatial_release, "v2")
+freeze_date <- as.IDate(if (is_amended_v2) "2026-11-18" else "2026-11-17")
+artifact_version <- if (is_amended_v2) {
+  "environmental_research_spatial_v2_2026-11-18"
+} else {
+  "environmental_research_spatial_v1_2026-11-17"
+}
+release_label <- if (is_amended_v2) "v2" else "v1"
+freeze_label <- if (is_amended_v2) "frozen_v2" else "frozen_v1"
+expected_target_count <- if (is_amended_v2) 8L else 5L
 
 spatial_freeze_dir <- paste0(
   "outputs/mortality/paper_spatial_34kt/",
-  "spatial_frozen_v1_2026-11-17"
+  if (is_amended_v2) "spatial_frozen_v2_2026-11-18" else "spatial_frozen_v1_2026-11-17"
 )
 sensitivity_dir <- paste0(
   "outputs/mortality/paper_spatial_34kt/",
-  "spatial_weight_sensitivity_v1_2026-11-17"
+  if (is_amended_v2) {
+    "spatial_weight_sensitivity_v2_2026-11-18"
+  } else {
+    "spatial_weight_sensitivity_v1_2026-11-17"
+  }
 )
 
 gpkg_path <- file.path(
   spatial_freeze_dir,
-  "spatial_results_34kt_frozen_v1.gpkg"
+  paste0("spatial_results_34kt_", freeze_label, ".gpkg")
 )
 target_path <- file.path(
   spatial_freeze_dir,
-  "spatial_targets_34kt_frozen_v1.csv"
+  paste0("spatial_targets_34kt_", freeze_label, ".csv")
 )
 zip_path <- file.path(
   spatial_freeze_dir,
-  "spatial_zip_results_34kt_frozen_v1.csv"
+  paste0("spatial_zip_results_34kt_", freeze_label, ".csv")
 )
 global_path <- file.path(
   spatial_freeze_dir,
-  "spatial_global_moran_34kt_frozen_v1.csv"
+  paste0("spatial_global_moran_34kt_", freeze_label, ".csv")
 )
 sensitivity_path <- file.path(
   sensitivity_dir,
-  "spatial_weight_sensitivity_34kt_v1.csv"
+  paste0("spatial_weight_sensitivity_34kt_", release_label, ".csv")
 )
 
 figure_dir <- file.path(
@@ -167,6 +183,28 @@ global <- fread(global_path)
 sensitivity <- fread(sensitivity_path)
 setorder(targets, target_order)
 
+if (!"global_moran_fdr_q_spatial_family" %in% names(global)) {
+  legacy_global_q <- if (is_amended_v2) {
+    "global_moran_fdr_q_eight_maps"
+  } else {
+    "global_moran_fdr_q_five_maps"
+  }
+  global[, global_moran_fdr_q_spatial_family := get(legacy_global_q)]
+}
+if (!"fdr_q_within_weight_family" %in% names(sensitivity)) {
+  legacy_sensitivity_q <- if (is_amended_v2) {
+    "fdr_q_within_weight_eight_maps"
+  } else {
+    "fdr_q_within_weight_five_maps"
+  }
+  sensitivity[, fdr_q_within_weight_family := get(legacy_sensitivity_q)]
+}
+
+facet_columns <- if (is_amended_v2) 4L else 3L
+map_width <- if (is_amended_v2) 14 else 12
+map_height <- if (is_amended_v2) 8.5 else 9
+target_count_word <- if (is_amended_v2) "eight" else "five"
+
 targets[, target_label := sprintf(
   "%s, age %s\n%s\nStatewide RR %.3f",
   cause,
@@ -201,7 +239,7 @@ figure5 <- ggplot(spatial) +
     color = "white",
     linewidth = 0.05
   ) +
-  facet_wrap(~ target_label, ncol = 3, drop = FALSE) +
+  facet_wrap(~ target_label, ncol = facet_columns, drop = FALSE) +
   scale_fill_gradient2(
     low = "#2166AC",
     mid = "#F7F7F7",
@@ -222,7 +260,10 @@ figure5 <- ggplot(spatial) +
       "deviation from the target geometric mean"
     ),
     caption = paste(
-      "All five cause-age-period combinations met the locked statewide spatial-eligibility rule. ",
+      paste0(
+        "All ", target_count_word,
+        " cause-age-period combinations met the locked statewide spatial-eligibility rule."
+      ),
       "Gray ZIPs lack an estimable counterfactual expected count. Color limits use the pooled ",
       "98th percentile of absolute centered log rate ratios and are identical across panels.",
       sep = "\n"
@@ -238,7 +279,7 @@ figure5 <- ggplot(spatial) +
     legend.position = "right"
   )
 
-save_plot_pair(figure5, figure5_png, figure5_pdf, 12, 9)
+save_plot_pair(figure5, figure5_png, figure5_pdf, map_width, map_height)
 
 message("Building Figure 6: local Moran cluster maps")
 global_labels <- global[, .(
@@ -246,7 +287,7 @@ global_labels <- global[, .(
   global_label = sprintf(
     "Global Moran's I = %.3f; q = %.3f",
     morans_i,
-    global_moran_fdr_q_five_maps
+    global_moran_fdr_q_spatial_family
   )
 )]
 global_levels <- paste(
@@ -284,6 +325,37 @@ spatial$lisa_cluster <- factor(
   )
 )
 
+n_global_supported <- global[
+  morans_i > 0 & global_moran_fdr_q_spatial_family < 0.05,
+  .N
+]
+n_local_supported <- sum(
+  spatial$lisa_cluster %in% c("High-High", "Low-Low", "High-Low", "Low-High"),
+  na.rm = TRUE
+)
+spatial_result_caption <- if (
+  n_global_supported == 0L && n_local_supported == 0L
+) {
+  paste0(
+    "No target met the protocol criterion for global spatial concentration, ",
+    "and no local test survived within-map Benjamini-Hochberg correction."
+  )
+} else {
+  global_phrase <- if (n_global_supported == 0L) {
+    "No target met the global spatial-concentration criterion"
+  } else if (n_global_supported == 1L) {
+    "One target met the global spatial-concentration criterion"
+  } else {
+    paste(n_global_supported, "targets met the global spatial-concentration criterion")
+  }
+  local_phrase <- if (n_local_supported == 1L) {
+    "one ZIP had an FDR-supported local classification"
+  } else {
+    paste(n_local_supported, "ZIPs had FDR-supported local classifications")
+  }
+  paste0(global_phrase, "; ", local_phrase, ".")
+}
+
 lisa_colors <- c(
   "High-High" = "#7A0177",
   "Low-Low" = "#238B45",
@@ -300,7 +372,7 @@ figure6 <- ggplot(spatial) +
     color = "white",
     linewidth = 0.05
   ) +
-  facet_wrap(~ target_global_label, ncol = 3, drop = FALSE) +
+  facet_wrap(~ target_global_label, ncol = facet_columns, drop = FALSE) +
   scale_fill_manual(
     values = lisa_colors,
     drop = TRUE,
@@ -308,15 +380,18 @@ figure6 <- ggplot(spatial) +
   ) +
   coord_sf(datum = NA) +
   labs(
-    title = "No FDR-supported local clusters in the five older-adult targets",
+    title = paste0(
+      "Local spatial association in the ", target_count_word,
+      " older-adult targets"
+    ),
     subtitle = paste0(
-      "Queen contiguity; 9,999 permutations; global q across five maps and ",
+      "Queen contiguity; 9,999 permutations; global q across ",
+      target_count_word, " maps and ",
       "local q across ZIPs within each map"
     ),
     caption = paste0(
       "High-high and low-low denote local clusters; high-low and low-high denote spatial outliers. ",
-      "No target met the protocol criterion for global spatial concentration, and no local test ",
-      "survived within-map Benjamini-Hochberg correction."
+      spatial_result_caption
     )
   ) +
   theme_void(base_family = "Helvetica", base_size = 10) +
@@ -329,7 +404,7 @@ figure6 <- ggplot(spatial) +
     legend.position = "right"
   )
 
-save_plot_pair(figure6, figure6_png, figure6_pdf, 12, 9)
+save_plot_pair(figure6, figure6_png, figure6_pdf, map_width, map_height)
 
 message("Building Supplementary Figure S8")
 reliability_limit <- as.numeric(quantile(
@@ -343,7 +418,7 @@ if (!is.finite(reliability_limit) || reliability_limit <= 0) {
 
 reliability_plot <- ggplot(spatial) +
   geom_sf(aes(fill = reliability), color = "white", linewidth = 0.04) +
-  facet_wrap(~ target_label, ncol = 3, drop = FALSE) +
+  facet_wrap(~ target_label, ncol = facet_columns, drop = FALSE) +
   scale_fill_gradientn(
     colours = viridisLite::viridis(8, option = "C"),
     limits = c(0, reliability_limit),
@@ -407,7 +482,11 @@ sensitivity_plot <- ggplot(
   ) +
   labs(
     title = "B. Global Moran's I sensitivity to spatial weights",
-    subtitle = "All within-weight five-map FDR q-values are at least 0.067",
+    subtitle = paste0(
+      "Within-weight ", target_count_word,
+      "-map FDR; minimum q = ",
+      sprintf("%.3f", min(sensitivity$fdr_q_within_weight_family, na.rm = TRUE))
+    ),
     x = "Global Moran's I",
     y = NULL,
     color = "Weights",
@@ -433,8 +512,8 @@ draw_two_panel(
   sensitivity_plot,
   figure_s8_png,
   figure_s8_pdf,
-  width = 12,
-  height = 13
+  width = map_width,
+  height = if (is_amended_v2) 12 else 13
 )
 
 message("Building Supplementary Table S9")
@@ -454,7 +533,7 @@ sensitivity_wide <- dcast(
   value.var = c(
     "morans_i",
     "permutation_p_two_sided",
-    "fdr_q_within_weight_five_maps"
+    "fdr_q_within_weight_family"
   )
 )
 setnames(
@@ -475,7 +554,8 @@ table_s9 <- merge(
     aggregate_expected_deaths,
     pooled_rate_ratio,
     eb_prior_mean_rr,
-    eb_prior_sd_rr
+    eb_prior_sd_rr,
+    spatial_concentration_conclusion
   )],
   reliability_summary,
   by = "target_id",
@@ -492,9 +572,7 @@ table_s9 <- merge(
 table_s9[, `:=`(
   artifact_version = artifact_version,
   freeze_date = freeze_date,
-  source_commit = source_commit,
-  spatial_concentration_conclusion =
-    "No evidence of global spatial concentration"
+  source_commit = source_commit
 )]
 setorder(table_s9, target_order)
 fwrite(table_s9, table_s9_csv)
@@ -519,19 +597,19 @@ display_table <- table_s9[, .(
     "%.3f (%.4f; %.4f)",
     morans_i_queen,
     permutation_p_two_sided_queen,
-    fdr_q_within_weight_five_maps_queen
+    fdr_q_within_weight_family_queen
   ),
   `Rook I (p; q)` = sprintf(
     "%.3f (%.4f; %.4f)",
     morans_i_rook,
     permutation_p_two_sided_rook,
-    fdr_q_within_weight_five_maps_rook
+    fdr_q_within_weight_family_rook
   ),
   `6NN I (p; q)` = sprintf(
     "%.3f (%.4f; %.4f)",
     morans_i_symmetric_6nn,
     permutation_p_two_sided_symmetric_6nn,
-    fdr_q_within_weight_five_maps_symmetric_6nn
+    fdr_q_within_weight_family_symmetric_6nn
   ),
   `Local FDR clusters` = local_fdr_supported_clusters
 )]
@@ -544,7 +622,8 @@ table_lines <- c(
   paste0(
     "Notes: ZIP rate ratios were stabilized with gamma-Poisson empirical-Bayes smoothing. ",
     "Global Moran tests used centered log EB rate ratios, row-standardized weights, and ",
-    "9,999 permutations. q-values are Benjamini-Hochberg adjustments across the five ",
+    "9,999 permutations. q-values are Benjamini-Hochberg adjustments across the ",
+    target_count_word, " ",
     "targets within each weight definition. Queen contiguity is primary; rook and symmetric ",
     "six-nearest-neighbor weights are sensitivity analyses. Local FDR clusters use ",
     "within-map Benjamini-Hochberg correction."
@@ -557,7 +636,8 @@ caption_lines <- c(
   "",
   "## Figure 5",
   paste0(
-    "Empirical-Bayes-smoothed ZIP-level rate ratios for the five older-adult ",
+    "Empirical-Bayes-smoothed ZIP-level rate ratios for the ", target_count_word,
+    " older-adult ",
     "cause-period associations meeting the locked statewide spatial-eligibility rule. ",
     "Color represents each ZIP's centered log EB rate ratio, displayed as a percentage ",
     "deviation from the target-specific geometric mean. The same color limits are used ",
@@ -566,11 +646,12 @@ caption_lines <- c(
   "",
   "## Figure 6",
   paste0(
-    "Local Moran cluster classifications for the same five older-adult targets using ",
+    "Local Moran cluster classifications for the same ", target_count_word,
+    " older-adult targets using ",
     "row-standardized queen contiguity and 9,999 permutations. Global p-values were ",
-    "Benjamini-Hochberg adjusted across the five maps, and local p-values were adjusted ",
-    "across ZIPs within each map. No global or local test survived the prespecified FDR ",
-    "correction."
+    "Benjamini-Hochberg adjusted across the ", target_count_word,
+    " maps, and local p-values were adjusted ",
+    "across ZIPs within each map. ", spatial_result_caption
   ),
   "",
   "## Figure S8",
@@ -578,16 +659,16 @@ caption_lines <- c(
     "Empirical-Bayes reliability and spatial-weight sensitivity. Panel A maps EB reliability, ",
     "defined as expected deaths divided by the sum of the EB prior rate and expected deaths. ",
     "Panel B compares global Moran's I under queen contiguity, rook contiguity, and symmetric ",
-    "six-nearest-neighbor weights. The conclusion of no FDR-supported global spatial ",
-    "concentration was unchanged across all three definitions."
+    "six-nearest-neighbor weights. Spatial conclusions under all three definitions are ",
+    "reported in Table S9."
   )
 )
 writeLines(caption_lines, caption_path)
 
 qa <- data.table(
   check_name = c(
-    "Five figure facets",
-    "Five Table S9 rows",
+    paste(expected_target_count, "figure facets"),
+    paste(expected_target_count, "Table S9 rows"),
     "No missing target labels",
     "Figure 5 files written",
     "Figure 6 files written",
@@ -596,8 +677,8 @@ qa <- data.table(
     "All conclusions agree across weights"
   ),
   status = c(
-    if (uniqueN(spatial$target_global_label) == 5L) "PASS" else "FAIL",
-    if (nrow(table_s9) == 5L) "PASS" else "FAIL",
+    if (uniqueN(spatial$target_global_label) == expected_target_count) "PASS" else "FAIL",
+    if (nrow(table_s9) == expected_target_count) "PASS" else "FAIL",
     if (!anyNA(spatial$target_label)) "PASS" else "FAIL",
     if (all(file.exists(c(figure5_png, figure5_pdf)))) "PASS" else "FAIL",
     if (all(file.exists(c(figure6_png, figure6_pdf)))) "PASS" else "FAIL",
@@ -605,7 +686,7 @@ qa <- data.table(
     if (all(file.exists(c(table_s9_csv, table_s9_md)))) "PASS" else "FAIL",
     if (all(
       sensitivity[, uniqueN(
-        morans_i > 0 & fdr_q_within_weight_five_maps < 0.05
+        morans_i > 0 & fdr_q_within_weight_family < 0.05
       ), by = target_id]$V1 == 1L
     )) "PASS" else "FAIL"
   ),
@@ -619,11 +700,20 @@ qa <- data.table(
     sum(file.exists(c(table_s9_csv, table_s9_md))),
     sum(
       sensitivity[, uniqueN(
-        morans_i > 0 & fdr_q_within_weight_five_maps < 0.05
+        morans_i > 0 & fdr_q_within_weight_family < 0.05
       ), by = target_id]$V1 == 1L
     )
   ),
-  expected = c(5L, 5L, 0L, 2L, 2L, 2L, 2L, 5L)
+  expected = c(
+    expected_target_count,
+    expected_target_count,
+    0L,
+    2L,
+    2L,
+    2L,
+    2L,
+    expected_target_count
+  )
 )
 fwrite(qa, qa_path)
 if (any(qa$status != "PASS")) {

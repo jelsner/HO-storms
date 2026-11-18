@@ -1,0 +1,69 @@
+table_name,column_name,storage_type,description
+master_results_34kt_amended_v2,cause,character,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,period,character,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,age_group,character,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,analysis_version,character,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,freeze_date,IDate,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,source_commit,character,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,wind_threshold_kt,integer,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,result_id,character,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,analysis_tier,character,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,cause_order,integer,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,age_order,integer,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,period_order,integer,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,model_family,character,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,model_formula_summary,character,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,cluster_summary,character,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,reference_period,character,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,log_rate_ratio,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,standard_error,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,p_value,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,main_fdr_q_within_analysis_tier,numeric,"BH q-value within the amended Primary (16), Prioritized (64), or Exploratory (48) family."
+master_results_34kt_amended_v2,main_fdr_q_all_cause_specific,numeric,BH q-value across the 112 retained cause-specific main-effect tests.
+master_results_34kt_amended_v2,rate_ratio,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,ci_lower,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,ci_upper,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,percent_change,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,observations,integer,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,event_zip_days,integer,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,event_deaths,integer,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,event_nonzero_zip_days,integer,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_log_rate_ratio,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_standard_error,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_rate_ratio,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_ci_lower,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_ci_upper,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_point_estimate_match,logical,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,age_vs_under65_log_ratio_of_rate_ratios,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,age_vs_under65_standard_error,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,age_vs_under65_ratio_of_rate_ratios,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,age_vs_under65_ci_lower,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,age_vs_under65_ci_upper,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,age_vs_under65_z_value,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,age_vs_under65_p_value,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,age_heterogeneity_chisq,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,age_heterogeneity_df,integer,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,age_heterogeneity_p_value,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_model_total_stacked_rows,integer,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_model_model_observations,integer,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_model_removed_observations,integer,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_model_zip_clusters,integer,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_model_year_week_clusters,integer,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_model_log_likelihood,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_model_pseudo_r2,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_model_squared_correlation,numeric,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_model_converged,logical,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,joint_model_coefficient_count,integer,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,estimate_is_finite,logical,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,confidence_interval_ordered,logical,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,age_vs_under65_fdr_q_all_96,numeric,BH q-value across all 96 retained pairwise age contrasts.
+master_results_34kt_amended_v2,age_vs_under65_fdr_q_all_cause_specific,numeric,BH q-value across 84 retained cause-specific pairwise age contrasts.
+master_results_34kt_amended_v2,age_vs_under65_fdr_q_age_focus_56,numeric,BH q-value across 56 retained cause-specific older-versus-under-65 contrasts.
+master_results_34kt_amended_v2,age_heterogeneity_fdr_q_all_32,numeric,BH q-value across 32 retained all-outcome global age-heterogeneity tests.
+master_results_34kt_amended_v2,age_heterogeneity_fdr_q_cause_specific,numeric,BH q-value across 28 retained cause-specific global age-heterogeneity tests.
+master_results_34kt_amended_v2,parent_analysis_version,character,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,parent_freeze_date,IDate,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,amendment_id,character,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,amendment_date,IDate,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,amendment_source_commit,character,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.
+master_results_34kt_amended_v2,multiplicity_scope,character,Inherited unchanged from frozen v1 unless identified as an amendment or recomputed q-value field.

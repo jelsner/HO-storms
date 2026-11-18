@@ -1,0 +1,9 @@
+check_name,status,observed,expected
+Eight figure files written,PASS,8,8
+Figure 2 has 16 estimates,PASS,16,16
+Figure 3 has 28 estimates,PASS,28,28
+Figure 4 has 48 estimates,PASS,48,48
+Figure 2 primary-family FDR markers,PASS,14,14
+Figure 3 amended 112-test FDR markers,PASS,9,9
+Figure 4 has 16 age-q annotations,PASS,16,16
+Figure 4 has no FDR-supported age heterogeneity,PASS,0,0

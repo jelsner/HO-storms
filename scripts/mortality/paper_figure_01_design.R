@@ -194,7 +194,7 @@ workflow_plot <- ggplot(workflow) +
     x = 3,
     y = -0.19,
     label = paste0(
-      "Outcomes: all diseases + 10 cause categories     |     ",
+      "Outcomes: all diseases + 7 retained cause categories     |     ",
       "Ages: all, <65, 65-74, 75+     |     ",
       "Adjustment: ZIP, ISO year-week, day-of-week, ZIP x COVID period"
     ),

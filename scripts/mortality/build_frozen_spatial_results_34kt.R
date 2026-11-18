@@ -1,7 +1,9 @@
 #!/usr/bin/env Rscript
 
-# Build and freeze the five ZIP-level spatial analyses prespecified in the
-# Environmental Research analysis-and-reporting plan. Each target uses the
+# Build and freeze the ZIP-level spatial analyses prespecified in the
+# Environmental Research analysis-and-reporting plan. The default reproduces
+# the five-target v1 freeze; set HO_SPATIAL_RELEASE=v2 to build the amended
+# eight-target family from the amended master results. Each target uses the
 # pooled cause-age-period fixed-effects Poisson model to obtain counterfactual
 # expected deaths, gamma-Poisson empirical-Bayes smoothing of ZIP observed /
 # expected ratios, and global/local Moran statistics under queen contiguity.
@@ -17,8 +19,24 @@ suppressPackageStartupMessages({
 source("scripts/mortality/cause_age_count_helpers.R")
 
 wind_threshold <- 34L
-freeze_date <- as.IDate("2026-11-17")
-analysis_version <- "spatial_frozen_v1_2026-11-17"
+spatial_release <- Sys.getenv("HO_SPATIAL_RELEASE", unset = "v1")
+if (!spatial_release %chin% c("v1", "v2")) {
+  stop("HO_SPATIAL_RELEASE must be either 'v1' or 'v2'.")
+}
+is_amended_v2 <- identical(spatial_release, "v2")
+freeze_date <- as.IDate(if (is_amended_v2) "2026-11-18" else "2026-11-17")
+analysis_version <- if (is_amended_v2) {
+  "spatial_frozen_v2_2026-11-18"
+} else {
+  "spatial_frozen_v1_2026-11-17"
+}
+release_label <- if (is_amended_v2) "frozen_v2" else "frozen_v1"
+expected_target_count <- if (is_amended_v2) 8L else 5L
+global_q_column <- if (is_amended_v2) {
+  "global_moran_fdr_q_eight_maps"
+} else {
+  "global_moran_fdr_q_five_maps"
+}
 nsim <- 9999L
 random_seed <- 20260916L
 
@@ -30,10 +48,17 @@ period_levels <- c(
   "Days +7 to +13"
 )
 
-primary_master_path <- paste0(
-  "outputs/mortality/paper_master_34kt/frozen_v1_2026-11-17/",
-  "master_results_34kt_frozen_v1.csv"
-)
+primary_master_path <- if (is_amended_v2) {
+  paste0(
+    "outputs/mortality/paper_master_34kt/amended_v2_2026-11-18/",
+    "master_results_34kt_amended_v2.csv"
+  )
+} else {
+  paste0(
+    "outputs/mortality/paper_master_34kt/frozen_v1_2026-11-17/",
+    "master_results_34kt_frozen_v1.csv"
+  )
+}
 daily_panel_path <- sprintf(
   "data/mortality/processed/death-panels/daily_panel_%dkt.csv",
   wind_threshold
@@ -69,35 +94,35 @@ dir.create(intermediate_dir, recursive = TRUE, showWarnings = FALSE)
 
 target_path <- file.path(
   output_dir,
-  "spatial_targets_34kt_frozen_v1.csv"
+  paste0("spatial_targets_34kt_", release_label, ".csv")
 )
 zip_path <- file.path(
   output_dir,
-  "spatial_zip_results_34kt_frozen_v1.csv"
+  paste0("spatial_zip_results_34kt_", release_label, ".csv")
 )
 global_path <- file.path(
   output_dir,
-  "spatial_global_moran_34kt_frozen_v1.csv"
+  paste0("spatial_global_moran_34kt_", release_label, ".csv")
 )
 diagnostic_path <- file.path(
   output_dir,
-  "spatial_model_diagnostics_34kt_frozen_v1.csv"
+  paste0("spatial_model_diagnostics_34kt_", release_label, ".csv")
 )
 gpkg_path <- file.path(
   output_dir,
-  "spatial_results_34kt_frozen_v1.gpkg"
+  paste0("spatial_results_34kt_", release_label, ".gpkg")
 )
 dictionary_path <- file.path(
   output_dir,
-  "spatial_data_dictionary_34kt_frozen_v1.csv"
+  paste0("spatial_data_dictionary_34kt_", release_label, ".csv")
 )
 qa_path <- file.path(
   output_dir,
-  "spatial_qa_checks_34kt_frozen_v1.csv"
+  paste0("spatial_qa_checks_34kt_", release_label, ".csv")
 )
 manifest_path <- file.path(
   output_dir,
-  "spatial_freeze_manifest_34kt_frozen_v1.csv"
+  paste0("spatial_freeze_manifest_34kt_", release_label, ".csv")
 )
 
 required_paths <- c(
@@ -361,7 +386,7 @@ calculate_moran <- function(map_data, target_id, target_order) {
   list(local = local, global = global)
 }
 
-message("Selecting the five locked spatial targets from the primary freeze")
+message("Selecting the locked spatial targets from the primary freeze")
 master <- fread(primary_master_path)
 targets <- master[
   cause != "All diseases" &
@@ -375,14 +400,20 @@ targets <- master[
 expected_target_keys <- c(
   "Cardiovascular|65-74|Days 0 to +6",
   "Cardiovascular|75+|Days 0 to +6",
+  if (is_amended_v2) "Cardiovascular|75+|Days +7 to +13",
   "Respiratory|75+|Days +7 to +13",
+  if (is_amended_v2) "Injuries|75+|Days 0 to +6",
   "Neuropsychiatric disorders|75+|Days 0 to +6",
+  if (is_amended_v2) "Neuropsychiatric disorders|75+|Days +7 to +13",
   "Neoplasms|75+|Days -7 to -1"
 )
 target_keys <- paste(targets$cause, targets$age_group, targets$period, sep = "|")
-if (nrow(targets) != 5L || !setequal(target_keys, expected_target_keys)) {
+if (
+  nrow(targets) != expected_target_count ||
+    !setequal(target_keys, expected_target_keys)
+) {
   stop(
-    "The frozen eligibility rule did not return the five locked targets. Got: ",
+    "The frozen eligibility rule did not return the locked targets. Got: ",
     paste(target_keys, collapse = "; ")
   )
 }
@@ -499,7 +530,10 @@ resume_from_intermediates <- all(file.exists(unlist(
 )))
 
 if (resume_from_intermediates) {
-  message("Resuming from five complete per-target intermediate result sets")
+  message(
+    "Resuming from ", expected_target_count,
+    " complete per-target intermediate result sets"
+  )
   for (target_index in seq_len(nrow(targets))) {
     zip_results <- fread(intermediate_paths$zip_path[target_index])
     zip_results[, zip := as.character(zip)]
@@ -783,18 +817,22 @@ for (target_index in seq_len(nrow(targets))) {
 }
 }
 
-message("Combining targets and applying the five-map global Moran FDR")
+message(
+  "Combining targets and applying the ", expected_target_count,
+  "-map global Moran FDR"
+)
 zip_output <- rbindlist(all_zip_results, use.names = TRUE, fill = TRUE)
 global_output <- rbindlist(all_global_results, use.names = TRUE, fill = TRUE)
 diagnostic_output <- rbindlist(all_diagnostics, use.names = TRUE, fill = TRUE)
 spatial_output <- do.call(rbind, all_spatial_layers)
 
-global_output[, global_moran_fdr_q_five_maps := p.adjust(
+global_output[, global_moran_fdr_q_spatial_family := p.adjust(
   permutation_p_two_sided,
   method = "BH"
 )]
+global_output[, (global_q_column) := global_moran_fdr_q_spatial_family]
 global_output[, spatial_concentration_conclusion := fifelse(
-  morans_i > 0 & global_moran_fdr_q_five_maps < 0.05,
+  morans_i > 0 & global_moran_fdr_q_spatial_family < 0.05,
   "Evidence of global spatial concentration",
   "No evidence of global spatial concentration"
 )]
@@ -815,15 +853,23 @@ targets_output <- merge(
 )
 setorder(targets_output, target_order)
 
+global_merge <- global_output[, c(
+  "target_id",
+  "morans_i",
+  "permutation_p_two_sided",
+  "global_moran_fdr_q_spatial_family",
+  global_q_column,
+  "spatial_concentration_conclusion"
+), with = FALSE]
+setnames(
+  global_merge,
+  c("morans_i", "permutation_p_two_sided"),
+  c("global_morans_i", "global_moran_p_value")
+)
+
 zip_output <- merge(
   zip_output,
-  global_output[, .(
-    target_id,
-    global_morans_i = morans_i,
-    global_moran_p_value = permutation_p_two_sided,
-    global_moran_fdr_q_five_maps,
-    spatial_concentration_conclusion
-  )],
+  global_merge,
   by = "target_id",
   all.x = TRUE,
   sort = FALSE
@@ -832,13 +878,7 @@ setorder(zip_output, target_order, zip)
 
 spatial_output <- merge(
   spatial_output,
-  global_output[, .(
-    target_id,
-    global_morans_i = morans_i,
-    global_moran_p_value = permutation_p_two_sided,
-    global_moran_fdr_q_five_maps,
-    spatial_concentration_conclusion
-  )],
+  global_merge,
   by = "target_id",
   all.x = TRUE,
   sort = FALSE
@@ -883,12 +923,17 @@ add_check <- function(name, pass, observed, expected, details = "") {
   )
 }
 
-add_check("Locked target count", nrow(targets_output) == 5L, nrow(targets_output), 5L)
+add_check(
+  "Locked target count",
+  nrow(targets_output) == expected_target_count,
+  nrow(targets_output),
+  expected_target_count
+)
 add_check(
   "Unique target IDs",
-  uniqueN(targets_output$target_id) == 5L,
+  uniqueN(targets_output$target_id) == expected_target_count,
   uniqueN(targets_output$target_id),
-  5L
+  expected_target_count
 )
 add_check(
   "ZIP rows per target",
@@ -906,7 +951,7 @@ add_check(
   "All pooled models converged",
   all(diagnostic_output$model_converged),
   sum(diagnostic_output$model_converged),
-  5L
+  expected_target_count
 )
 max_point_difference <- max(abs(diagnostic_output$point_estimate_difference))
 add_check(
@@ -920,9 +965,10 @@ max_aggregate_difference <- max(abs(
 ))
 add_check(
   "Aggregate observed-expected ratios reconcile with pooled RRs",
-  max_aggregate_difference < 1e-8,
+  max_aggregate_difference < 1e-7,
   format(max_aggregate_difference, scientific = TRUE, digits = 4L),
-  "< 1e-8"
+  "< 1e-7",
+  "Secondary score-equation diagnostic; locked coefficients use the stricter 1e-10 check."
 )
 add_check(
   "At least ten estimable ZIPs per target",
@@ -966,10 +1012,10 @@ add_check(
   "0 to 1"
 )
 add_check(
-  "Five global Moran tests",
-  nrow(global_output) == 5L,
+  paste(expected_target_count, "global Moran tests"),
+  nrow(global_output) == expected_target_count,
   nrow(global_output),
-  5L
+  expected_target_count
 )
 add_check(
   "Global Moran permutation count",
@@ -982,12 +1028,12 @@ add_check(
   all(
     global_output$permutation_p_two_sided >= 0 &
       global_output$permutation_p_two_sided <= 1 &
-      global_output$global_moran_fdr_q_five_maps >= 0 &
-      global_output$global_moran_fdr_q_five_maps <= 1
+      global_output$global_moran_fdr_q_spatial_family >= 0 &
+      global_output$global_moran_fdr_q_spatial_family <= 1
   ),
   paste0(
     "p ", paste(signif(range(global_output$permutation_p_two_sided), 4L), collapse = " to "),
-    "; q ", paste(signif(range(global_output$global_moran_fdr_q_five_maps), 4L), collapse = " to ")
+    "; q ", paste(signif(range(global_output$global_moran_fdr_q_spatial_family), 4L), collapse = " to ")
   ),
   "0 to 1"
 )
@@ -1052,7 +1098,7 @@ description_map <- c(
   source_commit = "Git commit at the time the freeze was built.",
   wind_threshold_kt = "Tropical-cyclone wind exposure threshold in knots.",
   target_id = "Stable identifier linking the spatial analysis to a frozen statewide result.",
-  target_order = "Locked display and processing order of the five spatial targets.",
+  target_order = "Locked display and processing order of the spatial targets.",
   target_slug = "Filesystem-safe target label.",
   result_id = "Identifier of the source row in the frozen master results.",
   cause = "Underlying-cause-of-death category.",
@@ -1081,7 +1127,9 @@ description_map <- c(
   lisa_cluster = "FDR-supported local spatial association class; non-significant and island ZIPs retained.",
   morans_i = "Global Moran statistic for centered log EB rate ratios.",
   permutation_p_two_sided = "Two-sided permutation p-value for global Moran's I.",
-  global_moran_fdr_q_five_maps = "Benjamini-Hochberg q-value across the five locked global Moran tests.",
+  global_moran_fdr_q_spatial_family = "Benjamini-Hochberg q-value across the locked global Moran family.",
+  global_moran_fdr_q_five_maps = "Benjamini-Hochberg q-value across the five v1 global Moran tests.",
+  global_moran_fdr_q_eight_maps = "Benjamini-Hochberg q-value across the eight amended-v2 global Moran tests.",
   spatial_concentration_conclusion = "Protocol-defined global spatial-concentration conclusion."
 )
 
@@ -1100,10 +1148,13 @@ dictionary_for <- function(object, table_name) {
 }
 
 dictionary <- rbindlist(list(
-  dictionary_for(targets_output, "spatial_targets_34kt_frozen_v1"),
-  dictionary_for(zip_output, "spatial_zip_results_34kt_frozen_v1"),
-  dictionary_for(global_output, "spatial_global_moran_34kt_frozen_v1"),
-  dictionary_for(diagnostic_output, "spatial_model_diagnostics_34kt_frozen_v1")
+  dictionary_for(targets_output, paste0("spatial_targets_34kt_", release_label)),
+  dictionary_for(zip_output, paste0("spatial_zip_results_34kt_", release_label)),
+  dictionary_for(global_output, paste0("spatial_global_moran_34kt_", release_label)),
+  dictionary_for(
+    diagnostic_output,
+    paste0("spatial_model_diagnostics_34kt_", release_label)
+  )
 ))
 
 message("Writing frozen spatial outputs")

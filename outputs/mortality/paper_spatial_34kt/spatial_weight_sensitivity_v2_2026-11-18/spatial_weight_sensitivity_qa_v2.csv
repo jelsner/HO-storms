@@ -1,0 +1,10 @@
+check_name,status,observed,expected,details
+Sensitivity row count,PASS,24,24,""
+8 targets,PASS,8,8,""
+Three weight definitions,PASS,"queen, rook, symmetric_6nn","queen, rook, symmetric_6nn",""
+Permutation count,PASS,9999,9999,""
+Finite Moran statistics,PASS,24,24,""
+"P and q values in [0,1]",PASS,p 0.0134 to 0.9178; q-family 0.1072 to 0.9178; q-all 0.282 to 0.9178,0 to 1,""
+Symmetric 6NN has no islands,PASS,"0,0,0,0,0,0,0,0",0,""
+Queen Moran statistics reproduce primary freeze,PASS,rows 8; max difference 9.33e-13,8 rows; difference < 1e-10,""
+Queen permutation p-values reproduce primary freeze,PASS,0e+00,< 1e-12,""

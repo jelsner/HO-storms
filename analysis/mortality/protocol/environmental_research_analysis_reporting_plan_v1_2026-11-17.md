@@ -422,5 +422,28 @@ estimands. They must still be documented in the amendment log.
 
 ### Amendment log
 
-No amendments at version 1.0.
+#### Amendment A01 — retained cause-of-death scope
+
+1. **Date:** November 18, 2026.
+2. **Requested change:** Remove digestive diseases, diabetes, and endocrine,
+   nutritional, and metabolic disorders from the publication analysis and
+   recompute all affected Benjamini-Hochberg families using the seven retained
+   cause-specific outcomes.
+3. **Reason:** The principal investigator narrowed the scientific scope of the
+   paper and determined that these three outcomes did not need to be considered.
+4. **Results-known status:** The principal investigator had not seen the results
+   when making the request. The analyst had access to the frozen-v1 results.
+   Frozen v1 is preserved unchanged, and this decision is implemented as
+   `amended_v2_2026-11-18` rather than overwriting it.
+5. **Affected analyses:** Research question 2; the exploratory family changes
+   from 96 to 48 tests, the conservative cause-specific family from 160 to 112
+   tests, global age-heterogeneity families from 44/40 to 32/28 tests, and
+   pairwise age-contrast families from 132/120/80 to 96/84/56 tests. The
+   16-test all-disease family and 64-test prioritized family are unchanged.
+   Under the unchanged spatial-eligibility rule, the target set expands from
+   five to eight: the original five targets plus cardiovascular mortality at
+   ages 75+ during days +7 to +13, injury mortality at ages 75+ during days 0
+   to +6, and neuropsychiatric mortality at ages 75+ during days +7 to +13.
+6. **Approval:** Requested and approved by the principal investigator; recorded
+   by the analyst.
 

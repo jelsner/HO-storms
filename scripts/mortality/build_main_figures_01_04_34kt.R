@@ -39,20 +39,20 @@ qa <- data.table(
   check_name = c(
     "Eight figure files written",
     "Figure 2 has 16 estimates",
-    "Figure 3 has 40 estimates",
+    "Figure 3 has 28 estimates",
     "Figure 4 has 48 estimates",
     "Figure 2 primary-family FDR markers",
-    "Figure 3 conservative 160-test FDR markers",
+    "Figure 3 amended 112-test FDR markers",
     "Figure 4 has 16 age-q annotations",
     "Figure 4 has no FDR-supported age heterogeneity"
   ),
   status = c(
     if (all(file.exists(figure_files))) "PASS" else "FAIL",
     if (nrow(figure2_data) == 16L) "PASS" else "FAIL",
-    if (nrow(figure3_data) == 40L) "PASS" else "FAIL",
+    if (nrow(figure3_data) == 28L) "PASS" else "FAIL",
     if (nrow(figure4_data) == 48L) "PASS" else "FAIL",
     if (sum(figure2_data$main_fdr_q_within_analysis_tier < 0.05) == 14L) "PASS" else "FAIL",
-    if (sum(figure3_data$main_fdr_q_all_cause_specific < 0.05) == 6L) "PASS" else "FAIL",
+    if (sum(figure3_data$main_fdr_q_all_cause_specific < 0.05) == 9L) "PASS" else "FAIL",
     if (uniqueN(figure4_data[, .(cause, period)]) == 16L) "PASS" else "FAIL",
     if (!any(figure4_data$age_heterogeneity_fdr_q_cause_specific < 0.05)) "PASS" else "FAIL"
   ),
@@ -66,7 +66,7 @@ qa <- data.table(
     uniqueN(figure4_data[, .(cause, period)]),
     sum(figure4_data$age_heterogeneity_fdr_q_cause_specific < 0.05)
   ),
-  expected = c(8L, 16L, 40L, 48L, 14L, 6L, 16L, 0L)
+  expected = c(8L, 16L, 28L, 48L, 14L, 9L, 16L, 0L)
 )
 
 qa_path <- file.path(paper_figure_output_dir, "main_figures_01_04_qa.csv")
@@ -95,16 +95,17 @@ captions <- c(
   "",
   "## Figure 3",
   paste0(
-    "All-age cause-specific mortality across the four event-relative periods. Color distinguishes the ",
+    "All-age cause-specific mortality across the four event-relative periods for the seven outcomes retained ",
+    "under amendment A01. Color distinguishes the ",
     "prioritized secondary and exploratory families. Filled points satisfy the conservative ",
-    "Benjamini-Hochberg q<0.05 criterion across all 160 cause-specific tests."
+    "Benjamini-Hochberg q<0.05 criterion across all 112 retained cause-specific tests."
   ),
   "",
   "## Figure 4",
   paste0(
     "Age-specific associations for the four prioritized causes. Points and confidence intervals are from ",
     "separate age-specific models; displayed q-values are from global two-degree-of-freedom age-heterogeneity ",
-    "tests in jointly fitted stacked-age models with FDR correction across 40 cause-period tests."
+    "tests in jointly fitted stacked-age models with FDR correction across 28 retained cause-period tests."
   )
 )
 caption_path <- file.path(paper_figure_output_dir, "main_figures_01_04_captions.md")
@@ -126,7 +127,7 @@ manifest <- data.table(
   path = manifest_split[[2L]],
   bytes = as.numeric(file.info(manifest_split[[2L]])$size),
   artifact_version = paper_figure_version,
-  freeze_date = as.IDate("2026-11-17"),
+  freeze_date = as.IDate("2026-11-18"),
   build_date = as.IDate("2026-11-18")
 )
 fwrite(manifest, file.path(paper_figure_output_dir, "main_figures_01_04_manifest.csv"))

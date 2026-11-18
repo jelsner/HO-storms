@@ -5,12 +5,12 @@ suppressPackageStartupMessages({
   library(scales)
 })
 
-paper_figure_version <- "environmental_research_main_v1_2026-11-18"
+paper_figure_version <- "environmental_research_main_v2_2026-11-18"
 paper_figure_dir <- file.path("figs/mortality", paper_figure_version)
 paper_figure_output_dir <- file.path("outputs/mortality", paper_figure_version)
 paper_results_path <- paste0(
-  "outputs/mortality/paper_master_34kt/frozen_v1_2026-11-17/",
-  "master_results_34kt_frozen_v1.csv"
+  "outputs/mortality/paper_master_34kt/amended_v2_2026-11-18/",
+  "master_results_34kt_amended_v2.csv"
 )
 
 dir.create(paper_figure_dir, recursive = TRUE, showWarnings = FALSE)
@@ -55,11 +55,11 @@ read_paper_results <- function() {
     stop("Missing frozen results: ", paper_results_path)
   }
   results <- fread(paper_results_path)
-  if (nrow(results) != 176L || uniqueN(results$result_id) != 176L) {
-    stop("Frozen result row or identifier count is not 176.")
+  if (nrow(results) != 128L || uniqueN(results$result_id) != 128L) {
+    stop("Amended result row or identifier count is not 128.")
   }
-  if (unique(results$analysis_version) != "frozen_v1_2026-11-17") {
-    stop("Unexpected frozen analysis version.")
+  if (unique(results$analysis_version) != "amended_v2_2026-11-18") {
+    stop("Unexpected amended analysis version.")
   }
   results
 }

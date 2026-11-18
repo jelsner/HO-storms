@@ -1,0 +1,21 @@
+check_name,status,observed,expected
+Amended master row count,PASS,128,128
+Retained outcome count,PASS,8,8
+Excluded causes absent,PASS,0,0
+Primary family size,PASS,16,16
+Prioritized family size,PASS,64,64
+Exploratory family size,PASS,48,48
+All cause-specific family size,PASS,112,112
+Pairwise age-contrast family size,PASS,96,96
+Cause-specific pairwise family size,PASS,84,84
+Focused older-versus-younger family size,PASS,56,56
+Global age-test family size,PASS,32,32
+Cause-specific global age-test family size,PASS,28,28
+Point estimates unchanged from v1,PASS,1,1
+Primary q-values unchanged from v1,PASS,1,1
+Prioritized tier q-values unchanged from v1,PASS,1,1
+Amended 112-test discoveries,PASS,18,18
+Amended spatial targets,PASS,8,8
+Added spatial targets,PASS,3,3
+No FDR-supported global age heterogeneity,PASS,0,0
+"All amended q-values in [0,1]",PASS,656,656

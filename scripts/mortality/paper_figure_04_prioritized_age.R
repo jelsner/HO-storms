@@ -31,7 +31,7 @@ age_q_count <- uniqueN(
   annotation_data[age_heterogeneity_fdr_q_cause_specific < 0.05, paste(cause, period)]
 )
 age_subtitle <- if (age_q_count == 0L) {
-  "No global age-heterogeneity test survived FDR correction across 40 cause-period tests"
+  "No global age-heterogeneity test survived FDR correction across 28 retained cause-period tests"
 } else {
   sprintf("%d global age-heterogeneity tests survived the prespecified FDR correction", age_q_count)
 }

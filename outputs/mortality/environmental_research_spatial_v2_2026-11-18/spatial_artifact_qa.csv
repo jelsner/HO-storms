@@ -1,0 +1,9 @@
+check_name,status,observed,expected
+8 figure facets,PASS,8,8
+8 Table S9 rows,PASS,8,8
+No missing target labels,PASS,0,0
+Figure 5 files written,PASS,2,2
+Figure 6 files written,PASS,2,2
+Figure S8 files written,PASS,2,2
+Table S9 files written,PASS,2,2
+All conclusions agree across weights,PASS,8,8
