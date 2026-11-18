@@ -1,0 +1,9 @@
+cause,deaths_under65,deaths_65_74,deaths_75plus,deaths_all_ages,cause_order,artifact_version
+All diseases,1417395,1104500,3328609,5850504,1,environmental_research_main_tables_v2_2026-11-18
+Cardiovascular,306088,356274,1432587,2094949,2,environmental_research_main_tables_v2_2026-11-18
+Respiratory,69032,108989,333247,511268,3,environmental_research_main_tables_v2_2026-11-18
+Infectious diseases,81003,21207,49615,151825,4,environmental_research_main_tables_v2_2026-11-18
+Injuries,223264,27924,70127,321315,5,environmental_research_main_tables_v2_2026-11-18
+Neuropsychiatric disorders,49873,46347,383017,479237,6,environmental_research_main_tables_v2_2026-11-18
+Renal diseases,13736,15121,51817,80674,7,environmental_research_main_tables_v2_2026-11-18
+Neoplasms,367589,384972,628382,1380943,8,environmental_research_main_tables_v2_2026-11-18

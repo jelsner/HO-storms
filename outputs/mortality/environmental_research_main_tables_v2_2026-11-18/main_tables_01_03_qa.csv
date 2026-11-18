@@ -1,0 +1,14 @@
+check_name,status,observed,expected
+Seven table files written,PASS,7,7
+Table 1 has 12 design metrics,PASS,12,12
+Table 1 has eight retained outcomes,PASS,8,8
+Table 1 age counts reconcile with all ages,PASS,8,8
+"Table 1 has 1,046 ZIP codes",PASS,1046,1046
+Table 1 modeled ZIP-day count,PASS,8516532,8516532
+Table 1 event ZIP-day count,PASS,374580,374580
+Table 2 has 16 unique estimates,PASS,16 rows; 16 IDs,16 rows; 16 IDs
+Table 2 has 14 primary FDR-supported results,PASS,14,14
+Table 3 has 16 cause-period rows,PASS,16,16
+Table 3 contains 64 conservative q-values,PASS,64,64
+Table 3 has 12 conservative FDR-supported results,PASS,12,12
+Table 3 has no FDR-supported age heterogeneity,PASS,0,0
