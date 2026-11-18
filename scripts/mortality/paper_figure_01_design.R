@@ -55,8 +55,8 @@ map_plot <- ggplot() +
   ) +
   annotate(
     "text",
-    x = -81.65,
-    y = 27.0,
+    x = -83.65,
+    y = 26.0,
     label = "ZIP-specific day 0:\nfirst assigned date with\nmodeled winds >=34 kt",
     hjust = 0.5,
     family = "Helvetica",
@@ -216,7 +216,7 @@ figure1 <- ((map_plot | timeline_plot) + plot_layout(widths = c(0.38, 0.62))) /
     subtitle = "Florida, 1985-2022; primary exposure threshold: sustained winds >=34 kt",
     caption = paste0(
       "A ZIP-date in overlapping event windows was assigned to the closest impact date; ",
-      "an exact-distance tie was assigned to the pre-impact event. Figure contains no effect estimates."
+      "an exact-distance tie was assigned to the pre-impact event."
     ),
     theme = theme(
       text = element_text(family = "Helvetica"),
