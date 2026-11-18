@@ -69,6 +69,8 @@ HO-storms/
   and symmetric six-nearest-neighbor sensitivity analysis for global Moran's I.
 - `scripts/mortality/build_spatial_publication_artifacts_34kt.R`: locked builder
   for main Figures 5–6, Supplementary Figure S8, and Supplementary Table S9.
+- `scripts/mortality/build_main_figures_01_04_34kt.R`: locked builder for the
+  study-design, timing, cause-specific, and age-specific main figures.
 - `scripts/mortality/`: reproducible count, model, table, and spatial scripts.
 - `manuscript/mortality/`: submitted paper and review documents.
 
