@@ -1,0 +1,5 @@
+wind_threshold_kt,cause,age_group,cause_order,age_order,model_observations,input_rows,removed_observations,model_converged,log_likelihood,pseudo_r2,squared_correlation,coefficient_count,analysis_version
+64,Respiratory,All ages,3,1,7818708,8510256,691548,TRUE,-1080707.12765387,0.0901614632861146,0.0268954649359011,4,exposure_event_time_v1_2026-11-18
+64,Respiratory,<65,3,2,7461180,8510256,1049076,TRUE,-217393.771393571,0.0669548838560017,0.00487405985448416,4,exposure_event_time_v1_2026-11-18
+64,Respiratory,65-74,3,3,7565862,8510256,944394,TRUE,-318798.398740511,0.0606327387326331,0.00576884640702168,4,exposure_event_time_v1_2026-11-18
+64,Respiratory,75+,3,4,7710372,8510256,799884,TRUE,-769836.985684379,0.0889617832591925,0.0200646123758188,4,exposure_event_time_v1_2026-11-18

@@ -1,0 +1,10 @@
+metric,value,analysis_version,source_commit,build_date
+Full calendar ZIP-years,39748,population_offset_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+Positive-population ZIP-years,37506,population_offset_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+Missing/nonpositive ZIP-years,2242,population_offset_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+Full calendar ZIPs,1046,population_offset_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+Population-covered ZIPs,987,population_offset_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+ZIPs ever missing population,59,population_offset_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+Full calendar ZIP-days,8516532,population_offset_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+Population-covered ZIP-days,8036154,population_offset_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+Retained ZIP-day percentage,94.3594646271511,population_offset_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19

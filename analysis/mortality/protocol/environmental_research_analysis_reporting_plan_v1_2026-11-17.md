@@ -447,3 +447,36 @@ estimands. They must still be documented in the amendment log.
 6. **Approval:** Requested and approved by the principal investigator; recorded
    by the analyst.
 
+#### Amendment A02 — event-influence scope
+
+1. **Date:** November 19, 2026.
+2. **Requested change:** Restrict the leave-one-impact-date-out sensitivity
+   analysis to the 16 all-disease age-period estimands and omit the eight
+   older-adult spatial targets from this analysis.
+3. **Reason:** Focus the computationally intensive exact deletion analysis on
+   the primary all-disease family. Spatial robustness remains addressed by the
+   prespecified alternative-weight analysis.
+4. **Results-known status:** No leave-one-impact-date-out results had been
+   produced or inspected when the scope change was requested. An initial model
+   fit had been interrupted before producing a checkpoint.
+5. **Affected analyses:** Sensitivity analysis 8, Figure S4, and Table S7. The
+   primary estimands, multiplicity families, and spatial analyses are unchanged.
+6. **Approval:** Requested by the analyst and recorded in the project workflow
+   before inspecting event-influence results.
+
+#### Amendment A03 — COVID-period exclusion scope
+
+1. **Date:** November 19, 2026.
+2. **Requested change:** Restrict the sensitivity analysis excluding 2020-2022
+   to the 16 primary all-disease age-period estimands rather than repeating the
+   64 prioritized cause-specific estimands.
+3. **Reason:** Focus this period sensitivity on the main results while limiting
+   expansion of the secondary sensitivity analyses.
+4. **Results-known status:** No COVID-excluded model results had been produced
+   or inspected when the scope change was requested.
+5. **Affected analyses:** Sensitivity analysis 6 and the corresponding portions
+   of Figure S5 and Table S8. Primary estimands and multiplicity families are
+   unchanged.
+6. **Approval:** Requested by the analyst and recorded in the project workflow
+   before fitting the COVID-excluded models.
+

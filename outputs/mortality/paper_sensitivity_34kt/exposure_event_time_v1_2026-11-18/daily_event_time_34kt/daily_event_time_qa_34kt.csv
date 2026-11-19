@@ -1,0 +1,10 @@
+check_name,status,observed,expected
+Ten unique daily profiles,PASS,10,10
+Twenty-eight daily estimates per profile,PASS,280,280
+Four all-disease profiles,PASS,4,4
+Eight expanded spatial targets,PASS,8 targets; 224 rows,8 targets; 224 rows
+All daily models converged,PASS,10,10
+Twenty-eight coefficients per model,PASS,28,28
+Finite ordered estimates,PASS,280,280
+Sixteen all-disease seven-day comparisons,PASS,16,16
+Eight spatial-target seven-day comparisons,PASS,8,8

@@ -1,0 +1,2 @@
+cause,age_group,cause_order,age_order,specification,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,wind_threshold_kt,analysis_version
+All diseases,75+,1,4,Exclude 2020-2022,7845000,7455000,390000,TRUE,4,-3564613.45468875,0.182070972358601,0.178715186481491,1046,1101,34,covid_exclusion_v1_2026-11-19

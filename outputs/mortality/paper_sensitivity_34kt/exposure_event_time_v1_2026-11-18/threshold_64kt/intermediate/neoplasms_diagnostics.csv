@@ -1,0 +1,5 @@
+wind_threshold_kt,cause,age_group,cause_order,age_order,model_observations,input_rows,removed_observations,model_converged,log_likelihood,pseudo_r2,squared_correlation,coefficient_count,analysis_version
+64,Neoplasms,All ages,8,1,7976502,8510256,533754,TRUE,-2385056.84958894,0.111242951814255,0.0672644186056514,4,exposure_event_time_v1_2026-11-18
+64,Neoplasms,<65,8,2,7825992,8510256,684264,TRUE,-915792.52313772,0.0722756580682555,0.0174007574479374,4,exposure_event_time_v1_2026-11-18
+64,Neoplasms,65-74,8,3,7797942,8510256,712314,TRUE,-943550.994020706,0.0732889773076216,0.0183667710635478,4,exposure_event_time_v1_2026-11-18
+64,Neoplasms,75+,8,4,7863672,8510256,646584,TRUE,-1325704.24118407,0.108434105200783,0.0421820620315283,4,exposure_event_time_v1_2026-11-18

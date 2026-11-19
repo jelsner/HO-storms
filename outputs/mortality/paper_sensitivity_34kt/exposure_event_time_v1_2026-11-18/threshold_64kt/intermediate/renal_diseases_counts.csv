@@ -1,0 +1,21 @@
+event_period,zip_days,deaths,nonzero_zip_days,wind_threshold_kt,cause,age_group,cause_order,age_order,period_order,analysis_version
+None,8462799,44610,44294,64,Renal diseases,All ages,7,1,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,66,65,64,Renal diseases,All ages,7,1,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,71,71,64,Renal diseases,All ages,7,1,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,72,72,64,Renal diseases,All ages,7,1,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,63,63,64,Renal diseases,All ages,7,1,5,exposure_event_time_v1_2026-11-18
+None,8462799,7680,7668,64,Renal diseases,<65,7,2,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,7,7,64,Renal diseases,<65,7,2,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,13,13,64,Renal diseases,<65,7,2,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,16,16,64,Renal diseases,<65,7,2,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,9,9,64,Renal diseases,<65,7,2,5,exposure_event_time_v1_2026-11-18
+None,8462799,8391,8380,64,Renal diseases,65-74,7,3,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,15,15,64,Renal diseases,65-74,7,3,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,13,13,64,Renal diseases,65-74,7,3,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,11,11,64,Renal diseases,65-74,7,3,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,12,12,64,Renal diseases,65-74,7,3,5,exposure_event_time_v1_2026-11-18
+None,8462799,28539,28399,64,Renal diseases,75+,7,4,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,44,43,64,Renal diseases,75+,7,4,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,45,45,64,Renal diseases,75+,7,4,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,45,45,64,Renal diseases,75+,7,4,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,42,42,64,Renal diseases,75+,7,4,5,exposure_event_time_v1_2026-11-18

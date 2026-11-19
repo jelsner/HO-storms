@@ -1,0 +1,2 @@
+model_id,cause,age_group,cause_order,age_order,specification,specification_order,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,elapsed_seconds,wind_threshold_kt,analysis_version
+PO-C02-A02-S02,Cardiovascular,<65,2,2,Population-offset model,2,8036154,7759152,277002,TRUE,4,-771718.069051572,0.0818641437756669,0.0191789617754273,43.049,34,population_offset_v1_2026-11-19

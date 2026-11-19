@@ -1,0 +1,10 @@
+check_name,status,observed,expected
+Six sensitivity figure files written,PASS,6,6
+Figure S1 has 112 daily estimates,PASS,112,112
+Figure S2 has 48 all-disease estimates,PASS,48,48
+Figure S3 has 224 target-day estimates,PASS,224,224
+Table S6 has 384 aligned estimates,PASS,384,384
+Each threshold has 128 estimates,PASS,"128,128,128","128,128,128"
+All estimate confidence intervals are ordered,PASS,384,384
+Threshold comparison fields are complete,PASS,384,384
+All 55- and 64-kt directions summarized,PASS,256,256

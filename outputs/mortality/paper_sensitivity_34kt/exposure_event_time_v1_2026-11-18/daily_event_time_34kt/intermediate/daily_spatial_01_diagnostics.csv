@@ -1,0 +1,2 @@
+profile_type,profile_id,profile_order,cause,age_group,wind_threshold_kt,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,analysis_version
+Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,8516532,7796856,719676,TRUE,28,-852076.671197045,0.0798218872394965,0.0195601954461194,exposure_event_time_v1_2026-11-18

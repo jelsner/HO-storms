@@ -1,0 +1,9 @@
+check_name,status,observed,expected
+Eight retained outcomes,PASS,8,8
+Four age groups per outcome,PASS,32,32
+Four period estimates per outcome-age model,PASS,128,128
+All models converged,PASS,32,32
+Four coefficients per model,PASS,4,4
+Finite ordered estimates,PASS,128,128
+Complete count cells,PASS,160,160
+"Calendar contains 1,046 ZIPs",PASS,1046,1046

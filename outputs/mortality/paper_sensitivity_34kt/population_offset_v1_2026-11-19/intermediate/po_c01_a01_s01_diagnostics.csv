@@ -1,0 +1,2 @@
+model_id,cause,age_group,cause_order,age_order,specification,specification_order,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,elapsed_seconds,wind_threshold_kt,analysis_version
+PO-C01-A01-S01,All diseases,All ages,1,1,Matched-sample count model,1,8036154,7966524,69630,TRUE,4,-5669012.92907492,0.189974261480279,0.242575173666502,40.728,34,population_offset_v1_2026-11-19

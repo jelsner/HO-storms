@@ -1,0 +1,5 @@
+wind_threshold_kt,cause,age_group,cause_order,age_order,model_observations,input_rows,removed_observations,model_converged,log_likelihood,pseudo_r2,squared_correlation,coefficient_count,analysis_version
+55,Injuries,All ages,5,1,4957524,8516532,3559008,TRUE,-746170.473977798,0.0775950942888916,0.0245267699091998,4,exposure_event_time_v1_2026-11-18
+55,Injuries,<65,5,2,4919004,8516532,3597528,TRUE,-565620.466710231,0.0764541062335304,0.019828496552072,4,exposure_event_time_v1_2026-11-18
+55,Injuries,65-74,5,3,4549598,8516532,3966934,TRUE,-102018.467964132,0.0513596392109263,0.00293641310867953,4,exposure_event_time_v1_2026-11-18
+55,Injuries,75+,5,4,4693020,8516532,3823512,TRUE,-213529.294024121,0.0739849924825033,0.00944231841016847,4,exposure_event_time_v1_2026-11-18

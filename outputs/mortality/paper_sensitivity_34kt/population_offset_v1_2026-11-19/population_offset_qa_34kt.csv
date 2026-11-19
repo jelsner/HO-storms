@@ -1,0 +1,12 @@
+check_name,status,observed,expected
+Five prespecified outcomes,PASS,5,5
+Four age groups per outcome,PASS,4,4
+Two matched-sample specifications,PASS,2,2
+Forty fitted models,PASS,40,40
+Four period estimates per model,PASS,4,4
+Eighty population-offset estimates,PASS,80,80
+Two hundred forty comparison estimates,PASS,240,240
+All fitted models converged,PASS,40,40
+Finite ordered confidence intervals,PASS,160,160
+All modeled ZIP-years have positive population,PASS,8036154,8036154
+Offset comparison fields complete,PASS,80,80

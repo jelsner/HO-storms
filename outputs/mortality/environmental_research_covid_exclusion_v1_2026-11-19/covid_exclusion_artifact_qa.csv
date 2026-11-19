@@ -1,0 +1,8 @@
+check_name,status,observed,expected
+Model QA checks all pass,PASS,7,7
+Figure S5B PNG and PDF written,PASS,2,2
+Table component contains 16 estimates,PASS,16,16
+Figure contains 32 comparison estimates,PASS,32,32
+All directions agree with primary,PASS,16,16
+All confidence intervals overlap primary,PASS,16,16
+CI-exclusion changes accounted for,PASS,3,3

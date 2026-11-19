@@ -1,0 +1,2 @@
+model_id,cause,age_group,cause_order,age_order,specification,specification_order,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,elapsed_seconds,wind_threshold_kt,analysis_version
+PO-C04-A02-S02,Injuries,<65,4,2,Population-offset model,2,8036154,4875990,3160164,TRUE,4,-565433.064544108,0.0748807180304275,0.0196246995967564,26.0829999999999,34,population_offset_v1_2026-11-19

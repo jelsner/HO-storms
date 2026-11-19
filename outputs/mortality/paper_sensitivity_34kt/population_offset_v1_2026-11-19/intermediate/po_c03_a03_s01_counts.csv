@@ -1,0 +1,6 @@
+event_period,zip_days,deaths,nonzero_zip_days,population_min,population_median,population_max,model_id,cause,age_group,cause_order,age_order,specification,specification_order,period,period_order,wind_threshold_kt,analysis_version
+None,7684528,55045,54683,2,15395,89820,PO-C03-A03-S01,Respiratory,65-74,3,3,Matched-sample count model,1,None,1,34,population_offset_v1_2026-11-19
+Days -14 to -8,86141,642,638,2,15384,89820,PO-C03-A03-S01,Respiratory,65-74,3,3,Matched-sample count model,1,Days -14 to -8,2,34,population_offset_v1_2026-11-19
+Days -7 to -1,89334,698,694,2,15459,89820,PO-C03-A03-S01,Respiratory,65-74,3,3,Matched-sample count model,1,Days -7 to -1,3,34,population_offset_v1_2026-11-19
+Days 0 to +6,89334,673,669,2,15459,89820,PO-C03-A03-S01,Respiratory,65-74,3,3,Matched-sample count model,1,Days 0 to +6,4,34,population_offset_v1_2026-11-19
+Days +7 to +13,86817,660,653,2,15392,89820,PO-C03-A03-S01,Respiratory,65-74,3,3,Matched-sample count model,1,Days +7 to +13,5,34,population_offset_v1_2026-11-19

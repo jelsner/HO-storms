@@ -1,0 +1,5 @@
+wind_threshold_kt,cause,age_group,cause_order,age_order,model_observations,input_rows,removed_observations,model_converged,log_likelihood,pseudo_r2,squared_correlation,coefficient_count,analysis_version
+64,Cardiovascular,All ages,2,1,8029170,8510256,481086,TRUE,-3019883.79264202,0.14334310752216,0.113175653519439,4,exposure_event_time_v1_2026-11-18
+64,Cardiovascular,<65,2,2,7807794,8510256,702462,TRUE,-771447.275273416,0.0830438118668714,0.0193158434492179,4,exposure_event_time_v1_2026-11-18
+64,Cardiovascular,65-74,2,3,7791090,8510256,719166,TRUE,-851401.928713634,0.0797722719160024,0.0195401690335549,4,exposure_event_time_v1_2026-11-18
+64,Cardiovascular,75+,2,4,7929612,8510256,580644,TRUE,-2298658.14838686,0.141042859781507,0.0932657650255742,4,exposure_event_time_v1_2026-11-18

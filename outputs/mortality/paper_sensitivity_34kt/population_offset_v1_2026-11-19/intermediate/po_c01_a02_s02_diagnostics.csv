@@ -1,0 +1,2 @@
+model_id,cause,age_group,cause_order,age_order,specification,specification_order,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,elapsed_seconds,wind_threshold_kt,analysis_version
+PO-C01-A02-S02,All diseases,<65,1,2,Population-offset model,2,8036154,7930542,105612,TRUE,4,-2409137.06195553,0.121001596024432,0.0816453150630681,40.296,34,population_offset_v1_2026-11-19

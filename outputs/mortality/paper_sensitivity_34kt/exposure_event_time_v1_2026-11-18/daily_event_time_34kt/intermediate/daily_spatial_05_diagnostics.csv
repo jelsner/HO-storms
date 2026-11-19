@@ -1,0 +1,2 @@
+profile_type,profile_id,profile_order,cause,age_group,wind_threshold_kt,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,analysis_version
+Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,8516532,7728276,788256,TRUE,28,-856759.212835152,0.138221768552816,0.0420472262808267,exposure_event_time_v1_2026-11-18

@@ -1,0 +1,21 @@
+event_period,zip_days,deaths,nonzero_zip_days,wind_threshold_kt,cause,age_group,cause_order,age_order,period_order,analysis_version
+None,8462799,1156729,1007160,64,Cardiovascular,All ages,2,1,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,1848,1590,64,Cardiovascular,All ages,2,1,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,1893,1630,64,Cardiovascular,All ages,2,1,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,2035,1730,64,Cardiovascular,All ages,2,1,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,1862,1586,64,Cardiovascular,All ages,2,1,5,exposure_event_time_v1_2026-11-18
+None,8462799,173668,170108,64,Cardiovascular,<65,2,2,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,255,248,64,Cardiovascular,<65,2,2,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,252,249,64,Cardiovascular,<65,2,2,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,312,305,64,Cardiovascular,<65,2,2,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,286,281,64,Cardiovascular,<65,2,2,5,exposure_event_time_v1_2026-11-18
+None,8462799,195870,191387,64,Cardiovascular,65-74,2,3,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,316,308,64,Cardiovascular,65-74,2,3,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,318,313,64,Cardiovascular,65-74,2,3,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,362,356,64,Cardiovascular,65-74,2,3,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,289,283,64,Cardiovascular,65-74,2,3,5,exposure_event_time_v1_2026-11-18
+None,8462799,787191,708426,64,Cardiovascular,75+,2,4,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,1277,1132,64,Cardiovascular,75+,2,4,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,1323,1166,64,Cardiovascular,75+,2,4,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,1361,1199,64,Cardiovascular,75+,2,4,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,1287,1135,64,Cardiovascular,75+,2,4,5,exposure_event_time_v1_2026-11-18

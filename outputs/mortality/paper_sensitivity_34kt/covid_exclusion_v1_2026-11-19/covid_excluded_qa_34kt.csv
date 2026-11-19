@@ -1,0 +1,8 @@
+check_name,status,observed,expected
+Four all-disease age models,PASS,4,4
+Four period estimates per model,PASS,4,4
+Sixteen primary estimates,PASS,16,16
+All models converged,PASS,4,4
+Finite ordered confidence intervals,PASS,16,16
+All retained observations precede 2020,PASS,2019-11-30,Before 2020-01-01
+Frozen comparison fields complete,PASS,16,16

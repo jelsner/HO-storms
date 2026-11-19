@@ -1,0 +1,21 @@
+event_period,zip_days,deaths,nonzero_zip_days,wind_threshold_kt,cause,age_group,cause_order,age_order,period_order,analysis_version
+None,8398656,84327,83010,55,Infectious diseases,All ages,4,1,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,29031,345,341,55,Infectious diseases,All ages,4,1,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,29806,289,285,55,Infectious diseases,All ages,4,1,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,29806,350,344,55,Infectious diseases,All ages,4,1,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,29233,321,313,55,Infectious diseases,All ages,4,1,5,exposure_event_time_v1_2026-11-18
+None,8398656,45574,44895,55,Infectious diseases,<65,4,2,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,29031,160,158,55,Infectious diseases,<65,4,2,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,29806,149,147,55,Infectious diseases,<65,4,2,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,29806,172,169,55,Infectious diseases,<65,4,2,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,29233,170,167,55,Infectious diseases,<65,4,2,5,exposure_event_time_v1_2026-11-18
+None,8398656,11722,11696,55,Infectious diseases,65-74,4,3,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,29031,62,62,55,Infectious diseases,65-74,4,3,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,29806,44,44,55,Infectious diseases,65-74,4,3,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,29806,50,50,55,Infectious diseases,65-74,4,3,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,29233,45,45,55,Infectious diseases,65-74,4,3,5,exposure_event_time_v1_2026-11-18
+None,8398656,27031,26916,55,Infectious diseases,75+,4,4,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,29031,123,123,55,Infectious diseases,75+,4,4,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,29806,96,96,55,Infectious diseases,75+,4,4,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,29806,128,128,55,Infectious diseases,75+,4,4,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,29233,106,105,55,Infectious diseases,75+,4,4,5,exposure_event_time_v1_2026-11-18

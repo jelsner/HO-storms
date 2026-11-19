@@ -1,0 +1,5 @@
+wind_threshold_kt,cause,age_group,cause_order,age_order,model_observations,input_rows,removed_observations,model_converged,log_likelihood,pseudo_r2,squared_correlation,coefficient_count,analysis_version
+64,All diseases,All ages,1,1,8148852,8510256,361404,TRUE,-5669775.63845343,0.198367459314705,0.247630733104747,4,exposure_event_time_v1_2026-11-18
+64,All diseases,<65,1,2,8042874,8510256,467382,TRUE,-2408730.65587163,0.124607883833598,0.0827997804580382,4,exposure_event_time_v1_2026-11-18
+64,All diseases,65-74,1,3,8004120,8510256,506136,TRUE,-2008123.57188737,0.104893068139768,0.055548481239359,4,exposure_event_time_v1_2026-11-18
+64,All diseases,75+,1,4,8074986,8510256,435270,TRUE,-3983462.1657309,0.183314736926122,0.186310510998726,4,exposure_event_time_v1_2026-11-18

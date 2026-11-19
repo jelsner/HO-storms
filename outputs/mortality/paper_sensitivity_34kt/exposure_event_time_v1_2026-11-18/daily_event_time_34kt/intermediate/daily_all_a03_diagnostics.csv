@@ -1,0 +1,2 @@
+profile_type,profile_id,profile_order,cause,age_group,wind_threshold_kt,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,analysis_version
+All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,8516532,8010036,506496,TRUE,28,-2009331.97380089,0.104929547360976,0.0555615594696904,exposure_event_time_v1_2026-11-18

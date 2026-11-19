@@ -1,0 +1,8 @@
+check_name,status,observed,expected
+Model QA checks all pass,PASS,11,11
+Figure S5A PNG and PDF written,PASS,2,2
+Comparison table contains 240 estimates,PASS,240,240
+All-disease figure contains 48 estimates,PASS,48,48
+Eighty offset estimates summarized,PASS,80,80
+All offset directions agree with covered-sample count model,PASS,80,80
+All offset confidence intervals overlap covered-sample intervals,PASS,80,80

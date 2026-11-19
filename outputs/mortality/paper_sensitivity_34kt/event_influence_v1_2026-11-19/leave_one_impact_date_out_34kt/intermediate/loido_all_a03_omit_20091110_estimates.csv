@@ -1,0 +1,5 @@
+period,log_rate_ratio,rate_ratio,percent_change,profile_type,profile_id,profile_order,cause,age_group,period_order,omitted_impact_date,wind_threshold_kt,analysis_version
+Days -14 to -8,0.0213535515790323,1.02158317013967,2.15831701396745,All-disease age profile,LOIDO-ALL-A03,3,All diseases,65-74,2,2009-11-10,34,event_influence_v1_2026-11-19
+Days -7 to -1,0.0447122911694037,1.04572695174542,4.57269517454151,All-disease age profile,LOIDO-ALL-A03,3,All diseases,65-74,3,2009-11-10,34,event_influence_v1_2026-11-19
+Days 0 to +6,0.0764208103300279,1.07941670829967,7.94167082996704,All-disease age profile,LOIDO-ALL-A03,3,All diseases,65-74,4,2009-11-10,34,event_influence_v1_2026-11-19
+Days +7 to +13,0.0472898782180501,1.04842588086072,4.84258808607241,All-disease age profile,LOIDO-ALL-A03,3,All diseases,65-74,5,2009-11-10,34,event_influence_v1_2026-11-19

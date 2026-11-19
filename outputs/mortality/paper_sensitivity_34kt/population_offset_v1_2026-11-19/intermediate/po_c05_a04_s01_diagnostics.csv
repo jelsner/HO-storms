@@ -1,0 +1,2 @@
+model_id,cause,age_group,cause_order,age_order,specification,specification_order,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,elapsed_seconds,wind_threshold_kt,analysis_version
+PO-C05-A04-S01,Neuropsychiatric disorders,75+,5,4,Matched-sample count model,1,8036154,7680708,355446,TRUE,4,-856114.522936692,0.137251330011715,0.0419114605583552,43.1590000000001,34,population_offset_v1_2026-11-19

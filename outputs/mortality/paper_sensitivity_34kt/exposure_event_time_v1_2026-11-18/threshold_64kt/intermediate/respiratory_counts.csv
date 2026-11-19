@@ -1,0 +1,21 @@
+event_period,zip_days,deaths,nonzero_zip_days,wind_threshold_kt,cause,age_group,cause_order,age_order,period_order,analysis_version
+None,8462799,269126,260555,64,Respiratory,All ages,3,1,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,398,384,64,Respiratory,All ages,3,1,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,448,425,64,Respiratory,All ages,3,1,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,450,434,64,Respiratory,All ages,3,1,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,448,434,64,Respiratory,All ages,3,1,5,exposure_event_time_v1_2026-11-18
+None,8462799,36701,36508,64,Respiratory,<65,3,2,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,46,46,64,Respiratory,<65,3,2,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,64,64,64,Respiratory,<65,3,2,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,47,47,64,Respiratory,<65,3,2,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,51,50,64,Respiratory,<65,3,2,5,exposure_event_time_v1_2026-11-18
+None,8462799,57327,56951,64,Respiratory,65-74,3,3,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,95,95,64,Respiratory,65-74,3,3,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,99,99,64,Respiratory,65-74,3,3,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,100,100,64,Respiratory,65-74,3,3,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,91,89,64,Respiratory,65-74,3,3,5,exposure_event_time_v1_2026-11-18
+None,8462799,175098,171124,64,Respiratory,75+,3,4,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,257,249,64,Respiratory,75+,3,4,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,285,277,64,Respiratory,75+,3,4,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,303,292,64,Respiratory,75+,3,4,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,306,297,64,Respiratory,75+,3,4,5,exposure_event_time_v1_2026-11-18

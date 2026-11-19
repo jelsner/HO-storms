@@ -1,0 +1,8 @@
+check_name,status,observed,expected
+Model QA checks all pass,PASS,10,10
+Figure S4 PNG and PDF written,PASS,2,2
+"Table S7 contains 1,232 estimates",PASS,1232,1232
+Summary contains 16 estimands,PASS,16,16
+Seventy-seven dates per estimand,PASS,77,77
+All deletion estimates finite and positive,PASS,1232,1232
+Direction-reversal accounting complete,PASS,0,0

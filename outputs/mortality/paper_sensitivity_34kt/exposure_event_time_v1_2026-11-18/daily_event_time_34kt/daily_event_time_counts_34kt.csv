@@ -1,0 +1,291 @@
+rel_day_factor,zip_days,deaths,nonzero_zip_days,profile_type,profile_id,profile_order,cause,age_group,wind_threshold_kt,rel_day,analysis_version,source_commit,build_date
+None,8141952,3152270,2238059,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-14,12659,4912,3459,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,-14,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-13,12659,5054,3614,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,-13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-12,12891,5109,3690,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,-12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-11,12938,5069,3565,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,-11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-10,13500,5311,3777,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,-10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-9,13587,5371,3815,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,-9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-8,13587,5418,3902,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,-8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-7,13587,5492,3836,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,-7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-6,13588,5289,3821,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,-6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-5,13589,5506,3850,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,-5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-4,13589,5412,3815,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,-4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-3,13589,5455,3889,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,-3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-2,13589,5200,3736,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,-2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-1,13589,5478,3865,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,-1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+0,13589,5408,3866,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,0,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+1,13589,5467,3826,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+2,13589,5465,3860,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+3,13589,5329,3828,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+4,13589,5485,3852,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+5,13589,5499,3875,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+6,13588,5458,3852,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+7,13587,5272,3760,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+8,13587,5507,3857,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+9,13587,5435,3863,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+10,13500,5439,3850,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+11,12938,5199,3690,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+12,12659,5121,3588,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+13,12659,5051,3593,All-disease age profile,DAILY-ALL-A01,1,All diseases,All ages,34,13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8141952,783385,708259,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-14,12659,1270,1152,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,-14,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-13,12659,1271,1169,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,-13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-12,12891,1302,1166,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,-12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-11,12938,1313,1177,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,-11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-10,13500,1347,1213,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,-10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-9,13587,1395,1266,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,-9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-8,13587,1399,1262,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,-8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-7,13587,1415,1271,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,-7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-6,13588,1340,1225,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,-6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-5,13589,1370,1240,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,-5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-4,13589,1354,1237,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,-4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-3,13589,1370,1234,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,-3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-2,13589,1327,1211,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,-2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-1,13589,1323,1199,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,-1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+0,13589,1306,1183,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,0,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+1,13589,1341,1217,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+2,13589,1367,1217,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+3,13589,1375,1238,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+4,13589,1387,1240,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+5,13589,1342,1226,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+6,13588,1447,1306,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+7,13587,1353,1228,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+8,13587,1364,1246,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+9,13587,1377,1252,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+10,13500,1363,1233,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+11,12938,1330,1200,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+12,12659,1302,1185,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+13,12659,1250,1143,All-disease age profile,DAILY-ALL-A02,2,All diseases,<65,34,13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8141952,594907,554720,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-14,12659,951,899,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,-14,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-13,12659,915,861,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,-13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-12,12891,938,880,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,-12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-11,12938,969,903,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,-11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-10,13500,1016,944,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,-10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-9,13587,960,893,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,-9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-8,13587,1019,956,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,-8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-7,13587,1025,953,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,-7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-6,13588,960,903,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,-6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-5,13589,1067,991,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,-5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-4,13589,1093,1022,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,-4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-3,13589,1057,971,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,-3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-2,13589,940,877,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,-2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-1,13589,1068,982,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,-1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+0,13589,1053,982,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,0,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+1,13589,1084,1015,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+2,13589,1015,947,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+3,13589,1015,943,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+4,13589,1040,974,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+5,13589,1076,1007,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+6,13588,1044,946,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+7,13587,964,904,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+8,13587,1067,993,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+9,13587,1016,950,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+10,13500,995,943,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+11,12938,998,924,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+12,12659,974,912,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+13,12659,988,916,All-disease age profile,DAILY-ALL-A03,3,All diseases,65-74,34,13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8141952,1773978,1417682,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-14,12659,2691,2132,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,-14,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-13,12659,2868,2284,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,-13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-12,12891,2869,2328,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,-12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-11,12938,2787,2237,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,-11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-10,13500,2948,2363,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,-10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-9,13587,3016,2401,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,-9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-8,13587,3000,2418,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,-8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-7,13587,3052,2407,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,-7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-6,13588,2989,2390,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,-6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-5,13589,3069,2387,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,-5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-4,13589,2965,2368,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,-4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-3,13589,3028,2447,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,-3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-2,13589,2933,2363,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,-2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-1,13589,3087,2461,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,-1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+0,13589,3049,2462,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,0,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+1,13589,3042,2381,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+2,13589,3083,2445,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+3,13589,2939,2366,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+4,13589,3058,2439,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+5,13589,3081,2428,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+6,13588,2967,2378,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+7,13587,2955,2369,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+8,13587,3076,2441,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+9,13587,3042,2409,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+10,13500,3081,2440,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+11,12938,2871,2290,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+12,12659,2845,2238,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+13,12659,2813,2241,All-disease age profile,DAILY-ALL-A04,4,All diseases,75+,34,13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8141952,188663,184339,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-14,12659,284,282,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,-14,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-13,12659,285,274,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,-13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-12,12891,291,284,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,-12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-11,12938,303,296,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,-11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-10,13500,339,331,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,-10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-9,13587,274,271,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,-9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-8,13587,315,308,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,-8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-7,13587,354,346,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,-7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-6,13588,301,292,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,-6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-5,13589,345,340,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,-5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-4,13589,328,324,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,-4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-3,13589,314,303,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,-3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-2,13589,287,279,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,-2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-1,13589,307,300,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,-1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+0,13589,331,322,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,0,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+1,13589,352,347,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+2,13589,334,326,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+3,13589,288,284,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+4,13589,307,299,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+5,13589,350,346,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+6,13588,343,331,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+7,13587,279,275,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+8,13587,320,313,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+9,13587,306,298,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+10,13500,279,270,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+11,12938,285,282,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+12,12659,268,263,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+13,12659,295,287,Spatial-target cause-age profile,DAILY-SPATIAL-01,5,Cardiovascular,65-74,34,13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8141952,758966,682918,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-14,12659,1051,941,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,-14,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-13,12659,1156,1028,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,-13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-12,12891,1151,1053,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,-12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-11,12938,1169,1046,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,-11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-10,13500,1196,1083,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,-10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-9,13587,1221,1113,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,-9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-8,13587,1205,1100,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,-8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-7,13587,1214,1071,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,-7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-6,13588,1229,1112,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,-6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-5,13589,1285,1137,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,-5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-4,13589,1218,1102,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,-4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-3,13589,1225,1115,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,-3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-2,13589,1195,1085,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,-2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-1,13589,1211,1093,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,-1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+0,13589,1303,1176,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,0,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+1,13589,1238,1109,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+2,13589,1299,1157,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+3,13589,1228,1098,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+4,13589,1247,1133,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+5,13589,1250,1110,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+6,13588,1214,1089,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+7,13587,1238,1116,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+8,13587,1250,1143,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+9,13587,1254,1130,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+10,13500,1282,1146,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+11,12938,1162,1051,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+12,12659,1159,1037,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+13,12659,1129,1017,Spatial-target cause-age profile,DAILY-SPATIAL-02,6,Cardiovascular,75+,34,13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8141952,168400,164560,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-14,12659,279,273,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,-14,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-13,12659,276,269,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,-13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-12,12891,287,280,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,-12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-11,12938,248,240,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,-11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-10,13500,280,276,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,-10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-9,13587,291,286,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,-9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-8,13587,257,253,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,-8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-7,13587,269,265,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,-7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-6,13588,299,292,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,-6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-5,13589,255,248,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,-5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-4,13589,261,254,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,-4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-3,13589,301,294,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,-3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-2,13589,259,254,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,-2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-1,13589,317,311,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,-1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+0,13589,279,276,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,0,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+1,13589,295,287,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+2,13589,302,292,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+3,13589,253,249,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+4,13589,286,280,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+5,13589,291,285,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+6,13588,292,285,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+7,13587,316,309,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+8,13587,291,284,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+9,13587,306,298,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+10,13500,264,256,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+11,12938,253,251,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+12,12659,298,294,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+13,12659,313,306,Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8141952,37638,37089,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-14,12659,57,56,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,-14,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-13,12659,77,76,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,-13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-12,12891,73,72,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,-12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-11,12938,59,58,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,-11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-10,13500,88,86,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,-10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-9,13587,92,89,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,-9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-8,13587,89,88,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,-8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-7,13587,99,95,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,-7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-6,13588,86,86,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,-6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-5,13589,84,81,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,-5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-4,13589,69,67,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,-4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-3,13589,69,69,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,-3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-2,13589,76,76,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,-2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-1,13589,101,101,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,-1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+0,13589,81,77,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,0,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+1,13589,87,85,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+2,13589,101,97,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+3,13589,91,86,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+4,13589,94,92,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+5,13589,78,76,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+6,13588,85,83,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+7,13587,75,73,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+8,13587,67,66,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+9,13587,79,78,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+10,13500,84,84,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+11,12938,79,79,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+12,12659,75,74,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+13,12659,72,72,Spatial-target cause-age profile,DAILY-SPATIAL-04,8,Injuries,75+,34,13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8141952,205334,197889,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-14,12659,350,337,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,-14,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-13,12659,378,369,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,-13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-12,12891,356,347,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,-12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-11,12938,351,337,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,-11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-10,13500,377,361,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,-10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-9,13587,390,371,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,-9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-8,13587,389,372,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,-8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-7,13587,371,355,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,-7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-6,13588,372,361,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,-6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-5,13589,390,375,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,-5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-4,13589,377,356,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,-4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-3,13589,403,391,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,-3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-2,13589,374,357,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,-2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-1,13589,410,398,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,-1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+0,13589,373,366,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,0,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+1,13589,383,368,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+2,13589,377,367,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+3,13589,393,378,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+4,13589,405,382,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+5,13589,418,408,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+6,13588,395,381,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+7,13587,371,360,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+8,13587,391,375,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+9,13587,368,356,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+10,13500,394,384,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+11,12938,394,380,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+12,12659,347,326,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+13,12659,345,334,Spatial-target cause-age profile,DAILY-SPATIAL-05,9,Neuropsychiatric disorders,75+,34,13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8141952,345769,329987,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-14,12659,538,518,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,-14,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-13,12659,562,534,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,-13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-12,12891,563,535,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,-12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-11,12938,536,511,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,-11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-10,13500,552,523,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,-10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-9,13587,583,558,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,-9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-8,13587,622,587,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,-8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-7,13587,638,612,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,-7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-6,13588,588,563,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,-6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-5,13589,584,559,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,-5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-4,13589,562,541,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,-4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-3,13589,590,576,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,-3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-2,13589,588,564,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,-2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+-1,13589,624,588,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,-1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+0,13589,561,537,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,0,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+1,13589,598,568,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+2,13589,563,549,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+3,13589,551,525,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+4,13589,560,534,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+5,13589,584,552,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+6,13588,552,523,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,6,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+7,13587,552,534,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,7,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+8,13587,610,575,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,8,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+9,13587,579,549,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,9,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+10,13500,603,587,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,10,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+11,12938,520,500,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,11,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+12,12659,540,514,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,12,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+13,12659,521,492,Spatial-target cause-age profile,DAILY-SPATIAL-06,10,Neoplasms,75+,34,13,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18

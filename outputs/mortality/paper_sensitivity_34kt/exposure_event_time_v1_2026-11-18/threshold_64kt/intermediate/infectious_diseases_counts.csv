@@ -1,0 +1,21 @@
+event_period,zip_days,deaths,nonzero_zip_days,wind_threshold_kt,cause,age_group,cause_order,age_order,period_order,analysis_version
+None,8462799,84991,83665,64,Infectious diseases,All ages,4,1,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,138,137,64,Infectious diseases,All ages,4,1,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,144,141,64,Infectious diseases,All ages,4,1,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,175,170,64,Infectious diseases,All ages,4,1,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,150,147,64,Infectious diseases,All ages,4,1,5,exposure_event_time_v1_2026-11-18
+None,8462799,45869,45188,64,Infectious diseases,<65,4,2,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,66,65,64,Infectious diseases,<65,4,2,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,76,74,64,Infectious diseases,<65,4,2,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,96,93,64,Infectious diseases,<65,4,2,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,88,86,64,Infectious diseases,<65,4,2,5,exposure_event_time_v1_2026-11-18
+None,8462799,11856,11830,64,Infectious diseases,65-74,4,3,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,19,19,64,Infectious diseases,65-74,4,3,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,15,15,64,Infectious diseases,65-74,4,3,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,21,21,64,Infectious diseases,65-74,4,3,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,11,11,64,Infectious diseases,65-74,4,3,5,exposure_event_time_v1_2026-11-18
+None,8462799,27266,27150,64,Infectious diseases,75+,4,4,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,11579,53,53,64,Infectious diseases,75+,4,4,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,12082,53,53,64,Infectious diseases,75+,4,4,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,12082,58,58,64,Infectious diseases,75+,4,4,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,11714,51,51,64,Infectious diseases,75+,4,4,5,exposure_event_time_v1_2026-11-18

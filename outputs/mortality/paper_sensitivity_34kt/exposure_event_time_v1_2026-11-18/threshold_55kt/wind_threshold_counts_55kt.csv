@@ -1,0 +1,161 @@
+event_period,zip_days,deaths,nonzero_zip_days,wind_threshold_kt,cause,age_group,cause_order,age_order,period_order,analysis_version,source_commit,build_date
+None,8398656,3251098,2308568,55,All diseases,All ages,1,1,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,12364,8712,55,All diseases,All ages,1,1,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,12623,8822,55,All diseases,All ages,1,1,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,12779,8979,55,All diseases,All ages,1,1,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,12617,8772,55,All diseases,All ages,1,1,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,808862,731324,55,All diseases,<65,1,2,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,2979,2717,55,All diseases,<65,1,2,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,3066,2782,55,All diseases,<65,1,2,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,3099,2776,55,All diseases,<65,1,2,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,3079,2796,55,All diseases,<65,1,2,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,613569,572115,55,All diseases,65-74,1,3,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,2339,2179,55,All diseases,65-74,1,3,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,2456,2289,55,All diseases,65-74,1,3,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,2410,2260,55,All diseases,65-74,1,3,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,2440,2268,55,All diseases,65-74,1,3,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,1828667,1461555,55,All diseases,75+,1,4,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,7046,5550,55,All diseases,75+,1,4,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,7101,5599,55,All diseases,75+,1,4,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,7270,5689,55,All diseases,75+,1,4,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,7098,5602,55,All diseases,75+,1,4,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,1147681,999229,55,Cardiovascular,All ages,2,1,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,4313,3729,55,Cardiovascular,All ages,2,1,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,4350,3766,55,Cardiovascular,All ages,2,1,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,4517,3903,55,Cardiovascular,All ages,2,1,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,4295,3730,55,Cardiovascular,All ages,2,1,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,172394,168848,55,Cardiovascular,<65,2,2,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,605,592,55,Cardiovascular,<65,2,2,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,597,590,55,Cardiovascular,<65,2,2,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,677,665,55,Cardiovascular,<65,2,2,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,611,603,55,Cardiovascular,<65,2,2,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,194321,189863,55,Cardiovascular,65-74,2,3,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,752,735,55,Cardiovascular,65-74,2,3,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,769,756,55,Cardiovascular,65-74,2,3,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,788,774,55,Cardiovascular,65-74,2,3,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,697,684,55,Cardiovascular,65-74,2,3,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,780966,702796,55,Cardiovascular,75+,2,4,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,2956,2641,55,Cardiovascular,75+,2,4,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,2984,2657,55,Cardiovascular,75+,2,4,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,3052,2726,55,Cardiovascular,75+,2,4,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,2987,2689,55,Cardiovascular,75+,2,4,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,266902,258397,55,Respiratory,All ages,3,1,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,941,917,55,Respiratory,All ages,3,1,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,1045,999,55,Respiratory,All ages,3,1,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,1057,1018,55,Respiratory,All ages,3,1,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,1050,1021,55,Respiratory,All ages,3,1,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,36391,36199,55,Respiratory,<65,3,2,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,117,117,55,Respiratory,<65,3,2,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,153,152,55,Respiratory,<65,3,2,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,136,136,55,Respiratory,<65,3,2,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,135,134,55,Respiratory,<65,3,2,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,56828,56454,55,Respiratory,65-74,3,3,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,223,223,55,Respiratory,65-74,3,3,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,241,239,55,Respiratory,65-74,3,3,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,226,226,55,Respiratory,65-74,3,3,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,227,222,55,Respiratory,65-74,3,3,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,173683,169735,55,Respiratory,75+,3,4,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,601,586,55,Respiratory,75+,3,4,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,651,636,55,Respiratory,75+,3,4,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,695,675,55,Respiratory,75+,3,4,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,688,675,55,Respiratory,75+,3,4,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,84327,83010,55,Infectious diseases,All ages,4,1,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,345,341,55,Infectious diseases,All ages,4,1,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,289,285,55,Infectious diseases,All ages,4,1,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,350,344,55,Infectious diseases,All ages,4,1,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,321,313,55,Infectious diseases,All ages,4,1,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,45574,44895,55,Infectious diseases,<65,4,2,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,160,158,55,Infectious diseases,<65,4,2,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,149,147,55,Infectious diseases,<65,4,2,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,172,169,55,Infectious diseases,<65,4,2,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,170,167,55,Infectious diseases,<65,4,2,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,11722,11696,55,Infectious diseases,65-74,4,3,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,62,62,55,Infectious diseases,65-74,4,3,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,44,44,55,Infectious diseases,65-74,4,3,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,50,50,55,Infectious diseases,65-74,4,3,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,45,45,55,Infectious diseases,65-74,4,3,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,27031,26916,55,Infectious diseases,75+,4,4,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,123,123,55,Infectious diseases,75+,4,4,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,96,96,55,Infectious diseases,75+,4,4,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,128,128,55,Infectious diseases,75+,4,4,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,106,105,55,Infectious diseases,75+,4,4,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,184441,176353,55,Injuries,All ages,5,1,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,838,800,55,Injuries,All ages,5,1,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,811,770,55,Injuries,All ages,5,1,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,923,865,55,Injuries,All ages,5,1,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,868,836,55,Injuries,All ages,5,1,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,129518,124749,55,Injuries,<65,5,2,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,578,554,55,Injuries,<65,5,2,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,532,507,55,Injuries,<65,5,2,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,581,558,55,Injuries,<65,5,2,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,583,566,55,Injuries,<65,5,2,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,15861,15736,55,Injuries,65-74,5,3,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,75,74,55,Injuries,65-74,5,3,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,73,73,55,Injuries,65-74,5,3,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,97,95,55,Injuries,65-74,5,3,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,78,78,55,Injuries,65-74,5,3,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,39062,38492,55,Injuries,75+,5,4,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,185,183,55,Injuries,75+,5,4,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,206,201,55,Injuries,75+,5,4,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,245,229,55,Injuries,75+,5,4,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,207,206,55,Injuries,75+,5,4,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,266645,255650,55,Neuropsychiatric disorders,All ages,6,1,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,1080,1033,55,Neuropsychiatric disorders,All ages,6,1,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,1095,1039,55,Neuropsychiatric disorders,All ages,6,1,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,1083,1040,55,Neuropsychiatric disorders,All ages,6,1,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,1073,1034,55,Neuropsychiatric disorders,All ages,6,1,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,28173,28077,55,Neuropsychiatric disorders,<65,6,2,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,130,130,55,Neuropsychiatric disorders,<65,6,2,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,138,136,55,Neuropsychiatric disorders,<65,6,2,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,104,104,55,Neuropsychiatric disorders,<65,6,2,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,130,129,55,Neuropsychiatric disorders,<65,6,2,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,25869,25757,55,Neuropsychiatric disorders,65-74,6,3,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,105,104,55,Neuropsychiatric disorders,65-74,6,3,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,128,128,55,Neuropsychiatric disorders,65-74,6,3,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,114,113,55,Neuropsychiatric disorders,65-74,6,3,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,109,108,55,Neuropsychiatric disorders,65-74,6,3,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,212603,204898,55,Neuropsychiatric disorders,75+,6,4,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,845,809,55,Neuropsychiatric disorders,75+,6,4,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,829,798,55,Neuropsychiatric disorders,75+,6,4,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,865,833,55,Neuropsychiatric disorders,75+,6,4,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,834,803,55,Neuropsychiatric disorders,75+,6,4,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,44233,43921,55,Renal diseases,All ages,7,1,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,148,146,55,Renal diseases,All ages,7,1,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,169,169,55,Renal diseases,All ages,7,1,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,175,173,55,Renal diseases,All ages,7,1,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,170,169,55,Renal diseases,All ages,7,1,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,7597,7586,55,Renal diseases,<65,7,2,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,18,18,55,Renal diseases,<65,7,2,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,34,34,55,Renal diseases,<65,7,2,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,43,42,55,Renal diseases,<65,7,2,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,35,35,55,Renal diseases,<65,7,2,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,8319,8308,55,Renal diseases,65-74,7,3,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,34,34,55,Renal diseases,65-74,7,3,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,34,34,55,Renal diseases,65-74,7,3,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,26,26,55,Renal diseases,65-74,7,3,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,32,32,55,Renal diseases,65-74,7,3,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,28317,28178,55,Renal diseases,75+,7,4,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,96,94,55,Renal diseases,75+,7,4,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,101,101,55,Renal diseases,75+,7,4,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,106,106,55,Renal diseases,75+,7,4,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,103,103,55,Renal diseases,75+,7,4,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,786846,721206,55,Neoplasms,All ages,8,1,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,2884,2635,55,Neoplasms,All ages,8,1,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,3010,2776,55,Neoplasms,All ages,8,1,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,2837,2595,55,Neoplasms,All ages,8,1,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,2943,2697,55,Neoplasms,All ages,8,1,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,210895,206098,55,Neoplasms,<65,8,2,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,742,728,55,Neoplasms,<65,8,2,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,819,805,55,Neoplasms,<65,8,2,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,742,720,55,Neoplasms,<65,8,2,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,766,753,55,Neoplasms,<65,8,2,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,219518,214157,55,Neoplasms,65-74,8,3,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,750,731,55,Neoplasms,65-74,8,3,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,813,798,55,Neoplasms,65-74,8,3,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,786,773,55,Neoplasms,65-74,8,3,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,896,870,55,Neoplasms,65-74,8,3,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+None,8398656,356433,340189,55,Neoplasms,75+,8,4,1,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -14 to -8,29031,1392,1324,55,Neoplasms,75+,8,4,2,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days -7 to -1,29806,1378,1320,55,Neoplasms,75+,8,4,3,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days 0 to +6,29806,1309,1240,55,Neoplasms,75+,8,4,4,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18
+Days +7 to +13,29233,1281,1222,55,Neoplasms,75+,8,4,5,exposure_event_time_v1_2026-11-18,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-18

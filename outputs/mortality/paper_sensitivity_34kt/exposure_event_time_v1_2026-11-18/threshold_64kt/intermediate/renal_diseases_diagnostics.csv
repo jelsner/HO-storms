@@ -1,0 +1,5 @@
+wind_threshold_kt,cause,age_group,cause_order,age_order,model_observations,input_rows,removed_observations,model_converged,log_likelihood,pseudo_r2,squared_correlation,coefficient_count,analysis_version
+64,Renal diseases,All ages,7,1,7515263,8510256,994993,TRUE,-253236.993132348,0.0788962168239714,0.00670665574813113,4,exposure_event_time_v1_2026-11-18
+64,Renal diseases,<65,7,2,6310500,8510256,2199756,TRUE,-54910.2067544407,0.0776629501001893,0.00219077673114295,4,exposure_event_time_v1_2026-11-18
+64,Renal diseases,65-74,7,3,6539268,8510256,1970988,TRUE,-60282.870150982,0.0669565809846692,0.00176983694583444,4,exposure_event_time_v1_2026-11-18
+64,Renal diseases,75+,7,4,7303120,8510256,1207136,TRUE,-173818.144458494,0.0747202973642279,0.00464053439071823,4,exposure_event_time_v1_2026-11-18

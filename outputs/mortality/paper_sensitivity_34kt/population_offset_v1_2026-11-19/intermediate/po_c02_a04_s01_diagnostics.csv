@@ -1,0 +1,2 @@
+model_id,cause,age_group,cause_order,age_order,specification,specification_order,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,elapsed_seconds,wind_threshold_kt,analysis_version
+PO-C02-A04-S01,Cardiovascular,75+,2,4,Matched-sample count model,1,8036154,7850406,185748,TRUE,4,-2299105.01256781,0.138529523278923,0.092452975369082,40.697,34,population_offset_v1_2026-11-19

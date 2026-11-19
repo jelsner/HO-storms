@@ -1,0 +1,11 @@
+check_name,status,observed,expected
+Seventy-seven distinct impact dates,PASS,77,77
+Four all-disease age profiles,PASS,4,4
+Three hundred eight exact point-estimate refits,PASS,308,308
+Four finite coefficients per refit,PASS,308,308
+One thousand two hundred thirty-two reported estimates,PASS,1232,1232
+Sixteen estimands per omitted date,PASS,16,16
+Sixteen all-disease summary rows,PASS,16,16
+Finite positive reported rate ratios,PASS,1232,1232
+Unique estimand-date rows,PASS,1232,1232
+Every refit omits assigned event ZIP-days,PASS,308,308

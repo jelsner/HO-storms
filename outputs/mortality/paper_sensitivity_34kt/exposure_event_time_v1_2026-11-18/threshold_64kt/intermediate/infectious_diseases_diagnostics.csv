@@ -1,0 +1,5 @@
+wind_threshold_kt,cause,age_group,cause_order,age_order,model_observations,input_rows,removed_observations,model_converged,log_likelihood,pseudo_r2,squared_correlation,coefficient_count,analysis_version
+64,Infectious diseases,All ages,4,1,7640160,8510256,870096,TRUE,-424607.077203012,0.098508094263686,0.016973455842237,4,exposure_event_time_v1_2026-11-18
+64,Infectious diseases,<65,4,2,7323756,8510256,1186500,TRUE,-244601.525404346,0.128619292569186,0.0213235218938305,4,exposure_event_time_v1_2026-11-18
+64,Infectious diseases,65-74,4,3,6917172,8510256,1593084,TRUE,-82035.32361155,0.0657016077857808,0.00213701948367767,4,exposure_event_time_v1_2026-11-18
+64,Infectious diseases,75+,4,4,7224300,8510256,1285956,TRUE,-167308.389012315,0.0739968646693472,0.00424608410062627,4,exposure_event_time_v1_2026-11-18

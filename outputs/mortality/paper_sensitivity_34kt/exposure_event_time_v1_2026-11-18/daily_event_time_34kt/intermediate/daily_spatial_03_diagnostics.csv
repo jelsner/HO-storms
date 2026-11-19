@@ -1,0 +1,2 @@
+profile_type,profile_id,profile_order,cause,age_group,wind_threshold_kt,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,analysis_version
+Spatial-target cause-age profile,DAILY-SPATIAL-03,7,Respiratory,75+,34,8516532,7716078,800454,TRUE,28,-770145.590885136,0.0890189899735258,0.0200736997000973,exposure_event_time_v1_2026-11-18

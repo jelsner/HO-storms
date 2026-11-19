@@ -1,0 +1,10 @@
+metric,value,analysis_version,source_commit,build_date
+Full calendar ZIP-days,8516532,covid_exclusion_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+COVID-excluded ZIP-days,7845000,covid_exclusion_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+Retained ZIP-day percentage,92.114959,covid_exclusion_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+Full calendar ZIPs,1046,covid_exclusion_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+COVID-excluded ZIPs,1046,covid_exclusion_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+Full distinct impact dates,77,covid_exclusion_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+COVID-excluded distinct impact dates,67,covid_exclusion_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+First retained date,1985-05-01,covid_exclusion_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19
+Last retained date,2019-11-30,covid_exclusion_v1_2026-11-19,66cb374bbb78d2e6986707dfe486e64355b4cb2b,2026-11-19

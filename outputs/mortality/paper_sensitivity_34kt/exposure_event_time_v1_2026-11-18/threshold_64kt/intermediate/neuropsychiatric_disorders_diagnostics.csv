@@ -1,0 +1,5 @@
+wind_threshold_kt,cause,age_group,cause_order,age_order,model_observations,input_rows,removed_observations,model_converged,log_likelihood,pseudo_r2,squared_correlation,coefficient_count,analysis_version
+64,Neuropsychiatric disorders,All ages,6,1,7815708,8510256,694548,TRUE,-1032378.51374769,0.132271726216275,0.045723383854787,4,exposure_event_time_v1_2026-11-18
+64,Neuropsychiatric disorders,<65,6,2,7376914,8510256,1133342,TRUE,-175459.16511564,0.0658129051766011,0.00381347806381646,4,exposure_event_time_v1_2026-11-18
+64,Neuropsychiatric disorders,65-74,6,3,7324894,8510256,1185362,TRUE,-162355.682294773,0.0697888314555435,0.00410242538933062,4,exposure_event_time_v1_2026-11-18
+64,Neuropsychiatric disorders,75+,6,4,7722570,8510256,787686,TRUE,-856626.401918446,0.138142650840581,0.0420377623711029,4,exposure_event_time_v1_2026-11-18

@@ -1,0 +1,2 @@
+model_id,cause,age_group,cause_order,age_order,specification,specification_order,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,elapsed_seconds,wind_threshold_kt,analysis_version
+PO-C03-A04-S02,Respiratory,75+,3,4,Population-offset model,2,8036154,7669794,366360,TRUE,4,-769821.618317729,0.0880503314932941,0.0199632114750364,42.7710000000002,34,population_offset_v1_2026-11-19

@@ -1,0 +1,21 @@
+event_period,zip_days,deaths,nonzero_zip_days,wind_threshold_kt,cause,age_group,cause_order,age_order,period_order,analysis_version
+None,8398656,786846,721206,55,Neoplasms,All ages,8,1,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,29031,2884,2635,55,Neoplasms,All ages,8,1,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,29806,3010,2776,55,Neoplasms,All ages,8,1,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,29806,2837,2595,55,Neoplasms,All ages,8,1,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,29233,2943,2697,55,Neoplasms,All ages,8,1,5,exposure_event_time_v1_2026-11-18
+None,8398656,210895,206098,55,Neoplasms,<65,8,2,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,29031,742,728,55,Neoplasms,<65,8,2,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,29806,819,805,55,Neoplasms,<65,8,2,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,29806,742,720,55,Neoplasms,<65,8,2,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,29233,766,753,55,Neoplasms,<65,8,2,5,exposure_event_time_v1_2026-11-18
+None,8398656,219518,214157,55,Neoplasms,65-74,8,3,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,29031,750,731,55,Neoplasms,65-74,8,3,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,29806,813,798,55,Neoplasms,65-74,8,3,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,29806,786,773,55,Neoplasms,65-74,8,3,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,29233,896,870,55,Neoplasms,65-74,8,3,5,exposure_event_time_v1_2026-11-18
+None,8398656,356433,340189,55,Neoplasms,75+,8,4,1,exposure_event_time_v1_2026-11-18
+Days -14 to -8,29031,1392,1324,55,Neoplasms,75+,8,4,2,exposure_event_time_v1_2026-11-18
+Days -7 to -1,29806,1378,1320,55,Neoplasms,75+,8,4,3,exposure_event_time_v1_2026-11-18
+Days 0 to +6,29806,1309,1240,55,Neoplasms,75+,8,4,4,exposure_event_time_v1_2026-11-18
+Days +7 to +13,29233,1281,1222,55,Neoplasms,75+,8,4,5,exposure_event_time_v1_2026-11-18

@@ -1,0 +1,2 @@
+profile_type,profile_id,profile_order,cause,age_group,omitted_impact_date,omitted_event_zip_days,omitted_event_zips,omitted_deaths,input_rows,retained_input_rows,full_model_observations,coefficient_count,coefficients_finite,warm_start_used,warm_start_error,elapsed_seconds,wind_threshold_kt,analysis_version
+All-disease age profile,LOIDO-ALL-A04,4,All diseases,75+,1998-11-05,4368,156,1085,8516532,8512164,8080950,4,TRUE,TRUE,,9.28999999999996,34,event_influence_v1_2026-11-19
