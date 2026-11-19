@@ -1,0 +1,2 @@
+cause,age_group,placebo_type,specification,placebo_order,age_order,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,wind_threshold_kt,analysis_version
+All diseases,<65,Spatial placebo,Spatial placebo,2,2,8516532,8056320,460212,TRUE,4,-2410135.6958282,0.124869765240344,0.0828782001157693,1046,1197,34,placebo_v1_2026-11-19

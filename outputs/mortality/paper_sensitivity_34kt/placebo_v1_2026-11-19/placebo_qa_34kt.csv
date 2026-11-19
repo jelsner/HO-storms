@@ -1,0 +1,9 @@
+check_name,status,observed,expected
+Eight all-disease placebo models,PASS,8,8
+Four period estimates per model,PASS,4,4
+Thirty-two placebo estimates,PASS,32,32
+All models converged,PASS,8,8
+Finite ordered confidence intervals,PASS,32,32
+Spatial distribution preserved within every date,PASS,TRUE,TRUE
+Frozen comparison fields complete,PASS,32,32
+Both placebo specifications represented,PASS,Spatial placebo; Temporal placebo,Spatial placebo; Temporal placebo

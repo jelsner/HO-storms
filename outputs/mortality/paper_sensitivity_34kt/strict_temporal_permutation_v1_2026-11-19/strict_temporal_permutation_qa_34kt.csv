@@ -1,0 +1,11 @@
+check_name,status,observed,expected
+Expected observed impact dates,PASS,77,77
+Every event has a valid candidate date,PASS,4,>=1
+Expected completed permutations,PASS,199,199
+Four estimates per permutation,PASS,4,4
+All permutation coefficients finite,PASS,796,796
+No placebo window overlaps an observed window,PASS,0,0
+Every assignment preserves event year,PASS,15323,15323
+Every assignment preserves weekday,PASS,15323,15323
+Every placebo window remains within May-November,PASS,15323,15323
+Empirical p-values in valid range,PASS,4,4

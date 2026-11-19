@@ -1,0 +1,41 @@
+event_period,zip_days,deaths,nonzero_zip_days,cause,age_group,placebo_type,specification,placebo_order,age_order,period,period_order,wind_threshold_kt,analysis_version,source_commit,build_date
+None,8991317,3155064,2239689,All diseases,All ages,Temporal placebo,Temporal placebo,1,1,None,1,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -14 to -8,101277,35392,25150,All diseases,All ages,Temporal placebo,Temporal placebo,1,1,Days -14 to -8,2,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -7 to -1,103992,36503,25932,All diseases,All ages,Temporal placebo,Temporal placebo,1,1,Days -7 to -1,3,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days 0 to +6,104631,36914,26311,All diseases,All ages,Temporal placebo,Temporal placebo,1,1,Days 0 to +6,4,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days +7 to +13,101277,35414,25183,All diseases,All ages,Temporal placebo,Temporal placebo,1,1,Days +7 to +13,5,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+None,8991317,784485,709278,All diseases,<65,Temporal placebo,Temporal placebo,1,2,None,1,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -14 to -8,101277,8918,8035,All diseases,<65,Temporal placebo,Temporal placebo,1,2,Days -14 to -8,2,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -7 to -1,103992,9083,8228,All diseases,<65,Temporal placebo,Temporal placebo,1,2,Days -7 to -1,3,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days 0 to +6,104631,9184,8299,All diseases,<65,Temporal placebo,Temporal placebo,1,2,Days 0 to +6,4,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days +7 to +13,101277,8816,8019,All diseases,<65,Temporal placebo,Temporal placebo,1,2,Days +7 to +13,5,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+None,8991317,595459,555249,All diseases,65-74,Temporal placebo,Temporal placebo,1,3,None,1,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -14 to -8,101277,6604,6159,All diseases,65-74,Temporal placebo,Temporal placebo,1,3,Days -14 to -8,2,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -7 to -1,103992,6756,6311,All diseases,65-74,Temporal placebo,Temporal placebo,1,3,Days -7 to -1,3,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days 0 to +6,104631,6980,6508,All diseases,65-74,Temporal placebo,Temporal placebo,1,3,Days 0 to +6,4,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days +7 to +13,101277,6889,6412,All diseases,65-74,Temporal placebo,Temporal placebo,1,3,Days +7 to +13,5,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+None,8991317,1775120,1418322,All diseases,75+,Temporal placebo,Temporal placebo,1,4,None,1,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -14 to -8,101277,19870,15913,All diseases,75+,Temporal placebo,Temporal placebo,1,4,Days -14 to -8,2,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -7 to -1,103992,20664,16536,All diseases,75+,Temporal placebo,Temporal placebo,1,4,Days -7 to -1,3,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days 0 to +6,104631,20750,16616,All diseases,75+,Temporal placebo,Temporal placebo,1,4,Days 0 to +6,4,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days +7 to +13,101277,19709,15731,All diseases,75+,Temporal placebo,Temporal placebo,1,4,Days +7 to +13,5,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+None,8141952,3147426,2235151,All diseases,All ages,Spatial placebo,Spatial placebo,2,1,None,1,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -14 to -8,91821,37617,26671,All diseases,All ages,Spatial placebo,Spatial placebo,2,1,Days -14 to -8,2,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -7 to -1,95120,39005,27457,All diseases,All ages,Spatial placebo,Spatial placebo,2,1,Days -7 to -1,3,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days 0 to +6,95122,38908,27529,All diseases,All ages,Spatial placebo,Spatial placebo,2,1,Days 0 to +6,4,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days +7 to +13,92517,38525,27045,All diseases,All ages,Spatial placebo,Spatial placebo,2,1,Days +7 to +13,5,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+None,8141952,782382,707461,All diseases,<65,Spatial placebo,Spatial placebo,2,2,None,1,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -14 to -8,91821,9451,8543,All diseases,<65,Spatial placebo,Spatial placebo,2,2,Days -14 to -8,2,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -7 to -1,95120,9771,8786,All diseases,<65,Spatial placebo,Spatial placebo,2,2,Days -7 to -1,3,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days 0 to +6,95122,9845,8895,All diseases,<65,Spatial placebo,Spatial placebo,2,2,Days 0 to +6,4,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days +7 to +13,92517,9636,8710,All diseases,<65,Spatial placebo,Spatial placebo,2,2,Days +7 to +13,5,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+None,8141952,594607,554477,All diseases,65-74,Spatial placebo,Spatial placebo,2,3,None,1,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -14 to -8,91821,6930,6472,All diseases,65-74,Spatial placebo,Spatial placebo,2,3,Days -14 to -8,2,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -7 to -1,95120,7237,6726,All diseases,65-74,Spatial placebo,Spatial placebo,2,3,Days -7 to -1,3,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days 0 to +6,95122,7265,6767,All diseases,65-74,Spatial placebo,Spatial placebo,2,3,Days 0 to +6,4,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days +7 to +13,92517,7175,6669,All diseases,65-74,Spatial placebo,Spatial placebo,2,3,Days +7 to +13,5,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+None,8141952,1770437,1414895,All diseases,75+,Spatial placebo,Spatial placebo,2,4,None,1,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -14 to -8,91821,21236,16984,All diseases,75+,Spatial placebo,Spatial placebo,2,4,Days -14 to -8,2,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days -7 to -1,95120,21997,17469,All diseases,75+,Spatial placebo,Spatial placebo,2,4,Days -7 to -1,3,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days 0 to +6,95122,21798,17406,All diseases,75+,Spatial placebo,Spatial placebo,2,4,Days 0 to +6,4,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19
+Days +7 to +13,92517,21714,17241,All diseases,75+,Spatial placebo,Spatial placebo,2,4,Days +7 to +13,5,34,placebo_v1_2026-11-19,1f5622b5fb333cff91af087645bee80a6aa66e4a,2026-11-19

@@ -1,0 +1,7 @@
+check_name,status,observed,expected
+Model QA checks all pass,PASS,8,8
+Figure S5C PNG and PDF written,PASS,2,2
+Table component contains 32 estimates,PASS,32,32
+Figure contains 48 comparison estimates,PASS,48,48
+Both placebo types represented,PASS,2,2
+Calendar diagnostics represented,PASS,2,2

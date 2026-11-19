@@ -1,0 +1,6 @@
+event_period,zip_days,deaths,nonzero_zip_days,cause,age_group,placebo_type,specification,placebo_order,age_order,period,period_order,wind_threshold_kt,analysis_version
+None,8991317,784485,709278,All diseases,<65,Temporal placebo,Temporal placebo,1,2,None,1,34,placebo_v1_2026-11-19
+Days -14 to -8,101277,8918,8035,All diseases,<65,Temporal placebo,Temporal placebo,1,2,Days -14 to -8,2,34,placebo_v1_2026-11-19
+Days -7 to -1,103992,9083,8228,All diseases,<65,Temporal placebo,Temporal placebo,1,2,Days -7 to -1,3,34,placebo_v1_2026-11-19
+Days 0 to +6,104631,9184,8299,All diseases,<65,Temporal placebo,Temporal placebo,1,2,Days 0 to +6,4,34,placebo_v1_2026-11-19
+Days +7 to +13,101277,8816,8019,All diseases,<65,Temporal placebo,Temporal placebo,1,2,Days +7 to +13,5,34,placebo_v1_2026-11-19

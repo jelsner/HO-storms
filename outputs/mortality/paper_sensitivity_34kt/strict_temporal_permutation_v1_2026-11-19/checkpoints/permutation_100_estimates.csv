@@ -1,0 +1,5 @@
+permutation,period,period_order,log_rate_ratio,rate_ratio,seed,analysis_version
+100,Days -14 to -8,1,0.0278126621370807,1.02820304501656,20261219,strict_temporal_permutation_v1_2026-11-19
+100,Days -7 to -1,2,0.0304896576503278,1.03095922745281,20261219,strict_temporal_permutation_v1_2026-11-19
+100,Days 0 to +6,3,0.0386955392544367,1.03945396254006,20261219,strict_temporal_permutation_v1_2026-11-19
+100,Days +7 to +13,4,0.0329837208516662,1.03353371405572,20261219,strict_temporal_permutation_v1_2026-11-19

@@ -1,0 +1,2 @@
+cause,age_group,placebo_type,specification,placebo_order,age_order,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,wind_threshold_kt,analysis_version
+All diseases,<65,Temporal placebo,Temporal placebo,1,2,9402494,8039901,1362593,TRUE,4,-2408205.21016637,0.124588702234773,0.08278853874638,1046,1322,34,placebo_v1_2026-11-19

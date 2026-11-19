@@ -348,7 +348,7 @@ remain in the supplement and machine-readable files.
 | Figure S2 | Wind-threshold sensitivity | All-disease four-period estimates at 34, 55, and 64 kt, faceted by age group. |
 | Figure S3 | Daily profiles for spatial-target associations | Daily day -14 through +13 estimates for the five cause-age combinations eligible for spatial analysis. |
 | Figure S4 | Leave-one-impact-date-out influence | Distribution/range of jackknife estimates for the 16 all-disease results and five spatial targets; flag direction reversals. |
-| Figure S5 | Alternative-specification forest plot | Primary and prioritized estimates under the main model, population offset, exclusion of 2020-2022, ICD-10 era where applicable, and exclusion of overlapping windows. |
+| Figure S5 | Alternative-specification forest plot | Primary and prioritized estimates under the main model, population offset, exclusion of 2020-2022, temporal and spatial placebo negative controls, ICD-10 era where applicable, and exclusion of overlapping windows. |
 | Figure S6 | Age-specific results for exploratory causes | Age-specific four-period forest plots for infectious, renal, digestive, diabetes, endocrine/nutritional/metabolic, and neoplasm mortality. |
 | Figure S7 | Older-versus-younger interaction contrasts | Ratios of rate ratios for 65-74 versus under 65 and 75 or older versus under 65 for all ten causes and four periods, with focused-family q markers. |
 | Figure S8 | Spatial reliability and weight sensitivity | EB reliability maps for the five spatial targets plus a comparison of global Moran's I under queen, rook, and six-nearest-neighbor weights. |

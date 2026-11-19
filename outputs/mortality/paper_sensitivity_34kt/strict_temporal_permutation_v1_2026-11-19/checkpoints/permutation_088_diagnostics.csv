@@ -1,0 +1,2 @@
+permutation,seed,observed_events,placebo_zip_specific_events,raw_window_assignments,resolved_window_zip_days,overlapping_placebo_assignments_resolved,observed_window_overlap_zip_days,distinct_placebo_impact_dates,finite_coefficients,analysis_version
+88,20261207,77,13589,380492,348640,31852,0,76,TRUE,strict_temporal_permutation_v1_2026-11-19
