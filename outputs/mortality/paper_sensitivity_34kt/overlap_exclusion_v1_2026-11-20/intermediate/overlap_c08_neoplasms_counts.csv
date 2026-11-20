@@ -1,0 +1,21 @@
+event_period,zip_days,deaths,nonzero_zip_days,cause,age_group,cause_order,age_order,period,period_order,specification,wind_threshold_kt,analysis_version
+None,8141952,763070,699386,Neoplasms,All ages,8,1,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,8354,7642,Neoplasms,All ages,8,1,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,9111,8393,Neoplasms,All ages,8,1,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,8864,8118,Neoplasms,All ages,8,1,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,8472,7777,Neoplasms,All ages,8,1,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+None,8141952,204413,199760,Neoplasms,<65,8,2,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,2269,2219,Neoplasms,<65,8,2,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,2472,2421,Neoplasms,<65,8,2,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,2360,2299,Neoplasms,<65,8,2,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,2268,2226,Neoplasms,<65,8,2,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+None,8141952,212888,207685,Neoplasms,65-74,8,3,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,2241,2191,Neoplasms,65-74,8,3,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,2479,2423,Neoplasms,65-74,8,3,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,2552,2489,Neoplasms,65-74,8,3,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,2435,2375,Neoplasms,65-74,8,3,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+None,8141952,345769,329987,Neoplasms,75+,8,4,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,3844,3657,Neoplasms,75+,8,4,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,4160,3989,Neoplasms,75+,8,4,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,3952,3772,Neoplasms,75+,8,4,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,3769,3604,Neoplasms,75+,8,4,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20

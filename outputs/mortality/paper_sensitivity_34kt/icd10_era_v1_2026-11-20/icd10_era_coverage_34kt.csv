@@ -1,0 +1,2 @@
+specification,analysis_version,full_zip_days,retained_zip_days,retained_zip_day_percentage,retained_zips,first_date,last_date,excluded_overlap_zip_dates,competing_overlap_assignments,source_commit,build_date
+ICD-10 era,icd10_era_v1_2026-11-20,8516532,5372256,63.0803242446573,1046,1999-05-01,2022-11-30,,,ad6ce8200e0a7fd68be0becfa0e53a04f963c78e,2026-11-20

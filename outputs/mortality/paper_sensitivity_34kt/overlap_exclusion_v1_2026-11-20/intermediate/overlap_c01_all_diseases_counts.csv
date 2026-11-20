@@ -1,0 +1,21 @@
+event_period,zip_days,deaths,nonzero_zip_days,cause,age_group,cause_order,age_order,period,period_order,specification,wind_threshold_kt,analysis_version
+None,8141952,3152270,2238059,All diseases,All ages,1,1,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,35238,25099,All diseases,All ages,1,1,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,37714,26731,All diseases,All ages,1,1,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,38014,26897,All diseases,All ages,1,1,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,35737,25272,All diseases,All ages,1,1,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+None,8141952,783385,708259,All diseases,<65,1,2,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,9079,8203,All diseases,<65,1,2,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,9471,8591,All diseases,<65,1,2,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,9543,8606,All diseases,<65,1,2,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,8981,8170,All diseases,<65,1,2,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+None,8141952,594907,554720,All diseases,65-74,1,3,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,6566,6150,All diseases,65-74,1,3,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,7191,6680,All diseases,65-74,1,3,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,7316,6804,All diseases,65-74,1,3,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,6780,6330,All diseases,65-74,1,3,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+None,8141952,1773978,1417682,All diseases,75+,1,4,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,19593,15692,All diseases,75+,1,4,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,21052,16765,All diseases,75+,1,4,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,21155,16855,All diseases,75+,1,4,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,19976,15869,All diseases,75+,1,4,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20

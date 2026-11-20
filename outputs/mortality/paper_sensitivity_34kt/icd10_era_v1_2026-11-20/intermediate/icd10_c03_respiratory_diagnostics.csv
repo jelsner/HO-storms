@@ -1,0 +1,5 @@
+cause,age_group,cause_order,age_order,specification,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,elapsed_seconds,wind_threshold_kt,analysis_version
+Respiratory,All ages,3,1,ICD-10 era,5372256,4913226,459030,TRUE,4,-774872.69043116,0.0788587624760374,0.0264209443638224,1046,755,27.405,34,icd10_era_v1_2026-11-20
+Respiratory,<65,3,2,ICD-10 era,5372256,4653216,719040,TRUE,4,-158479.876844849,0.0596438674515508,0.004987375643276,1046,755,27.65,34,icd10_era_v1_2026-11-20
+Respiratory,65-74,3,3,ICD-10 era,5372256,4739886,632370,TRUE,4,-222937.155799005,0.0559235949460381,0.00601564776585164,1046,755,26.227,34,icd10_era_v1_2026-11-20
+Respiratory,75+,3,4,ICD-10 era,5372256,4848384,523872,TRUE,4,-557129.700918607,0.0773033292213734,0.0197194176720323,1046,755,26.599,34,icd10_era_v1_2026-11-20

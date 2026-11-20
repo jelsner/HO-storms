@@ -1,0 +1,8 @@
+check_name,status,observed,expected
+ICD-10 model QA checks all pass,PASS,10,10
+Overlap-exclusion model QA checks all pass,PASS,10,10
+Four figure files written,PASS,4,4
+ICD-10 Table S8 component has 112 estimates,PASS,112,112
+Overlap Table S8 component has 128 estimates,PASS,128,128
+All sensitivity confidence intervals overlap primary,PASS,240,240
+Figure comparison rows complete,PASS,56/64,56/64

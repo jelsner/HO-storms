@@ -1,0 +1,11 @@
+check_name,status,observed,expected
+Expected retained outcomes,PASS,8,8
+Four age groups per outcome,PASS,32,32
+Four estimates per outcome-age model,PASS,4,4
+Expected sensitivity estimates,PASS,128,128
+Expected model count,PASS,32,32
+All models converged,PASS,32,32
+Four coefficients per model,PASS,4,4
+Finite ordered confidence intervals,PASS,128,128
+Complete count rows,PASS,160,160
+Frozen comparison fields complete,PASS,128,128

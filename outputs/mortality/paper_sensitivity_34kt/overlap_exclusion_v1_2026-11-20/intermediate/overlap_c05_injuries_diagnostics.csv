@@ -1,0 +1,5 @@
+cause,age_group,cause_order,age_order,specification,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,elapsed_seconds,wind_threshold_kt,analysis_version
+Injuries,All ages,5,1,Overlap-excluded,8510620,4954386,3556234,TRUE,4,-745738.794483559,0.0776093153852064,0.0245306404651673,1046,1197,28.1750000000001,34,overlap_exclusion_v1_2026-11-20
+Injuries,<65,5,2,Overlap-excluded,8510620,4915880,3594740,TRUE,4,-565280.319690275,0.0764598615928273,0.0198308276237782,1046,1197,27.942,34,overlap_exclusion_v1_2026-11-20
+Injuries,65-74,5,3,Overlap-excluded,8510620,4546667,3963953,TRUE,4,-101970.066173493,0.051413202657187,0.00293925222878057,1046,1197,27.958,34,overlap_exclusion_v1_2026-11-20
+Injuries,75+,5,4,Overlap-excluded,8510620,4690014,3820606,TRUE,4,-213414.848594122,0.0740149224501103,0.00944597296637824,1046,1197,26.6270000000001,34,overlap_exclusion_v1_2026-11-20

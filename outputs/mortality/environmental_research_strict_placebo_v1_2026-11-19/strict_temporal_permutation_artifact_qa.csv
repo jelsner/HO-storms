@@ -1,0 +1,7 @@
+check_name,status,observed,expected
+Model QA checks all pass,PASS,10,10
+Figure S5D PNG and PDF written,PASS,2,2
+Permutation table contains four periods,PASS,4,4
+Permutation distribution contains 796 estimates,PASS,796,796
+All four null distributions contain 199 estimates,PASS,199,199
+Global max-T p-value is unique and valid,PASS,0.005,"(0,1]"

@@ -1,0 +1,21 @@
+event_period,zip_days,deaths,nonzero_zip_days,cause,age_group,cause_order,age_order,period,period_order,specification,wind_threshold_kt,analysis_version
+None,5092729,735371,644683,Cardiovascular,All ages,2,1,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,9387,8221,Cardiovascular,All ages,2,1,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,9764,8570,Cardiovascular,All ages,2,1,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,9971,8712,Cardiovascular,All ages,2,1,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,9556,8409,Cardiovascular,All ages,2,1,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20
+None,5092729,115623,113239,Cardiovascular,<65,2,2,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,1529,1493,Cardiovascular,<65,2,2,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,1513,1488,Cardiovascular,<65,2,2,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,1574,1543,Cardiovascular,<65,2,2,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,1560,1533,Cardiovascular,<65,2,2,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20
+None,5092729,113892,111679,Cardiovascular,65-74,2,3,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,1485,1455,Cardiovascular,65-74,2,3,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,1626,1591,Cardiovascular,65-74,2,3,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,1664,1629,Cardiovascular,65-74,2,3,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,1504,1470,Cardiovascular,65-74,2,3,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20
+None,5092729,505856,457787,Cardiovascular,75+,2,4,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,6373,5758,Cardiovascular,75+,2,4,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,6625,5974,Cardiovascular,75+,2,4,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,6733,6062,Cardiovascular,75+,2,4,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,6492,5863,Cardiovascular,75+,2,4,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20

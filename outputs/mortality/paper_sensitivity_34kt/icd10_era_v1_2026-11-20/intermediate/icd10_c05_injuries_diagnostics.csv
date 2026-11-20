@@ -1,0 +1,5 @@
+cause,age_group,cause_order,age_order,specification,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,elapsed_seconds,wind_threshold_kt,analysis_version
+Injuries,All ages,5,1,ICD-10 era,5372256,4957524,414732,TRUE,4,-746170.763038112,0.0775947369568056,0.0245242837622172,1046,755,28.412,34,icd10_era_v1_2026-11-20
+Injuries,<65,5,2,ICD-10 era,5372256,4919004,453252,TRUE,4,-565622.362295522,0.0764510111191996,0.0198265395018282,1046,755,27.46,34,icd10_era_v1_2026-11-20
+Injuries,65-74,5,3,ICD-10 era,5372256,4549598,822658,TRUE,4,-102015.60162985,0.0513862924281507,0.00293786336811394,1046,755,27.492,34,icd10_era_v1_2026-11-20
+Injuries,75+,5,4,ICD-10 era,5372256,4693020,679236,TRUE,4,-213526.983580235,0.073995012211751,0.00944304497963867,1046,755,26,34,icd10_era_v1_2026-11-20

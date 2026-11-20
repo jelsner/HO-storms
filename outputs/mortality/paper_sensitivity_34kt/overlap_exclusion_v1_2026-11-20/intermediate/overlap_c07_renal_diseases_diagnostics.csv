@@ -1,0 +1,5 @@
+cause,age_group,cause_order,age_order,specification,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,elapsed_seconds,wind_threshold_kt,analysis_version
+Renal diseases,All ages,7,1,Overlap-excluded,8510620,7515366,995254,TRUE,4,-253151.405771598,0.078930446058928,0.00670718334341893,1046,1197,45.959,34,overlap_exclusion_v1_2026-11-20
+Renal diseases,<65,7,2,Overlap-excluded,8510620,6310384,2200236,TRUE,4,-54867.852642179,0.0777488866450466,0.00219205288307085,1046,1197,38.527,34,overlap_exclusion_v1_2026-11-20
+Renal diseases,65-74,7,3,Overlap-excluded,8510620,6539206,1971414,TRUE,4,-60266.6894956574,0.0670137349409523,0.001770118280292,1046,1197,39.903,34,overlap_exclusion_v1_2026-11-20
+Renal diseases,75+,7,4,Overlap-excluded,8510620,7303240,1207380,TRUE,4,-173771.432976873,0.074749620757623,0.00464114793449675,1046,1197,44.5519999999999,34,overlap_exclusion_v1_2026-11-20

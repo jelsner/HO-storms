@@ -1,0 +1,21 @@
+event_period,zip_days,deaths,nonzero_zip_days,cause,age_group,cause_order,age_order,period,period_order,specification,wind_threshold_kt,analysis_version
+None,5092729,535452,490047,Neoplasms,All ages,8,1,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,6953,6338,Neoplasms,All ages,8,1,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,7314,6732,Neoplasms,All ages,8,1,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,7121,6504,Neoplasms,All ages,8,1,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,7057,6466,Neoplasms,All ages,8,1,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20
+None,5092729,143343,140048,Neoplasms,<65,8,2,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,1875,1836,Neoplasms,<65,8,2,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,1991,1946,Neoplasms,<65,8,2,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,1894,1843,Neoplasms,<65,8,2,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,1915,1881,Neoplasms,<65,8,2,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20
+None,5092729,142383,138980,Neoplasms,65-74,8,3,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,1815,1770,Neoplasms,65-74,8,3,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,1913,1872,Neoplasms,65-74,8,3,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,1962,1915,Neoplasms,65-74,8,3,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,1947,1900,Neoplasms,65-74,8,3,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20
+None,5092729,249726,238053,Neoplasms,75+,8,4,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,3263,3109,Neoplasms,75+,8,4,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,3410,3264,Neoplasms,75+,8,4,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,3265,3115,Neoplasms,75+,8,4,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,3195,3052,Neoplasms,75+,8,4,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20

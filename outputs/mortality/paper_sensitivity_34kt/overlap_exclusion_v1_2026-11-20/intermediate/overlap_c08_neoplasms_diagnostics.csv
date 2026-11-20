@@ -1,0 +1,5 @@
+cause,age_group,cause_order,age_order,specification,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,elapsed_seconds,wind_threshold_kt,analysis_version
+Neoplasms,All ages,8,1,Overlap-excluded,8510620,7976710,533910,TRUE,4,-2384434.19250302,0.111279077585738,0.0672684723138947,1046,1197,42.587,34,overlap_exclusion_v1_2026-11-20
+Neoplasms,<65,8,2,Overlap-excluded,8510620,7826183,684437,TRUE,4,-915505.541957926,0.0723060834483682,0.0174036680613939,1046,1197,44.4679999999998,34,overlap_exclusion_v1_2026-11-20
+Neoplasms,65-74,8,3,Overlap-excluded,8510620,7798112,712508,TRUE,4,-943368.572298482,0.073324307547921,0.0183736211058728,1046,1197,45.105,34,overlap_exclusion_v1_2026-11-20
+Neoplasms,75+,8,4,Overlap-excluded,8510620,7863848,646772,TRUE,4,-1325308.64723011,0.108457112901585,0.0421696383268155,1046,1197,44.78,34,overlap_exclusion_v1_2026-11-20

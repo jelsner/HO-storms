@@ -1,0 +1,5 @@
+cause,age_group,cause_order,age_order,specification,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,elapsed_seconds,wind_threshold_kt,analysis_version
+Cardiovascular,All ages,2,1,Overlap-excluded,8510620,8029342,481278,TRUE,4,-3019517.35514906,0.143383984596252,0.113196118340277,1046,1197,44.901,34,overlap_exclusion_v1_2026-11-20
+Cardiovascular,<65,2,2,Overlap-excluded,8510620,7807938,702682,TRUE,4,-771368.928873262,0.0830896394620071,0.0193217502668709,1046,1197,45.996,34,overlap_exclusion_v1_2026-11-20
+Cardiovascular,65-74,2,3,Overlap-excluded,8510620,7791244,719376,TRUE,4,-851438.848966839,0.0798227015930906,0.0195585315729658,1046,1197,46.8870000000001,34,overlap_exclusion_v1_2026-11-20
+Cardiovascular,75+,2,4,Overlap-excluded,8510620,7929741,580879,TRUE,4,-2298296.93323098,0.141060897388884,0.0932661249526949,1046,1197,46.673,34,overlap_exclusion_v1_2026-11-20

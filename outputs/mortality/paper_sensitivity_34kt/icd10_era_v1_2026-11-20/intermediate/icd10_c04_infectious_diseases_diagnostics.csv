@@ -1,0 +1,5 @@
+cause,age_group,cause_order,age_order,specification,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,elapsed_seconds,wind_threshold_kt,analysis_version
+Infectious diseases,All ages,4,1,ICD-10 era,5372256,4779690,592566,TRUE,4,-295957.93754117,0.0754977048284568,0.0124890708031437,1046,755,26.408,34,icd10_era_v1_2026-11-20
+Infectious diseases,<65,4,2,ICD-10 era,5372256,4538298,833958,TRUE,4,-149204.803008554,0.0962678740517486,0.012883917960061,1046,755,27.331,34,icd10_era_v1_2026-11-20
+Infectious diseases,65-74,4,3,ICD-10 era,5372256,4280413,1091843,TRUE,4,-64442.4370941506,0.053837025517367,0.00211497703050602,1046,755,25.685,34,icd10_era_v1_2026-11-20
+Infectious diseases,75+,4,4,ICD-10 era,5372256,4512618,859638,TRUE,4,-135195.037955113,0.0573751828722436,0.00398356067938502,1046,755,27.254,34,icd10_era_v1_2026-11-20

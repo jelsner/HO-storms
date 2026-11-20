@@ -1,0 +1,5 @@
+cause,age_group,cause_order,age_order,specification,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,elapsed_seconds,wind_threshold_kt,analysis_version
+Renal diseases,All ages,7,1,ICD-10 era,5372256,4700724,671532,TRUE,4,-199884.021210657,0.063455699353111,0.00643519546608595,1046,755,26.224,34,icd10_era_v1_2026-11-20
+Renal diseases,<65,7,2,ICD-10 era,5372256,3914956,1457300,TRUE,4,-44797.4588205928,0.0627760617386181,0.00216174211612147,1046,755,24.054,34,icd10_era_v1_2026-11-20
+Renal diseases,65-74,7,3,ICD-10 era,5372256,4056626,1315630,TRUE,4,-47530.8222807429,0.0553803037346228,0.00178477592010585,1046,755,24.714,34,icd10_era_v1_2026-11-20
+Renal diseases,75+,7,4,ICD-10 era,5372256,4553064,819192,TRUE,4,-136544.723128203,0.0605335836624763,0.00453151884103973,1046,755,27.725,34,icd10_era_v1_2026-11-20

@@ -1,0 +1,5 @@
+cause,age_group,cause_order,age_order,specification,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,elapsed_seconds,wind_threshold_kt,analysis_version
+Neuropsychiatric disorders,All ages,6,1,ICD-10 era,5372256,4917720,454536,TRUE,4,-869506.199803607,0.101000306039111,0.0409464201634655,1046,755,26.646,34,icd10_era_v1_2026-11-20
+Neuropsychiatric disorders,<65,6,2,ICD-10 era,5372256,4608276,763980,TRUE,4,-135074.691194816,0.0533099716113866,0.00370456084468553,1046,755,27.5530000000001,34,icd10_era_v1_2026-11-20
+Neuropsychiatric disorders,65-74,6,3,ICD-10 era,5372256,4587732,784524,TRUE,4,-130340.62912964,0.0568206763782925,0.00401401729587147,1046,755,27.831,34,icd10_era_v1_2026-11-20
+Neuropsychiatric disorders,75+,6,4,ICD-10 era,5372256,4869570,502686,TRUE,4,-740214.563770951,0.102258078748198,0.0370461461371026,1046,755,26.656,34,icd10_era_v1_2026-11-20

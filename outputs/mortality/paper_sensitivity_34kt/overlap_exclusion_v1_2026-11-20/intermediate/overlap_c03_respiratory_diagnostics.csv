@@ -1,0 +1,5 @@
+cause,age_group,cause_order,age_order,specification,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,elapsed_seconds,wind_threshold_kt,analysis_version
+Respiratory,All ages,3,1,Overlap-excluded,8510620,7818863,691757,TRUE,4,-1080494.61240768,0.0901961606531766,0.0268996995281253,1046,1197,46.139,34,overlap_exclusion_v1_2026-11-20
+Respiratory,<65,3,2,Overlap-excluded,8510620,7461244,1049376,TRUE,4,-217385.80691585,0.0669478134410691,0.00487377953964791,1046,1197,45.271,34,overlap_exclusion_v1_2026-11-20
+Respiratory,65-74,3,3,Overlap-excluded,8510620,7565988,944632,TRUE,4,-318742.852034036,0.0606563694695824,0.00576957258233256,1046,1197,45.805,34,overlap_exclusion_v1_2026-11-20
+Respiratory,75+,3,4,Overlap-excluded,8510620,7710485,800135,TRUE,4,-769648.007310237,0.0890048951356977,0.0200677724375841,1046,1197,45.735,34,overlap_exclusion_v1_2026-11-20

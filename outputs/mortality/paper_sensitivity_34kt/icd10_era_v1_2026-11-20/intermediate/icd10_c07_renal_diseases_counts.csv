@@ -1,0 +1,21 @@
+event_period,zip_days,deaths,nonzero_zip_days,cause,age_group,cause_order,age_order,period,period_order,specification,wind_threshold_kt,analysis_version
+None,5092729,34581,34320,Renal diseases,All ages,7,1,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,426,423,Renal diseases,All ages,7,1,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,475,468,Renal diseases,All ages,7,1,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,453,450,Renal diseases,All ages,7,1,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,444,441,Renal diseases,All ages,7,1,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20
+None,5092729,6128,6119,Renal diseases,<65,7,2,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,62,62,Renal diseases,<65,7,2,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,96,96,Renal diseases,<65,7,2,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,87,86,Renal diseases,<65,7,2,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,78,78,Renal diseases,<65,7,2,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20
+None,5092729,6437,6428,Renal diseases,65-74,7,3,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,93,93,Renal diseases,65-74,7,3,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,91,91,Renal diseases,65-74,7,3,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,94,94,Renal diseases,65-74,7,3,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,93,93,Renal diseases,65-74,7,3,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20
+None,5092729,22016,21903,Renal diseases,75+,7,4,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,271,270,Renal diseases,75+,7,4,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,288,284,Renal diseases,75+,7,4,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,272,272,Renal diseases,75+,7,4,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,273,271,Renal diseases,75+,7,4,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20

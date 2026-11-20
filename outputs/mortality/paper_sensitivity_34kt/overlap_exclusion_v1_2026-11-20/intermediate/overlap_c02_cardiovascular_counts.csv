@@ -1,0 +1,21 @@
+event_period,zip_days,deaths,nonzero_zip_days,cause,age_group,cause_order,age_order,period,period_order,specification,wind_threshold_kt,analysis_version
+None,8141952,1114723,970251,Cardiovascular,All ages,2,1,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,11787,10325,Cardiovascular,All ages,2,1,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,12686,11099,Cardiovascular,All ages,2,1,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,13048,11355,Cardiovascular,All ages,2,1,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,11976,10516,Cardiovascular,All ages,2,1,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+None,8141952,167094,163659,Cardiovascular,<65,2,2,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,1884,1839,Cardiovascular,<65,2,2,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,1913,1879,Cardiovascular,<65,2,2,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,1995,1954,Cardiovascular,<65,2,2,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,1874,1843,Cardiovascular,<65,2,2,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+None,8141952,188663,184339,Cardiovascular,65-74,2,3,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,2025,1981,Cardiovascular,65-74,2,3,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,2229,2177,Cardiovascular,65-74,2,3,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,2302,2252,Cardiovascular,65-74,2,3,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,1959,1917,Cardiovascular,65-74,2,3,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+None,8141952,758966,682918,Cardiovascular,75+,2,4,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,7878,7125,Cardiovascular,75+,2,4,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,8544,7686,Cardiovascular,75+,2,4,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,8751,7850,Cardiovascular,75+,2,4,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,8143,7340,Cardiovascular,75+,2,4,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20

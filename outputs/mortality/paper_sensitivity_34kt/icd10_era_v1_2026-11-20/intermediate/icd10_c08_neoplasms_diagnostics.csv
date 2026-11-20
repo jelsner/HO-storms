@@ -1,0 +1,5 @@
+cause,age_group,cause_order,age_order,specification,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,elapsed_seconds,wind_threshold_kt,analysis_version
+Neoplasms,All ages,8,1,ICD-10 era,5372256,5009526,362730,TRUE,4,-1649310.05867839,0.0988216640355946,0.0652372769402616,1046,755,27.366,34,icd10_era_v1_2026-11-20
+Neoplasms,<65,8,2,ICD-10 era,5372256,4919004,453252,TRUE,4,-636252.618590947,0.0636626966055094,0.0166458183388308,1046,755,26.625,34,icd10_era_v1_2026-11-20
+Neoplasms,65-74,8,3,ICD-10 era,5372256,4893966,478290,TRUE,4,-631620.380050821,0.0647530786871859,0.0174319471470947,1046,755,27.046,34,icd10_era_v1_2026-11-20
+Neoplasms,75+,8,4,ICD-10 era,5372256,4935696,436560,TRUE,4,-942017.004726457,0.0963360034219859,0.0421726022551701,1046,755,26.952,34,icd10_era_v1_2026-11-20

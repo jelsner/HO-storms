@@ -1,0 +1,5 @@
+cause,age_group,cause_order,age_order,specification,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,elapsed_seconds,wind_threshold_kt,analysis_version
+Infectious diseases,All ages,4,1,Overlap-excluded,8510620,7640266,870354,TRUE,4,-424393.346458372,0.0985773000160243,0.0169941636236896,1046,1197,46.309,34,overlap_exclusion_v1_2026-11-20
+Infectious diseases,<65,4,2,Overlap-excluded,8510620,7323760,1186860,TRUE,4,-244487.513092743,0.128711030613713,0.0213516570014276,1046,1197,44.651,34,overlap_exclusion_v1_2026-11-20
+Infectious diseases,65-74,4,3,Overlap-excluded,8510620,6915465,1595155,TRUE,4,-81982.2329116994,0.0657332723530182,0.00213913852706987,1046,1197,42.02,34,overlap_exclusion_v1_2026-11-20
+Infectious diseases,75+,4,4,Overlap-excluded,8510620,7222592,1288028,TRUE,4,-167213.799593799,0.0740016326480403,0.00424697553375137,1046,1197,44.637,34,overlap_exclusion_v1_2026-11-20

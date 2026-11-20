@@ -1,0 +1,21 @@
+event_period,zip_days,deaths,nonzero_zip_days,cause,age_group,cause_order,age_order,period,period_order,specification,wind_threshold_kt,analysis_version
+None,5092729,188703,182456,Respiratory,All ages,3,1,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,2405,2331,Respiratory,All ages,3,1,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,2588,2489,Respiratory,All ages,3,1,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,2593,2500,Respiratory,All ages,3,1,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,2552,2475,Respiratory,All ages,3,1,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20
+None,5092729,26070,25927,Respiratory,<65,3,2,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,306,303,Respiratory,<65,3,2,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,380,379,Respiratory,<65,3,2,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,371,368,Respiratory,<65,3,2,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,338,336,Respiratory,<65,3,2,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20
+None,5092729,38863,38613,Respiratory,65-74,3,3,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,506,503,Respiratory,65-74,3,3,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,568,565,Respiratory,65-74,3,3,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,559,555,Respiratory,65-74,3,3,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,546,540,Respiratory,65-74,3,3,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20
+None,5092729,123770,120861,Respiratory,75+,3,4,None,1,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -14 to -8,68897,1593,1558,Respiratory,75+,3,4,Days -14 to -8,2,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days -7 to -1,70704,1640,1602,Respiratory,75+,3,4,Days -7 to -1,3,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days 0 to +6,70706,1663,1625,Respiratory,75+,3,4,Days 0 to +6,4,ICD-10 era,34,icd10_era_v1_2026-11-20
+Days +7 to +13,69220,1668,1634,Respiratory,75+,3,4,Days +7 to +13,5,ICD-10 era,34,icd10_era_v1_2026-11-20

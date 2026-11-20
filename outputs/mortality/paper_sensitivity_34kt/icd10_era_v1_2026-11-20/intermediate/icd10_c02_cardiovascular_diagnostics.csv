@@ -1,0 +1,5 @@
+cause,age_group,cause_order,age_order,specification,input_rows,model_observations,removed_observations,model_converged,coefficient_count,log_likelihood,pseudo_r2,squared_correlation,zip_clusters,year_week_clusters,elapsed_seconds,wind_threshold_kt,analysis_version
+Cardiovascular,All ages,2,1,ICD-10 era,5372256,5035206,337050,TRUE,4,-2002961.47322551,0.127027572836621,0.105168230195819,1046,755,28.146,34,icd10_era_v1_2026-11-20
+Cardiovascular,<65,2,2,ICD-10 era,5372256,4884336,487920,TRUE,4,-530627.864591436,0.0742104400197491,0.0184999483503631,1046,755,25.862,34,icd10_era_v1_2026-11-20
+Cardiovascular,65-74,2,3,ICD-10 era,5372256,4872138,500118,TRUE,4,-528107.875512475,0.0681540816603726,0.0161614243626429,1046,755,26.161,34,icd10_era_v1_2026-11-20
+Cardiovascular,75+,2,4,ICD-10 era,5372256,4976142,396114,TRUE,4,-1536103.19475499,0.12658521643748,0.0891635366993965,1046,755,26.869,34,icd10_era_v1_2026-11-20

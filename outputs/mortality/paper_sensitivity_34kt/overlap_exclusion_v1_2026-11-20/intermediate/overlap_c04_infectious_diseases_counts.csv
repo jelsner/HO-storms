@@ -1,0 +1,21 @@
+event_period,zip_days,deaths,nonzero_zip_days,cause,age_group,cause_order,age_order,period,period_order,specification,wind_threshold_kt,analysis_version
+None,8141952,81707,80426,Infectious diseases,All ages,4,1,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,971,956,Infectious diseases,All ages,4,1,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,935,923,Infectious diseases,All ages,4,1,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,1008,991,Infectious diseases,All ages,4,1,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,932,919,Infectious diseases,All ages,4,1,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+None,8141952,44186,43523,Infectious diseases,<65,4,2,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,499,490,Infectious diseases,<65,4,2,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,473,468,Infectious diseases,<65,4,2,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,532,524,Infectious diseases,<65,4,2,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,485,481,Infectious diseases,<65,4,2,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+None,8141952,11323,11297,Infectious diseases,65-74,4,3,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,157,157,Infectious diseases,65-74,4,3,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,144,144,Infectious diseases,65-74,4,3,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,141,141,Infectious diseases,65-74,4,3,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,149,149,Infectious diseases,65-74,4,3,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+None,8141952,26198,26088,Infectious diseases,75+,4,4,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,315,315,Infectious diseases,75+,4,4,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,318,315,Infectious diseases,75+,4,4,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,335,334,Infectious diseases,75+,4,4,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,298,296,Infectious diseases,75+,4,4,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20

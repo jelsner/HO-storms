@@ -1,0 +1,21 @@
+event_period,zip_days,deaths,nonzero_zip_days,cause,age_group,cause_order,age_order,period,period_order,specification,wind_threshold_kt,analysis_version
+None,8141952,42820,42523,Renal diseases,All ages,7,1,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,475,471,Renal diseases,All ages,7,1,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,544,537,Renal diseases,All ages,7,1,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,524,519,Renal diseases,All ages,7,1,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,503,501,Renal diseases,All ages,7,1,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+None,8141952,7355,7346,Renal diseases,<65,7,2,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,68,68,Renal diseases,<65,7,2,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,109,109,Renal diseases,<65,7,2,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,101,98,Renal diseases,<65,7,2,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,86,86,Renal diseases,<65,7,2,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+None,8141952,8025,8014,Renal diseases,65-74,7,3,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,106,106,Renal diseases,65-74,7,3,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,101,101,Renal diseases,65-74,7,3,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,105,105,Renal diseases,65-74,7,3,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,103,103,Renal diseases,65-74,7,3,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+None,8141952,27440,27307,Renal diseases,75+,7,4,None,1,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -14 to -8,89403,301,299,Renal diseases,75+,7,4,Days -14 to -8,2,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days -7 to -1,94931,334,330,Renal diseases,75+,7,4,Days -7 to -1,3,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days 0 to +6,94931,318,318,Renal diseases,75+,7,4,Days 0 to +6,4,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
+Days +7 to +13,89403,314,313,Renal diseases,75+,7,4,Days +7 to +13,5,Overlap-excluded,34,overlap_exclusion_v1_2026-11-20
