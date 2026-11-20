@@ -1,0 +1,9 @@
+check_name,status,observed,expected
+Six Figure S5 panels assembled,PASS,6,6
+Figure S5 PDF and contact sheet written,PASS,2,2
+Table S8 contains 452 rows,PASS,452,452
+Table S8 contains eight specifications,PASS,8,8
+Table S8 contains the 39 harmonized fields,PASS,39/39,39/39
+All ordinary alternative rows have primary comparators,PASS,448,448
+Strict permutation rows contain all four periods,PASS,4,4
+Table S8 ordering is complete,PASS,452,452

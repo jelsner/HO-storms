@@ -1,0 +1,9 @@
+analysis_order,analysis,specification_order,specification,rows,causes,age_groups,periods,direction_evaluable,direction_agreement,interval_overlap_evaluable,interval_overlap,ci_exclusion_changes
+1,Population-offset analysis,1,Population-covered sample count model,80,5,4,4,80,80,80,80,0
+1,Population-offset analysis,2,Annual ZIP population-offset model,80,5,4,4,80,80,80,80,0
+2,COVID-year exclusion,1,Exclude 2020-2022,16,1,4,4,16,16,16,16,3
+3,Legacy negative controls,1,Temporal placebo,16,1,4,4,16,16,16,16,4
+3,Legacy negative controls,2,Spatial placebo,16,1,4,4,16,8,16,7,15
+4,Strict temporal permutation,1,Strict matched temporal permutation null,4,1,1,4,0,0,0,0,0
+5,ICD-10-era restriction,1,ICD-10 era,112,7,4,4,112,102,112,112,16
+6,Overlapping-window exclusion,1,Overlap-excluded,128,8,4,4,128,126,128,128,7

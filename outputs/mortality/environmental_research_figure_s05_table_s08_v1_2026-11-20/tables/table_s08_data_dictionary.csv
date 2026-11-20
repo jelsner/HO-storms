@@ -1,0 +1,40 @@
+variable,description
+analysis_order,Display order for sensitivity-analysis families.
+analysis,Sensitivity-analysis family.
+specification_order,Display order within the analysis family.
+specification,Alternative model or negative-control specification.
+cause_order,Frozen cause ordering.
+cause,Mortality outcome.
+age_order,Frozen age-group ordering.
+age_group,Age group.
+period_order,Event-period ordering.
+period,Seven-day event-relative period.
+alternative_log_rate_ratio,Alternative or permutation-null log rate ratio.
+alternative_standard_error,Alternative-model standard error; blank for permutation summaries.
+alternative_p_value,Alternative-model raw p-value; blank for permutation summaries.
+alternative_rate_ratio,Alternative rate ratio or permutation-null median.
+alternative_ci_lower,Alternative 95% CI lower bound or permutation 2.5th percentile.
+alternative_ci_upper,Alternative 95% CI upper bound or permutation 97.5th percentile.
+alternative_interval_type,Meaning of the alternative interval columns.
+primary_log_rate_ratio,Frozen primary log rate ratio.
+primary_standard_error,Frozen primary standard error where available.
+primary_p_value,Frozen primary raw p-value.
+primary_rate_ratio,Frozen primary rate ratio.
+primary_ci_lower,Frozen primary 95% CI lower bound.
+primary_ci_upper,Frozen primary 95% CI upper bound.
+delta_log_rate_ratio,Alternative minus primary log rate ratio.
+direction_agrees_with_primary,Whether alternative and primary point estimates share direction; not applicable to permutation summaries.
+interval_overlaps_primary,Whether alternative and primary 95% CIs overlap; not applicable to permutation summaries.
+primary_ci_excludes_null,Whether the primary 95% CI excludes 1.
+alternative_interval_excludes_null,Whether the alternative 95% CI excludes 1; not applicable to permutation summaries.
+ci_exclusion_changed,Whether CI exclusion of 1 differs from primary; not applicable to permutation summaries.
+empirical_p_upper,One-sided empirical permutation p-value.
+empirical_p_two_sided_centered,Centered two-sided empirical permutation p-value.
+empirical_p_upper_max_t,Period-specific max-T permutation p-value.
+global_empirical_p_max_t,Global four-period max-T permutation p-value.
+observations,Model observations where reported by the component analysis.
+wind_threshold_kt,Wind threshold in knots.
+analysis_version,Component analysis version.
+source_commit,Source Git commit recorded by the component analysis.
+build_date,Component build date.
+analysis_note,Specification-specific interpretation note.
